@@ -1,14 +1,70 @@
 -module(rebar3_hex_user).
 
--export([register/0
+-behaviour(provider).
+
+-export([init/1,
+         do/1,
+         format_error/1]).
+
+-export([hex_register/0
         ,whoami/0
         ,auth/0
         ,deauth/0
         ,reset_password/0]).
 
 -include("rebar3_hex.hrl").
+-include_lib("provider/include/providers.hrl").
 
-register() ->
+-define(PROVIDER, user).
+-define(DEPS, []).
+
+%% ===================================================================
+%% Public API
+%% ===================================================================
+
+-spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
+init(State) ->
+    Provider = providers:create([
+                                {name, ?PROVIDER},
+                                {module, ?MODULE},
+                                {namespace, hex},
+                                {bare, false},
+                                {deps, ?DEPS},
+                                {example, "rebar3 hex user <command>"},
+                                {short_desc, "."},
+                                {desc, ""},
+                                {opts, []}
+                                ]),
+    State1 = rebar_state:add_provider(State, Provider),
+    {ok, State1}.
+
+-spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
+do(State) ->
+    case rebar_state:command_args(State) of
+        ["register"] ->
+            hex_register(),
+            {ok, State};
+        ["whoami"] ->
+            whoami(),
+            {ok, State};
+        ["auth"] ->
+            auth(),
+            {ok, State};
+        ["deauth"] ->
+            auth(),
+            {ok, State};
+        ["reset_password"] ->
+            reset_password(),
+            {ok, State};
+        [] ->
+            {ok, State}
+    end.
+
+-spec format_error(any()) -> iolist().
+format_error(Reason) ->
+    io_lib:format("~p", [Reason]).
+
+hex_register() ->
     Username = list_to_binary(ec_talk:ask_default("Username:", string, "")),
     Email = list_to_binary(ec_talk:ask_default("Email:", string, "")),
     case get_password() of
