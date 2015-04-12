@@ -19,10 +19,10 @@ post_json(Path, Auth, Body) ->
     case httpc:request(post, json_request(Path, Auth, Body), [], []) of
         {ok, {{_, 201, _}, _, RespBody}} ->
             {ok, jsx:decode(list_to_binary(RespBody))};
-        {ok, {{_, Status, _}, _RespHeaders, _RespBodyJson}} when Status >= 500->
+        {ok, {{_, Status, _}, _RespHeaders, _RespBody}} when Status >= 500->
             {error, undefined_server_error};
-        {ok, {{_, _Status, _}, _RespHeaders, RespBodyJson}} ->
-            {error, jsx:decode(list_to_binary(RespBodyJson))}
+        {ok, {{_, _Status, _}, _RespHeaders, RespBody}} ->
+            {error, RespBody}
     end.
 
 post(Path, Auth, Body) ->

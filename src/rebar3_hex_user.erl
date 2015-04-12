@@ -11,11 +11,11 @@
 register() ->
     Username = list_to_binary(ec_talk:ask_default("Username:", string, "")),
     Email = list_to_binary(ec_talk:ask_default("Email:", string, "")),
-    case list_to_binary(ec_talk:ask_default("Password:", string, "")) of
+    case get_password() of
         <<"">> ->
             error;
         Password ->
-            PasswordConfirm = list_to_binary(ec_talk:ask_default("Password (confirm): ", string, "")),
+            PasswordConfirm = get_password(confirm),
             case Password =:= PasswordConfirm of
                 true ->
                     ec_talk:say("Registering..."),
@@ -31,7 +31,7 @@ whoami() ->
 
 auth() ->
     Username = list_to_binary(ec_talk:ask_default("Username:", string, "")),
-    Password = list_to_binary(ec_talk:ask_default("Password:", string, "")),
+    Password = get_password(),
     generate_key(Username, Password).
 
 deauth() ->
@@ -47,6 +47,18 @@ reset_password() ->
     rebar3_hex_http:post_json("users/"++User++"/reset", [], []).
 
 %% Internal functions
+
+get_password() ->
+    get_password("Password:").
+
+get_password(confirm) ->
+    get_password("Password (confirm):");
+get_password(Msg) ->
+    io:setopts([{echo, false}]),
+    Password = list_to_binary(ec_talk:ask_default(Msg, string, "")),
+    io:setopts([{echo, true}]),
+    io:nl(),
+    Password.
 
 create_user(Username, Email, Password) ->
     case new(Username, Email, Password) of
@@ -66,9 +78,9 @@ generate_key(Username, Password) ->
     case new_key(list_to_binary(Name), Username, Password) of
         {ok, Body} ->
             update_config(Username, Body);
-        {Code, Body} ->
+        {error, Body} ->
             ec_talk:say("Generation of API key failed (~p)", [Code]),
-            {error, Code, Body}
+            {error, Body}
     end.
 
 new(Username, Email, Password) ->
