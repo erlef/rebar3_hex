@@ -1,0 +1,12 @@
+[{<<"rebar_vsn_plugin">>,
+  {git,"https://github.com/erlware/rebar_vsn_plugin.git",
+       {ref,"fd40c960c7912193631d948fe962e1162a8d1334"}},
+  1},
+ {<<"jsx">>,
+  {git,"https://github.com/talentdeficit/jsx.git",
+       {ref,"e751e3324fdfae4b43984650f7c8f4d5ea93da26"}},
+  0},
+ {<<"erlware_commons">>,
+  {git,"https://github.com/erlware/erlware_commons.git",
+       {ref,"05b956da26788f30b3cb793fa6ace02b75f481d0"}},
+  0}].
