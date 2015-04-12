@@ -9,9 +9,9 @@
 -include("rebar3_hex.hrl").
 
 register() ->
-    Username = list_to_binary(ec_talk:ask_default("Username: ", string, "")),
-    Email = list_to_binary(ec_talk:ask_default("Email: ", string, "")),
-    case list_to_binary(ec_talk:ask_default("Password: ", string, "")) of
+    Username = list_to_binary(ec_talk:ask_default("Username:", string, "")),
+    Email = list_to_binary(ec_talk:ask_default("Email:", string, "")),
+    case list_to_binary(ec_talk:ask_default("Password:", string, "")) of
         <<"">> ->
             error;
         Password ->
@@ -26,16 +26,25 @@ register() ->
     end.
 
 whoami() ->
-    ok.
+    Username = rebar3_hex_config:username(),
+    ec_talk:say(Username).
 
 auth() ->
-    ok.
+    Username = list_to_binary(ec_talk:ask_default("Username:", string, "")),
+    Password = list_to_binary(ec_talk:ask_default("Password:", string, "")),
+    generate_key(Username, Password).
 
 deauth() ->
-    ok.
+    Username = rebar3_hex_config:username(),
+    Config = rebar3_hex_config:read(),
+    rebar3_hex_config:write(lists:keydelete(username, 1, lists:keydelete(key, 1, Config))),
+    ec_talk:say("User `~s` removed from the local machine. "
+               "To authenticate again, run `rebar3 hex.user auth` "
+               "or create a new user with `rebar3 hex.user register`", [Username]).
 
 reset_password() ->
-    ok.
+    User = ec_talk:ask_default("Username or Email:", string, ""),
+    rebar3_hex_http:post_json("users/"++User++"/reset", [], []).
 
 %% Internal functions
 

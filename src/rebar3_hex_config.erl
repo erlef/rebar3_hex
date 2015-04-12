@@ -4,8 +4,10 @@
         ,read/0
         ,api_url/0
         ,cdn_url/0
+        ,username/0
         ,auth/0
-        ,update/1]).
+        ,update/1
+        ,write/1]).
 
 -define(DEFAULT_HEX_CONFIG, "hex.config").
 -define(DEFAULT_API_URL, "https://hex.pm").
@@ -28,6 +30,9 @@ api_url() ->
 cdn_url() ->
     proplists:get_value(cdn_url, read(), ?DEFAULT_CDN_URL).
 
+username() ->
+    proplists:get_value(username, read(), "").
+
 auth() ->
     case lists:keyfind(key, 1, read()) of
         {key, Key} ->
@@ -41,7 +46,10 @@ update(NewConfig) ->
     Config1 = lists:ukeymerge(1
                              ,lists:keysort(1, NewConfig)
                              ,lists:keysort(1, Config)),
-    file:write_file(path(), encode_config(Config1)).
+    write(Config1).
+
+write(Config) ->
+    file:write_file(path(), encode_config(Config)).
 
 %% Internal functions
 
