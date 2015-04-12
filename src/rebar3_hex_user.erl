@@ -13,10 +13,12 @@
         ,reset_password/0]).
 
 -include("rebar3_hex.hrl").
--include_lib("provider/include/providers.hrl").
+-include_lib("providers/include/providers.hrl").
 
 -define(PROVIDER, user).
 -define(DEPS, []).
+
+-define(ENDPOINT, "users").
 
 %% ===================================================================
 %% Public API
@@ -100,7 +102,7 @@ deauth() ->
 
 reset_password() ->
     User = ec_talk:ask_default("Username or Email:", string, ""),
-    rebar3_hex_http:post_json("users/"++User++"/reset", [], []).
+    rebar3_hex_http:post_json(filename:join([?ENDPOINT, User, "reset"]), [], []).
 
 %% Internal functions
 
@@ -135,12 +137,12 @@ generate_key(Username, Password) ->
         {ok, Body} ->
             update_config(Username, Body);
         {error, Body} ->
-            ec_talk:say("Generation of API key failed (~p)", [Code]),
+            ec_talk:say("Generation of API key failed.", []),
             {error, Body}
     end.
 
 new(Username, Email, Password) ->
-    rebar3_hex_http:post_json("users", []
+    rebar3_hex_http:post_json(?ENDPOINT, []
                              ,[{<<"username">>, Username}
                               ,{<<"email">>, Email}
                               ,{<<"password">>, Password}]).

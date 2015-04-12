@@ -3,4 +3,5 @@
 -export([init/1]).
 
 init(State) ->
-    rebar3_hex_user:init(State).
+    {ok, State1} = rebar3_hex_user:init(State),
+    rebar3_hex_pkg:init(State1).
