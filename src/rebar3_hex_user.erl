@@ -64,13 +64,13 @@ generate_key(Username, Password) ->
 
 new(Username, Email, Password) ->
     rebar3_hex_http:post_json("users", []
-                        ,jsx:encode([{<<"username">>, Username}
-                                    ,{<<"email">>, Email}
-                                    ,{<<"password">>, Password}])).
+                             ,[{<<"username">>, Username}
+                              ,{<<"email">>, Email}
+                              ,{<<"password">>, Password}]).
 
 new_key(Name, Username, Password) ->
     Auth = base64:encode_to_string(<<Username/binary, ":", Password/binary>>),
-    rebar3_hex_http:post_json("keys", "Basic "++Auth, jsx:encode([{<<"name">>, Name}])).
+    rebar3_hex_http:post_json("keys", "Basic "++Auth, [{<<"name">>, Name}]).
 
 update_config(Username, Body)->
     {<<"secret">>, Secret}  = lists:keyfind(<<"secret">>, 1, Body),

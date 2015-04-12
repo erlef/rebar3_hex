@@ -6,8 +6,8 @@
 
 -include("rebar3_hex.hrl").
 
-put(Url, Auth, Body) ->
-    case httpc:request(put, {rebar3_hex_config:api_url()++"/api/"++Url, [{"authorization", Auth}], "application/json", Body}, [], []) of
+put(Path, Auth, Body) ->
+    case httpc:request(put, json_request(Path, Auth, Body), [], []) of
         {ok, {{_, 200, _}, _, _RespBody}} ->
             ok;
         {ok, {{_, _Status, _}, _RespHeaders, RespBodyJson}} ->
@@ -15,11 +15,8 @@ put(Url, Auth, Body) ->
             {error, RespBody}
     end.
 
-post_json(Url, Auth, Body) ->
-    ContentLength = integer_to_list(byte_size(Body)),
-    case httpc:request(post, {rebar3_hex_config:api_url()++"/api/"++Url, [{"authorization", Auth}
-                                   ,{"content-length", ContentLength}]
-                             ,"application/json", Body}, [], []) of
+post_json(Path, Auth, Body) ->
+    case httpc:request(post, json_request(Path, Auth, Body), [], []) of
         {ok, {{_, 201, _}, _, RespBody}} ->
             {ok, jsx:decode(list_to_binary(RespBody))};
         {ok, {{_, Status, _}, _RespHeaders, _RespBodyJson}} when Status >= 500->
@@ -28,11 +25,8 @@ post_json(Url, Auth, Body) ->
             {error, jsx:decode(list_to_binary(RespBodyJson))}
     end.
 
-post(Url, Auth, Body) ->
-    ContentLength = integer_to_list(byte_size(Body)),
-    case httpc:request(post, {rebar3_hex_config:api_url()++"/api/"++Url, [{"authorization", Auth}
-                                   ,{"content-length", ContentLength}]
-                             ,"application/octet-stream", {Body, 0}}, [], [{body_format, binary}]) of
+post(Path, Auth, Body) ->
+    case httpc:request(post, file_request(Path, Auth, Body), [], [{body_format, binary}]) of
         {ok, {{_, 201, _}, _, _RespBody}} ->
             ok;
         {ok, {{_, Status, _}, _RespHeaders, _RespBodyJson}} when Status >= 500->
@@ -40,3 +34,15 @@ post(Url, Auth, Body) ->
         {ok, {{_, _Status, _}, _RespHeaders, RespBodyJson}} ->
             {error, jsx:decode(list_to_binary(RespBodyJson))}
     end.
+
+json_request(Path, Auth, Body) ->
+    {binary_to_list(rebar3_hex_config:api_url()) ++ "/api/" ++ Path
+    ,[{"authorization", Auth}]
+    ,"application/json", jsx:encode(Body)}.
+
+file_request(Path, Auth, Body) ->
+    ContentLength = integer_to_list(byte_size(Body)),
+    {binary_to_list(rebar3_hex_config:api_url()) ++ "/api/" ++ Path
+    ,[{"authorization", Auth}
+     ,{"content-length", ContentLength}]
+    ,"application/octet-stream", {Body, 0}}.

@@ -26,10 +26,10 @@ publish(Name, Version, Description, _Deps, Files, Hex) ->
            ,{links, Links}
            ,{requirements, []}],
 
-    MetaString = jsx:encode([{<<"meta">>, rebar3_hex_utils:binarify(Meta)}]),
+    MetaString = [{<<"meta">>, rebar3_hex_utils:binarify(Meta)}],
     {ok, Auth} = binary_to_list(rebar3_hex_config:auth()),
 
-    case rebar3_hex_http:put("packages/minasan", Auth, MetaString) of
+    case rebar3_hex_http:put("packages/"++Name, Auth, MetaString) of
         {ok, {{_, 200, _}, _, _RespBody}} ->
             ec_talk:say("~s~n~s~n~p~n", [Name, Version, Description]),
             %% Cont = ec_talk:ask_default("Continue?", boolean, "Y"),
@@ -43,7 +43,7 @@ publish(Name, Version, Description, _Deps, Files, Hex) ->
                       (_Size) ->
                            eof
                    end,
-            rebar3_hex_http:post("packages/minasan/releases", Auth, Body);
+            rebar3_hex_http:post("packages/"++Name++"/releases", Auth, Body);
         {ok, {{_, _Status, _}, _RespHeaders, RespBodyJson}} ->
             RespBody = jsx:decode(list_to_binary(RespBodyJson)),
             {error, RespBody}
