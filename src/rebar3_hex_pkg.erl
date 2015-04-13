@@ -43,10 +43,11 @@ do(State) ->
     AppDir = rebar_app_info:dir(App),
     Name = rebar_app_info:name(App),
     Version = rebar_app_info:original_vsn(App),
-
+    Deps = rebar_state:get(State, {locks, default}, []),
+    TopLevel = [{N, V} || {_,{pkg,N,V},0} <- Deps],
     AppDetails = rebar_app_info:app_details(App),
     Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
-    case publish(AppDir, Name, Version, Description, [], HexOptions) of
+    case publish(AppDir, Name, Version, Description, TopLevel, HexOptions) of
         ok ->
             {ok, State};
         Error ->
@@ -67,13 +68,14 @@ format_error(Error) ->
 %% Public API
 %% ===================================================================
 
-publish(AppDir, Name, Version, Description, _Deps, HexOptions) ->
+publish(AppDir, Name, Version, Description, Deps, HexOptions) ->
     Files = expand_paths(proplists:get_value(files, HexOptions, ?DEFAULT_FILES), AppDir),
     Contributors = proplists:get_value(contributors, HexOptions, []),
     Licenses = proplists:get_value(licenses, HexOptions, []),
     Links = proplists:get_value(links, HexOptions, []),
 
     Optional = [{app, Name}
+               ,{requirements, Deps}
                ,{contributors, Contributors}
                ,{precompiled, false}
                ,{parameters, []}
@@ -92,6 +94,7 @@ publish(AppDir, Name, Version, Description, _Deps, HexOptions) ->
     case create_package(Auth, Name, MetaString) of
         ok ->
             ec_talk:say("Publishing ~s ~s", [Name, Version]),
+            ec_talk:say("  Dependencies:~n    ~s", [format_deps(Deps)]),
             ec_talk:say("  Included files:~n    ~s", [string:join(Files, "\n    ")]),
             case ec_talk:ask_default("Proceed?", boolean, "Y") of
                 true ->
@@ -154,3 +157,6 @@ dir_files(Path) ->
         false ->
             [Path]
     end.
+
+format_deps(Deps) ->
+    string:join([binary_to_list(<<N/binary, " ", V/binary>>) || {N, V} <- Deps], "\n    ").
