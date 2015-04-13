@@ -69,7 +69,7 @@ do(State) ->
             maybe_update(https_proxy, Value),
             ec_talk:say("https_proxy: ~s", [https_proxy()]);
         [Other | _]->
-            rebar_log:error("Config does not contain a key ~s", [Other])
+            rebar_api:error("Config does not contain a key ~s", [Other])
     end,
 
     {ok, State}.
