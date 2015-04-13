@@ -1,9 +1,14 @@
-rebar3_hex
-=====
+rebar3 Hex
+===========
 
-An OTP application
+Providers for interacting with the Erlang package manager [hex.pm](https://hex.pm/).
 
-Build
------
 
-    $ rebar3 compile
+Usage
+------
+
+Add to your projects `rebar.config`:
+
+```erlang
+{plugins, [{rebar3_hex, {git, "https://github.com/tsloughter/rebar3_hex.git", {branch, "master"}}}]}.
+```
