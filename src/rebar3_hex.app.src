@@ -5,6 +5,9 @@
  ,{applications,
    [kernel
    ,stdlib
+   ,providers
+   ,erlware_commons
+   ,jsx
    ]}
  ,{env,[]}
  ,{modules, []}
