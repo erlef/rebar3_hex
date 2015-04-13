@@ -4,4 +4,5 @@
 
 init(State) ->
     {ok, State1} = rebar3_hex_user:init(State),
-    rebar3_hex_pkg:init(State1).
+    {ok, State2} = rebar3_hex_config:init(State1),
+    rebar3_hex_pkg:init(State2).
