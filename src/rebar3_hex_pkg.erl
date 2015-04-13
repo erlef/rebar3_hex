@@ -6,7 +6,7 @@
          do/1,
          format_error/1]).
 
--export([publish/6]).
+-export([publish/7]).
 
 -include("rebar3_hex.hrl").
 -include_lib("providers/include/providers.hrl").
@@ -45,9 +45,10 @@ do(State) ->
     Version = rebar_app_info:original_vsn(App),
     Deps = rebar_state:get(State, {locks, default}, []),
     TopLevel = [{N, V} || {_,{pkg,N,V},0} <- Deps],
+    Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
     AppDetails = rebar_app_info:app_details(App),
     Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
-    case publish(AppDir, Name, Version, Description, TopLevel, HexOptions) of
+    case publish(AppDir, Name, Version, Description, TopLevel, Excluded, HexOptions) of
         ok ->
             {ok, State};
         Error ->
@@ -68,7 +69,7 @@ format_error(Error) ->
 %% Public API
 %% ===================================================================
 
-publish(AppDir, Name, Version, Description, Deps, HexOptions) ->
+publish(AppDir, Name, Version, Description, Deps, Excluded, HexOptions) ->
     Files = expand_paths(proplists:get_value(files, HexOptions, ?DEFAULT_FILES), AppDir),
     Contributors = proplists:get_value(contributors, HexOptions, []),
     Licenses = proplists:get_value(licenses, HexOptions, []),
@@ -95,6 +96,7 @@ publish(AppDir, Name, Version, Description, Deps, HexOptions) ->
         ok ->
             ec_talk:say("Publishing ~s ~s", [Name, Version]),
             ec_talk:say("  Dependencies:~n    ~s", [format_deps(Deps)]),
+            ec_talk:say("  Excluded dependencies (not part of the Hex package):~n    ~s", [string:join(Excluded, "\n    ")]),
             ec_talk:say("  Included files:~n    ~s", [string:join(Files, "\n    ")]),
             case ec_talk:ask_default("Proceed?", boolean, "Y") of
                 true ->
