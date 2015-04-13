@@ -1,5 +1,5 @@
-rebar3 Hex
-===========
+rebar3 Hex Providers
+=========================
 
 Providers for interacting with the Erlang package manager [hex.pm](https://hex.pm/).
 
