@@ -7,7 +7,6 @@
 create(Name, Version, Meta, Files) ->
     ContentsPath = io_lib:format("~s-~s-contents.tar.gz", [Name, Version]),
     Path = io_lib:format("~s-~s.tar", [Name, Version]),
-
     ok = erl_tar:create(ContentsPath, Files, [compressed]),
 
     {ok, Contents} = file:read_file(ContentsPath),

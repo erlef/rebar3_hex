@@ -31,7 +31,7 @@ init(State) ->
                                 {example, "rebar3 hex publish"},
                                 {short_desc, "."},
                                 {desc, ""},
-                                {opts, []}
+                                {opts, [{revert, undefined, "revert", string, "Revert given version."}]}
                                 ]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
@@ -42,17 +42,30 @@ do(State) ->
     [App] = rebar_state:project_apps(State),
     AppDir = rebar_app_info:dir(App),
     Name = rebar_app_info:name(App),
-    Version = rebar_app_info:original_vsn(App),
-    Deps = rebar_state:get(State, {locks, default}, []),
-    TopLevel = [{N, V} || {_,{pkg,N,V},0} <- Deps],
-    Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
-    AppDetails = rebar_app_info:app_details(App),
-    Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
-    case publish(AppDir, Name, Version, Description, TopLevel, Excluded, HexOptions) of
-        ok ->
-            {ok, State};
-        Error ->
-            Error
+
+    {Args, _} = rebar_state:command_parsed_args(State),
+    Revert = proplists:get_value(revert, Args, undefined),
+    case Revert of
+        undefined ->
+            Version = rebar_app_info:original_vsn(App),
+            Deps = rebar_state:get(State, {locks, default}, []),
+            TopLevel = [{N, V} || {_,{pkg,N,V},0} <- Deps],
+            Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
+            AppDetails = rebar_app_info:app_details(App),
+            Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
+            case publish(AppDir, Name, Version, Description, TopLevel, Excluded, HexOptions) of
+                ok ->
+                    {ok, State};
+                Error ->
+                    Error
+            end;
+        Version ->
+            case delete(Name, Version) of
+                ok ->
+                    {ok, State};
+                Error ->
+                    Error
+            end
     end.
 
 -spec format_error(any()) -> iolist().
@@ -111,6 +124,16 @@ publish(AppDir, Name, Version, Description, Deps, Excluded, HexOptions) ->
     end.
 
 %% Internal functions
+
+delete(Name, Version) ->
+    {ok, Auth} = rebar3_hex_config:auth(),
+    case rebar3_hex_http:delete(filename:join([?ENDPOINT, Name, "releases", Version]), Auth) of
+        ok ->
+            rebar_api:info("Successfully deleted ~s ~s", [Name, Version]),
+            ok;
+        {error, _} ->
+            rebar_api:error("Unable to delete ~s ~s", [Name, Version])
+    end.
 
 create_package(Auth, Name, MetaString) ->
     rebar3_hex_http:put(filename:join([?ENDPOINT, Name]), Auth, MetaString).

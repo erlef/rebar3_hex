@@ -107,16 +107,33 @@ reset_password() ->
 %% Internal functions
 
 get_password() ->
-    get_password("Password:").
+    get_password(<<"Password: ">>).
+
+-define(OP_PUTC, 0).
 
 get_password(confirm) ->
-    get_password("Password (confirm):");
+    get_password(<<"Password (confirm): ">>);
 get_password(Msg) ->
-    io:setopts([{echo, false}]),
-    Password = list_to_binary(ec_talk:ask_default(Msg, string, "")),
-    io:setopts([{echo, true}]),
-    io:nl(),
-    Password.
+    case io:setopts([binary, {echo, false}]) of
+        ok ->
+            PwLine = io:get_line(Msg),
+            ok = io:setopts([binary, {echo, true}]),
+            io:format("\n"),
+            [Pw | _] = binary:split(PwLine, <<"\n">>),
+            Pw;
+        _ ->
+            error_logger:tty(false),
+            Port = open_port({spawn, 'tty_sl -e'}, [binary, eof]),
+            port_command(Port, <<?OP_PUTC, Msg/binary>>),
+            receive
+                {Port, {data, PwLine}} ->
+                    [Pw | _] = binary:split(PwLine, <<"\n">>),
+                    port_command(Port, <<?OP_PUTC, $\n>>),
+                    port_close(Port),
+                    error_logger:tty(true),
+                    Pw
+            end
+    end.
 
 create_user(Username, Email, Password) ->
     case new(Username, Email, Password) of

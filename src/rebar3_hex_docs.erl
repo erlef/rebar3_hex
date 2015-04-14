@@ -64,12 +64,10 @@ do(State) ->
                              ,integer_to_list(byte_size(Tar))) of
         ok ->
             ec_talk:say("Published docs for ~s ~s", [Name, Vsn]),
-            ok;
+            {ok, State};
         {error, Error} ->
             ?PRV_ERROR(Error)
-    end,
-
-    {ok, State}.
+    end.
 
 -spec format_error(any()) -> iolist().
 format_error(Error) ->
