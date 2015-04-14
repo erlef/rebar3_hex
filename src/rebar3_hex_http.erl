@@ -4,7 +4,8 @@
         ,delete/2
         ,put/3
         ,post_json/3
-        ,post/4]).
+        ,post/4
+        ,encode/1]).
 
 -include("rebar3_hex.hrl").
 -include_lib("public_key/include/OTP-PUB-KEY.hrl").
@@ -35,10 +36,10 @@ put(Path, Auth, Body) ->
     case httpc:request(put, json_request(Path, Auth, Body)
                       ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}]
                       ,[{body_format, binary}]) of
-        {ok, {{_, 200, _}, _, _}} ->
+        {ok, {{_, Status, _}, _, _}} when Status >= 200, Status =< 299  ->
             ok;
         {ok, {{_, _, _}, _, RespBody}} ->
-            {error, jsx:decode(RespBody)}
+            {error, RespBody}
     end.
 
 post_json(Path, Auth, Body) ->
@@ -120,3 +121,39 @@ check_cert(CACerts, Der, Cert) ->
                               false
                       end
               end, CACerts).
+
+encode(Term) ->
+    quote_plus(Term).
+
+-define(PERCENT, 37).  % $\%
+-define(FULLSTOP, 46). % $\.
+-define(IS_HEX(C), ((C >= $0 andalso C =< $9) orelse
+            (C >= $a andalso C =< $f) orelse
+            (C >= $A andalso C =< $F))).
+-define(QS_SAFE(C), ((C >= $a andalso C =< $z) orelse
+             (C >= $A andalso C =< $Z) orelse
+             (C >= $0 andalso C =< $9) orelse
+             (C =:= ?FULLSTOP orelse C =:= $- orelse C =:= $~ orelse
+              C =:= $_))).
+
+hexdigit(C) when C < 10 -> $0 + C;
+hexdigit(C) when C < 16 -> $A + (C - 10).
+
+%% @spec quote_plus(atom() | integer() | string()) -> string()
+%% @doc URL safe encoding of the given term.
+quote_plus(Atom) when is_atom(Atom) ->
+    quote_plus(atom_to_list(Atom));
+quote_plus(Int) when is_integer(Int) ->
+    quote_plus(integer_to_list(Int));
+quote_plus(String) ->
+    quote_plus(String, []).
+
+quote_plus([], Acc) ->
+    lists:reverse(Acc);
+quote_plus([C | Rest], Acc) when ?QS_SAFE(C) ->
+    quote_plus(Rest, [C | Acc]);
+quote_plus([$\s | Rest], Acc) ->
+    quote_plus(Rest, [$+ | Acc]);
+quote_plus([C | Rest], Acc) ->
+    <<Hi:4, Lo:4>> = <<C>>,
+    quote_plus(Rest, [hexdigit(Lo), hexdigit(Hi), ?PERCENT | Acc]).
