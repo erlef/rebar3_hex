@@ -70,7 +70,8 @@ format_error(Error) ->
 %% ===================================================================
 
 publish(AppDir, Name, Version, Description, Deps, Excluded, HexOptions) ->
-    Files = expand_paths(proplists:get_value(files, HexOptions, ?DEFAULT_FILES), AppDir),
+    FilePaths = proplists:get_value(files, HexOptions, ?DEFAULT_FILES),
+    Files = rebar3_hex_utils:expand_paths(FilePaths, AppDir),
     Contributors = proplists:get_value(contributors, HexOptions, []),
     Licenses = proplists:get_value(licenses, HexOptions, []),
     Links = proplists:get_value(links, HexOptions, []),
@@ -142,23 +143,6 @@ errors_to_string({Key, Value}) ->
     io_lib:format("~s: ~s", [Key, errors_to_string(Value)]);
 errors_to_string(Errors) when is_list(Errors) ->
     lists:flatten([io_lib:format("~s", [errors_to_string(Values)]) || Values <- Errors]).
-
-expand_paths(Paths, Dir) ->
-    AbsDir = filename:absname(Dir),
-    Files = lists:flatmap(fun(X) ->
-                                  lists:flatmap(fun(Y) ->
-                                                        dir_files(Y)
-                                                end, filelib:wildcard(X))
-                          end, [filename:join(Dir, P) || P <- Paths]),
-    [F1 -- (AbsDir++"/") || F1 <- lists:filter(fun filelib:is_regular/1, [filename:absname(F) || F <- Files])].
-
-dir_files(Path) ->
-    case filelib:is_dir(Path) of
-        true ->
-             filelib:wildcard(filename:join(Path, "**"));
-        false ->
-            [Path]
-    end.
 
 format_deps(Deps) ->
     string:join([binary_to_list(<<N/binary, " ", V/binary>>) || {N, V} <- Deps], "\n    ").

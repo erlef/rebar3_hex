@@ -20,12 +20,11 @@ Commands
 * `hex info [<package> [<version>]]`
 * `hex key [remove key_name|list]`
 * `hex publish`
+* `hex owners [add <package> <email>|remove <package> <email>|list <package>]`
 * `hex user [register|whoami|auth|deauth|reset_password]`
 
 
 TODO
 ----
 
-* `hex docs`
-* `hex owners`
 * `hex search`
