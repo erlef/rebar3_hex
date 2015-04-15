@@ -156,7 +156,7 @@ upload_package(Auth, Name, Version, Meta, Files) ->
         ok ->
             rebar_api:info("Published ~s ~s", [Name, Version]),
             ok;
-        {error, Error} ->
+        {error, _, Error} ->
             ?PRV_ERROR(Error)
     end.
 
