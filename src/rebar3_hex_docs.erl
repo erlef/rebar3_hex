@@ -29,7 +29,7 @@ init(State) ->
                                 {example, "rebar3 hex docs"},
                                 {short_desc, "."},
                                 {desc, ""},
-                                {opts, []}
+                                {opts, [{revert, undefined, "revert", string, "Revert given version."}]}
                                 ]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
@@ -41,34 +41,57 @@ do(State) ->
     Files = rebar3_hex_utils:expand_paths(["doc"], AppDir),
 
     Name = binary_to_list(rebar_app_info:name(App)),
-    Vsn = rebar_app_info:original_vsn(App),
+    {Args, _} = rebar_state:command_parsed_args(State),
+    Revert = proplists:get_value(revert, Args, undefined),
+    case Revert of
+        undefined ->
+            Vsn = rebar_app_info:original_vsn(App),
 
-    Tarball = Name++"-"++Vsn++"-docs.tar.gz",
-    ok = erl_tar:create(Tarball, Files),
-    {ok, Tar} = file:read_file(Tarball),
+            Tarball = Name++"-"++Vsn++"-docs.tar.gz",
+            ok = erl_tar:create(Tarball, Files),
+            {ok, Tar} = file:read_file(Tarball),
 
-    %file:delete(Tarball),
+                                                %file:delete(Tarball),
 
-    Body = fun(Size) when Size < byte_size(Tar) ->
-                   NewSize = min(Size + ?CHUNK, byte_size(Tar)),
-                   Chunk = NewSize - Size,
-                   {ok, [binary:part(Tar, Size, Chunk)], NewSize};
-              (_Size) ->
-                   eof
-           end,
+            Body = fun(Size) when Size < byte_size(Tar) ->
+                           NewSize = min(Size + ?CHUNK, byte_size(Tar)),
+                           Chunk = NewSize - Size,
+                           {ok, [binary:part(Tar, Size, Chunk)], NewSize};
+                      (_Size) ->
+                           eof
+                   end,
 
-    {ok, Auth} = rebar3_hex_config:auth(),
-    case rebar3_hex_http:post(filename:join([?ENDPOINT, Name, "releases", Vsn, "docs"])
-                             ,Auth
-                             ,Body
-                             ,integer_to_list(byte_size(Tar))) of
-        ok ->
-            ec_talk:say("Published docs for ~s ~s", [Name, Vsn]),
-            {ok, State};
-        {error, Error} ->
-            ?PRV_ERROR(Error)
+            {ok, Auth} = rebar3_hex_config:auth(),
+            case rebar3_hex_http:post(filename:join([?ENDPOINT, Name, "releases", Vsn, "docs"])
+                                     ,Auth
+                                     ,Body
+                                     ,integer_to_list(byte_size(Tar))) of
+                ok ->
+                    rebar_api:info("Published docs for ~s ~s", [Name, Vsn]),
+                    {ok, State};
+                {error, _, Error} ->
+                    Message = proplists:get_value(<<"message">>, Error, <<"">>),
+                    ?PRV_ERROR({error, Name, Vsn, Message})
+            end;
+        Version ->
+            case delete(Name, Version) of
+                ok ->
+                    {ok, State};
+                Error ->
+                    Error
+            end
     end.
 
 -spec format_error(any()) -> iolist().
-format_error(Error) ->
-    io_lib:format("~p", [Error]).
+format_error({error, Name, Vsn, Message}) ->
+    io_lib:format("Failed to publish docs for ~s ~s. Error: ~s.", [Name, Vsn, Message]).
+
+delete(Name, Version) ->
+    {ok, Auth} = rebar3_hex_config:auth(),
+    case rebar3_hex_http:delete(filename:join([?ENDPOINT, Name, "releases", Version, "docs"]), Auth) of
+        ok ->
+            rebar_api:info("Successfully deleted docs for ~s ~s", [Name, Version]),
+            ok;
+        {error, _} ->
+            rebar_api:error("Unable to delete docs ~s ~s", [Name, Version])
+    end.

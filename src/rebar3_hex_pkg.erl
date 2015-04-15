@@ -129,10 +129,10 @@ delete(Name, Version) ->
     {ok, Auth} = rebar3_hex_config:auth(),
     case rebar3_hex_http:delete(filename:join([?ENDPOINT, Name, "releases", Version]), Auth) of
         ok ->
-            rebar_api:info("Successfully deleted ~s ~s", [Name, Version]),
+            rebar_api:info("Successfully deleted package ~s ~s", [Name, Version]),
             ok;
         {error, _} ->
-            rebar_api:error("Unable to delete ~s ~s", [Name, Version])
+            rebar_api:error("Unable to delete package ~s ~s", [Name, Version])
     end.
 
 create_package(Auth, Name, MetaString) ->
@@ -154,7 +154,7 @@ upload_package(Auth, Name, Version, Meta, Files) ->
                              ,Body
                              ,integer_to_list(byte_size(Tar))) of
         ok ->
-            ec_talk:say("Published ~s ~s", [Name, Version]),
+            rebar_api:info("Published ~s ~s", [Name, Version]),
             ok;
         {error, Error} ->
             ?PRV_ERROR(Error)

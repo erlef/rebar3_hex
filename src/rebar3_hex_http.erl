@@ -62,8 +62,8 @@ post(Path, Auth, Body, Size) ->
             ok;
         {ok, {{_, Status, _}, _RespHeaders, _RespBodyJson}} when Status >= 500->
             {error, undefined_server_error};
-        {ok, {{_, _Status, _}, _RespHeaders, RespBodyJson}} ->
-            {error, jsx:decode(RespBodyJson)}
+        {ok, {{_, Status, _}, _RespHeaders, RespBodyJson}} ->
+            {error, Status, jsx:decode(RespBodyJson)}
     end.
 
 %% Internal Functions
