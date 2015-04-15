@@ -22,9 +22,4 @@ Commands
 * `hex publish`
 * `hex owners [add <package> <email>|remove <package> <email>|list <package>]`
 * `hex user [register|whoami|auth|deauth|reset_password]`
-
-
-TODO
-----
-
-* `hex search`
+* `hex search <term>`
