@@ -140,18 +140,9 @@ create_package(Auth, Name, MetaString) ->
 
 upload_package(Auth, Name, Version, Meta, Files) ->
     {ok, Tar} = rebar3_hex_tar:create(Name, Version, Meta, Files),
-
-    Body = fun(Size) when Size < byte_size(Tar) ->
-                   NewSize = min(Size + ?CHUNK, byte_size(Tar)),
-                   Chunk = NewSize - Size,
-                   {ok, [binary:part(Tar, Size, Chunk)], NewSize};
-              (_Size) ->
-                   eof
-           end,
-
     case rebar3_hex_http:post(filename:join([?ENDPOINT, Name, "releases"])
                              ,Auth
-                             ,Body
+                             ,Tar
                              ,integer_to_list(byte_size(Tar))) of
         ok ->
             rebar_api:info("Published ~s ~s", [Name, Version]),

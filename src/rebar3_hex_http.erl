@@ -54,7 +54,15 @@ post_json(Path, Auth, Body) ->
             {error, RespBody}
     end.
 
-post(Path, Auth, Body, Size) ->
+post(Path, Auth, Tar, Size) ->
+    Body = fun(Size) when Size < byte_size(Tar) ->
+                   NewSize = min(Size + ?CHUNK, byte_size(Tar)),
+                   Chunk = NewSize - Size,
+                   {ok, [binary:part(Tar, Size, Chunk)], NewSize};
+              (_Size) ->
+                   eof
+           end,
+
     case httpc:request(post, file_request(Path, Auth, Body, Size)
                       ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}]
                       ,[{body_format, binary}]) of

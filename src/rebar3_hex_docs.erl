@@ -51,20 +51,12 @@ do(State) ->
             ok = erl_tar:create(Tarball, Files),
             {ok, Tar} = file:read_file(Tarball),
 
-                                                %file:delete(Tarball),
-
-            Body = fun(Size) when Size < byte_size(Tar) ->
-                           NewSize = min(Size + ?CHUNK, byte_size(Tar)),
-                           Chunk = NewSize - Size,
-                           {ok, [binary:part(Tar, Size, Chunk)], NewSize};
-                      (_Size) ->
-                           eof
-                   end,
+            file:delete(Tarball),
 
             {ok, Auth} = rebar3_hex_config:auth(),
             case rebar3_hex_http:post(filename:join([?ENDPOINT, Name, "releases", Vsn, "docs"])
                                      ,Auth
-                                     ,Body
+                                     ,Tar
                                      ,integer_to_list(byte_size(Tar))) of
                 ok ->
                     rebar_api:info("Published docs for ~s ~s", [Name, Vsn]),
