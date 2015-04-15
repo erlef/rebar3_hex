@@ -6,6 +6,8 @@
          do/1,
          format_error/1]).
 
+-include_lib("providers/include/providers.hrl").
+
 -define(PROVIDER, key).
 -define(DEPS, []).
 
@@ -34,23 +36,23 @@ do(State) ->
             {ok, Auth} = rebar3_hex_config:auth(),
             case rebar3_hex_http:delete(filename:join(?ENDPOINT, Key), Auth) of
                 ok ->
-                    ok;
+                    {ok, State};
                 {error, 401} ->
-                    rebar_api:error("Authentication failed (401)", [])
+                    ?PRV_ERROR(401)
             end;
         ["list"] ->
             {ok, Auth} = rebar3_hex_config:auth(),
             case rebar3_hex_http:get(?ENDPOINT, Auth) of
                 {ok, Keys} ->
-                    [ec_talk:say("~s", [proplists:get_value(<<"name">>, X)]) || X <- Keys];
+                    [ec_talk:say("~s", [proplists:get_value(<<"name">>, X)]) || X <- Keys],
+                    {ok, State};
                 {error, 401} ->
-                    rebar_api:error("Authentication failed (401)", [])
+                    ?PRV_ERROR(401)
             end;
         _ ->
-            ok
-    end,
-    {ok, State}.
+            {ok, State}
+    end.
 
 -spec format_error(any()) -> iolist().
-format_error(Reason) ->
-    io_lib:format("~p", [Reason]).
+format_error(401) ->
+    "Authentication failed (401)".
