@@ -55,11 +55,11 @@ post_json(Path, Auth, Body) ->
     end.
 
 post(Path, Auth, Tar, Size) ->
-    Body = fun(Size) when Size < byte_size(Tar) ->
-                   NewSize = min(Size + ?CHUNK, byte_size(Tar)),
-                   Chunk = NewSize - Size,
-                   {ok, [binary:part(Tar, Size, Chunk)], NewSize};
-              (_Size) ->
+    Body = fun(S) when S < byte_size(Tar) ->
+                   NewSize = min(S + ?CHUNK, byte_size(Tar)),
+                   Chunk = NewSize - S,
+                   {ok, [binary:part(Tar, S, Chunk)], NewSize};
+              (_S) ->
                    eof
            end,
 
