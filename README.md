@@ -10,7 +10,7 @@ Usage
 Add to your projects `rebar.config`:
 
 ```erlang
-{plugins, [{rebar3_hex, {git, "https://github.com/tsloughter/rebar3_hex.git", {branch, "master"}}}]}.
+{plugins, [{rebar3_hex, "0.1.0"}]}.
 ```
 
 Commands
