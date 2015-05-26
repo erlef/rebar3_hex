@@ -6,7 +6,7 @@
          do/1,
          format_error/1]).
 
--export([publish/7]).
+-export([publish/6]).
 
 -include("rebar3_hex.hrl").
 -include_lib("providers/include/providers.hrl").
@@ -38,7 +38,6 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    HexOptions = rebar_state:get(State, hex, []),
     [App] = rebar_state:project_apps(State),
     AppDir = rebar_app_info:dir(App),
     Name = rebar_app_info:name(App),
@@ -52,8 +51,7 @@ do(State) ->
             TopLevel = [{N, V} || {_,{pkg,N,V},0} <- Deps],
             Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
             AppDetails = rebar_app_info:app_details(App),
-            Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
-            case publish(AppDir, Name, Version, Description, TopLevel, Excluded, HexOptions) of
+            case publish(AppDir, Name, Version, TopLevel, Excluded, AppDetails) of
                 ok ->
                     {ok, State};
                 Error ->
@@ -82,12 +80,13 @@ format_error(Error) ->
 %% Public API
 %% ===================================================================
 
-publish(AppDir, Name, Version, Description, Deps, Excluded, HexOptions) ->
-    FilePaths = proplists:get_value(files, HexOptions, ?DEFAULT_FILES),
+publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
+    Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
+    FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
     Files = rebar3_hex_utils:expand_paths(FilePaths, AppDir),
-    Contributors = proplists:get_value(contributors, HexOptions, []),
-    Licenses = proplists:get_value(licenses, HexOptions, []),
-    Links = proplists:get_value(links, HexOptions, []),
+    Contributors = proplists:get_value(contributors, AppDetails, []),
+    Licenses = proplists:get_value(licenses, AppDetails, []),
+    Links = proplists:get_value(links, AppDetails, []),
 
     Optional = [{app, Name}
                ,{requirements, Deps}
@@ -97,8 +96,7 @@ publish(AppDir, Name, Version, Description, Deps, Excluded, HexOptions) ->
                ,{description, Description}
                ,{files, Files}
                ,{licenses, Licenses}
-               ,{links, Links}
-               ,{requirements, []}],
+               ,{links, Links}],
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
 
     Meta = [{name, Name}, {version, Version} | OptionalFiltered],
