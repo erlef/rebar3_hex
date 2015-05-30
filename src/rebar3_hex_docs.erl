@@ -48,7 +48,8 @@ do(State) ->
             Vsn = rebar_app_info:original_vsn(App),
 
             Tarball = Name++"-"++Vsn++"-docs.tar.gz",
-            ok = erl_tar:create(Tarball, Files),
+
+            ok = erl_tar:create(Tarball, file_list(Files)),
             {ok, Tar} = file:read_file(Tarball),
 
             file:delete(Tarball),
@@ -87,3 +88,9 @@ delete(Name, Version) ->
         {error, _} ->
             rebar_api:error("Unable to delete docs ~s ~s", [Name, Version])
     end.
+
+file_list(Files) ->
+    [{drop_path(File, ["doc"]), File} || File <- Files].
+
+drop_path(File, Path) ->
+    filename:join(filename:split(File) -- Path).
