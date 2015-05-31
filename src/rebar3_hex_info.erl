@@ -1,13 +1,10 @@
 -module(rebar3_hex_info).
 
--behaviour(provider).
-
 -export([init/1
         ,do/1
         ,format_error/1]).
 
 -include("rebar3_hex.hrl").
--include_lib("providers/include/providers.hrl").
 
 -define(PROVIDER, info).
 -define(DEPS, []).

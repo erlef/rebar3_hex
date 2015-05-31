@@ -1,7 +1,5 @@
 -module(rebar3_hex_pkg).
 
--behaviour(provider).
-
 -export([init/1,
          do/1,
          format_error/1]).
@@ -10,7 +8,6 @@
         ,publish/6]).
 
 -include("rebar3_hex.hrl").
--include_lib("providers/include/providers.hrl").
 
 -define(PROVIDER, publish).
 -define(DEPS, [{default, app_discovery}]).

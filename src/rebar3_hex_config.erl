@@ -1,7 +1,5 @@
 -module(rebar3_hex_config).
 
--behaviour(provider).
-
 -export([init/1,
          do/1,
          format_error/1]).
@@ -16,8 +14,6 @@
         ,https_proxy/0
         ,update/1
         ,write/1]).
-
--include_lib("providers/include/providers.hrl").
 
 -define(PROVIDER, config).
 -define(DEPS, []).

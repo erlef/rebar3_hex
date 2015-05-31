@@ -6,3 +6,6 @@
                        ,"LICENSE*", "license*"]).
 
 -define(CHUNK, 10000).
+
+-define(PRV_ERROR(Reason),
+        {error, {?MODULE, Reason}}).

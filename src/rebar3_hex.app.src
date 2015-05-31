@@ -1,7 +1,7 @@
 {application,rebar3_hex,
              [{description,"Hex.pm plugin for rebar3"},
               {vsn,"0.4.0"},
-              {applications,[kernel,stdlib,providers,erlware_commons,jsx]},
+              {applications,[kernel,stdlib,jsx]},
               {contributors,["Tristan Sloughter"]},
               {licenses,["MIT"]},
               {links,[{"Github",

@@ -1,7 +1,5 @@
 -module(rebar3_hex_user).
 
--behaviour(provider).
-
 -export([init/1
         ,do/1
         ,format_error/1]).
@@ -13,7 +11,6 @@
         ,reset_password/0]).
 
 -include("rebar3_hex.hrl").
--include_lib("providers/include/providers.hrl").
 
 -define(PROVIDER, user).
 -define(DEPS, []).

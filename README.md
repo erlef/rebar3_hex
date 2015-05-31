@@ -17,6 +17,7 @@ Commands
 --------
 
 * `hex config <key> [<value>]`
+* `hex cut [-i major|minor|patch]`
 * `hex docs`
 * `hex info [<package> [<version>]]`
 * `hex key [remove key_name|list]`
