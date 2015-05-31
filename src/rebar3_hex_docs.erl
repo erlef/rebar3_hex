@@ -36,7 +36,16 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    [App] = rebar_state:project_apps(State),
+    Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
+    lists:foldl(fun(App, {ok, StateAcc}) ->
+                        do_(App, State)
+                end, {ok, State}, Apps).
+
+-spec format_error(any()) -> iolist().
+format_error({error, Name, Vsn, Message}) ->
+    io_lib:format("Failed to publish docs for ~s ~s. Error: ~s.", [Name, Vsn, Message]).
+
+do_(App, State) ->
     AppDir = rebar_app_info:dir(App),
     Files = rebar3_hex_utils:expand_paths(["doc"], AppDir),
 
@@ -74,10 +83,6 @@ do(State) ->
                     Error
             end
     end.
-
--spec format_error(any()) -> iolist().
-format_error({error, Name, Vsn, Message}) ->
-    io_lib:format("Failed to publish docs for ~s ~s. Error: ~s.", [Name, Vsn, Message]).
 
 delete(Name, Version) ->
     {ok, Auth} = rebar3_hex_config:auth(),

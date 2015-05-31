@@ -1,10 +1,28 @@
 -module(rebar3_hex_utils).
 
--export([hex_home/0
+-export([select_apps/1
+        ,hex_home/0
         ,binarify/1
         ,expand_paths/2]).
 
 -define(DEFAULT_HEX_DIR, ".hex").
+
+select_apps([App]) ->
+    [App];
+select_apps(Apps) ->
+    ec_talk:say("Select application(s):", []),
+    lists:foldl(fun(App, Idx) ->
+                        ec_talk:say("~p) ~s", [Idx, rebar_app_info:name(App)]),
+                        Idx+1
+                end, 1, Apps),
+    ec_talk:say("------------", []),
+    ec_talk:say("A) All", []),
+    case ec_talk:ask_default(io_lib:format("[1-~p] or (A)ll ", [length(Apps)]), string, "A") of
+        "A" ->
+            Apps;
+        Index ->
+            [lists:nth(list_to_integer(Index), Apps)]
+    end.
 
 hex_home() ->
     {ok, [[Home]]} = init:get_argument(home),

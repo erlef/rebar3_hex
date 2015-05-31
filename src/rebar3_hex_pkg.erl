@@ -6,7 +6,8 @@
          do/1,
          format_error/1]).
 
--export([publish/6]).
+-export([publish/2
+        ,publish/6]).
 
 -include("rebar3_hex.hrl").
 -include_lib("providers/include/providers.hrl").
@@ -38,33 +39,10 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    [App] = rebar_state:project_apps(State),
-    AppDir = rebar_app_info:dir(App),
-    Name = rebar_app_info:name(App),
-
-    {Args, _} = rebar_state:command_parsed_args(State),
-    Revert = proplists:get_value(revert, Args, undefined),
-    case Revert of
-        undefined ->
-            Version = rebar_app_info:original_vsn(App),
-            Deps = rebar_state:get(State, {locks, default}, []),
-            TopLevel = [{N, V} || {_,{pkg,N,V},0} <- Deps],
-            Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
-            AppDetails = rebar_app_info:app_details(App),
-            case publish(AppDir, Name, Version, TopLevel, Excluded, AppDetails) of
-                ok ->
-                    {ok, State};
-                Error ->
-                    Error
-            end;
-        Version ->
-            case delete(Name, Version) of
-                ok ->
-                    {ok, State};
-                Error ->
-                    Error
-            end
-    end.
+    Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
+    lists:foldl(fun(App, {ok, StateAcc}) ->
+                        do_(App, StateAcc)
+                end, {ok, State}, Apps).
 
 -spec format_error(any()) -> iolist().
 format_error(undefined_server_error) ->
@@ -79,6 +57,39 @@ format_error(Error) ->
 %% ===================================================================
 %% Public API
 %% ===================================================================
+
+do_(App, State) ->
+    Name = rebar_app_info:name(App),
+
+    {Args, _} = rebar_state:command_parsed_args(State),
+    Revert = proplists:get_value(revert, Args, undefined),
+    case Revert of
+        undefined ->
+            publish(App, State);
+        Version ->
+            case delete(Name, Version) of
+                ok ->
+                    {ok, State};
+                Error ->
+                    Error
+            end
+    end.
+
+publish(App, State) ->
+    AppDir = rebar_app_info:dir(App),
+    Name = rebar_app_info:name(App),
+
+    Version = rebar_app_info:original_vsn(App),
+    Deps = rebar_state:get(State, {locks, default}, []),
+    TopLevel = [{N, V} || {_,{pkg,N,V},0} <- Deps],
+    Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
+    AppDetails = rebar_app_info:app_details(App),
+    case publish(AppDir, Name, Version, TopLevel, Excluded, AppDetails) of
+        ok ->
+            {ok, State};
+        Error ->
+            Error
+    end.
 
 publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
