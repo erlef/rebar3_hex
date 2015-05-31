@@ -35,7 +35,7 @@ init(State) ->
 do(State) ->
     Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
     lists:foldl(fun(App, {ok, StateAcc}) ->
-                        do_(App, State)
+                        do_(App, StateAcc)
                 end, {ok, State}, Apps).
 
 -spec format_error(any()) -> iolist().
