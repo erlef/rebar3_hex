@@ -21,10 +21,10 @@ init(State) ->
                                 {name, ?PROVIDER},
                                 {module, ?MODULE},
                                 {namespace, hex},
-                                {bare, false},
+                                {bare, true},
                                 {deps, ?DEPS},
                                 {example, "rebar3 hex owner"},
-                                {short_desc, "."},
+                                {short_desc, "Add, remove or list package owners"},
                                 {desc, ""},
                                 {opts, []}
                                 ]),

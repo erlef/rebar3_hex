@@ -27,10 +27,10 @@ init(State) ->
                                 {name, ?PROVIDER},
                                 {module, ?MODULE},
                                 {namespace, hex},
-                                {bare, false},
+                                {bare, true},
                                 {deps, ?DEPS},
                                 {example, "rebar3 hex user <command>"},
-                                {short_desc, "."},
+                                {short_desc, "Hex user tasks"},
                                 {desc, ""},
                                 {opts, []}
                                 ]),

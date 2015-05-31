@@ -16,10 +16,10 @@ init(State) ->
                                 {name, ?PROVIDER},
                                 {module, ?MODULE},
                                 {namespace, hex},
-                                {bare, false},
+                                {bare, true},
                                 {deps, ?DEPS},
                                 {example, "rebar3 hex search <term>"},
-                                {short_desc, "."},
+                                {short_desc, "Display packages matching the given search query"},
                                 {desc, ""},
                                 {opts, [{term, undefined, undefined, string, "Search term."}]}
                                 ]),

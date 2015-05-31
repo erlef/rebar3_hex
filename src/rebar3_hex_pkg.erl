@@ -24,10 +24,10 @@ init(State) ->
                                 {name, ?PROVIDER},
                                 {module, ?MODULE},
                                 {namespace, hex},
-                                {bare, false},
+                                {bare, true},
                                 {deps, ?DEPS},
                                 {example, "rebar3 hex publish"},
-                                {short_desc, "."},
+                                {short_desc, "Publish a new version of your package and update the package"},
                                 {desc, ""},
                                 {opts, [{revert, undefined, "revert", string, "Revert given version."}]}
                                 ]),

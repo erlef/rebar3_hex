@@ -21,10 +21,10 @@ init(State) ->
                                 {name, ?PROVIDER},
                                 {module, ?MODULE},
                                 {namespace, hex},
-                                {bare, false},
+                                {bare, true},
                                 {deps, ?DEPS},
                                 {example, "rebar3 hex docs"},
-                                {short_desc, "."},
+                                {short_desc, "Publish documentation for the current project and version"},
                                 {desc, ""},
                                 {opts, [{revert, undefined, "revert", string, "Revert given version."}]}
                                 ]),

@@ -17,10 +17,10 @@ init(State) ->
                                 {name, ?PROVIDER},
                                 {module, ?MODULE},
                                 {namespace, hex},
-                                {bare, false},
+                                {bare, true},
                                 {deps, ?DEPS},
                                 {example, "rebar3 hex key [list | remove <key>]"},
-                                {short_desc, "."},
+                                {short_desc, "Remove or list API keys associated with your account"},
                                 {desc, ""},
                                 {opts, []}
                                 ]),

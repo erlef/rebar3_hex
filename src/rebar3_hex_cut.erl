@@ -21,12 +21,12 @@ init(State) ->
                                 {name, ?PROVIDER},
                                 {module, ?MODULE},
                                 {namespace, hex},
-                                {bare, false},
+                                {bare, true},
                                 {deps, ?DEPS},
                                 {example, "rebar3 hex cut"},
-                                {short_desc, "."},
+                                {short_desc, "Increment version number and publish package"},
                                 {desc, ""},
-                                {opts, [{increment, i, "increment", string, "Type of semver increment: major, minor or patch"}]}
+                                {opts, [{increment, $i, "increment", string, "Type of semver increment: major, minor or patch"}]}
                                 ]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.

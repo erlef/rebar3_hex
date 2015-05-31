@@ -28,10 +28,10 @@ init(State) ->
                                 {name, ?PROVIDER},
                                 {module, ?MODULE},
                                 {namespace, hex},
-                                {bare, false},
+                                {bare, true},
                                 {deps, ?DEPS},
                                 {example, "rebar3 hex config <key> [<value>]"},
-                                {short_desc, "."},
+                                {short_desc, "Read or update hex configuration file"},
                                 {desc, ""},
                                 {opts, []}
                                 ]),
