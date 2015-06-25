@@ -116,7 +116,8 @@ update(NewConfig) ->
     write(Config1).
 
 write(Config) ->
-    file:write_file(path(), encode_config(Config)).
+    filelib:ensure_dir(path()),
+    ok = file:write_file(path(), encode_config(Config)).
 
 %% Internal functions
 
