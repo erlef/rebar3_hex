@@ -3,6 +3,8 @@
 -export([init/1]).
 
 init(State) ->
+    inets:start(httpc, [{profile, hex}]),
+    rebar3_hex_http:maybe_setup_proxy(),
     lists:foldl(fun provider_init/2, {ok, State}, [rebar3_hex_user
                                                   ,rebar3_hex_cut
                                                   ,rebar3_hex_config

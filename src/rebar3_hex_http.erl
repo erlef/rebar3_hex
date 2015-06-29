@@ -5,7 +5,8 @@
         ,put/3
         ,post_json/3
         ,post/4
-        ,encode/1]).
+        ,encode/1
+        ,maybe_setup_proxy/0]).
 
 -include("rebar3_hex.hrl").
 -include_lib("public_key/include/OTP-PUB-KEY.hrl").
@@ -13,9 +14,10 @@
 -define(ENDPOINT, "/api").
 
 get(Path, Auth) ->
-    case httpc:request(get, request(Path, Auth),
-                      [{ssl, [ssl_opts(rebar3_hex_config:api_url())]}],
-                      [{body_format, binary}]) of
+    case httpc:request(get, request(Path, Auth)
+                      ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}]
+                      ,[{body_format, binary}]
+                      ,hex) of
         {ok, {{_, 200, _}, _, RespBody}} ->
             {ok, jsx:decode(RespBody)};
         {ok, {{_, Status, _}, _, _}} ->
@@ -25,7 +27,8 @@ get(Path, Auth) ->
 delete(Path, Auth) ->
     case httpc:request(delete, request(Path, Auth)
                       ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}]
-                      ,[{body_format, binary}]) of
+                      ,[{body_format, binary}]
+                      ,hex) of
         {ok, {{_, 204, _}, _, _}} ->
             ok;
         {ok, {{_, Status, _}, _, _}} ->
@@ -35,7 +38,8 @@ delete(Path, Auth) ->
 put(Path, Auth, Body) ->
     case httpc:request(put, json_request(Path, Auth, Body)
                       ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}]
-                      ,[{body_format, binary}]) of
+                      ,[{body_format, binary}]
+                      ,hex) of
         {ok, {{_, Status, _}, _, _}} when Status >= 200, Status =< 299  ->
             ok;
         {ok, {{_, _, _}, _, RespBody}} ->
@@ -45,7 +49,8 @@ put(Path, Auth, Body) ->
 post_json(Path, Auth, Body) ->
     case httpc:request(post, json_request(Path, Auth, Body)
                       ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}]
-                      ,[{body_format, binary}]) of
+                      ,[{body_format, binary}]
+                      ,hex) of
         {ok, {{_, Status, _}, _, RespBody}} when Status >= 200, Status =< 299 ->
             {ok, jsx:decode(RespBody)};
         {ok, {{_, Status, _}, _, _}} when Status >= 500->
@@ -65,7 +70,8 @@ post(Path, Auth, Tar, Size) ->
 
     case httpc:request(post, file_request(Path, Auth, Body, Size)
                       ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}]
-                      ,[{body_format, binary}]) of
+                      ,[{body_format, binary}]
+                      ,hex) of
         {ok, {{_, Status, _}, _, _RespBody}} when Status >= 200, Status =< 299 ->
             ok;
         {ok, {{_, Status, _}, _RespHeaders, _RespBodyJson}} when Status >= 500->
@@ -97,6 +103,14 @@ ssl_opts(Url) ->
     CACerts = cacerts(),
     [{verify, verify_peer}, {depth, 2}, {cacerts, CACerts}
     ,{partial_chain, fun partial_chain/1}, {verify_fun, VerifyFun}].
+
+maybe_setup_proxy() ->
+    maybe_setup_proxy(https_proxy, rebar3_hex_config:https_proxy()),
+    maybe_setup_proxy(proxy, rebar3_hex_config:http_proxy()).
+
+maybe_setup_proxy(Scheme, Proxy) ->
+    {ok, {_, _, Host, Port, _, _}} = http_uri:parse(Proxy),
+    httpc:set_options([{Scheme, {{Host, Port}, []}}], hex).
 
 partial_chain(Certs) ->
     Certs = [{Cert, public_key:pkix_decode_cert(Cert, otp)} || Cert <- Certs],
