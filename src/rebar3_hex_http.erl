@@ -108,6 +108,8 @@ maybe_setup_proxy() ->
     maybe_setup_proxy(https_proxy, rebar3_hex_config:https_proxy()),
     maybe_setup_proxy(proxy, rebar3_hex_config:http_proxy()).
 
+maybe_setup_proxy(_, []) ->
+    ok;
 maybe_setup_proxy(Scheme, Proxy) ->
     {ok, {_, _, Host, Port, _, _}} = http_uri:parse(Proxy),
     httpc:set_options([{Scheme, {{Host, Port}, []}}], hex).
