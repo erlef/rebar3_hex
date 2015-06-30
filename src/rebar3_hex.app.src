@@ -1,6 +1,6 @@
 {application,rebar3_hex,
              [{description,"Hex.pm plugin for rebar3"},
-              {vsn,"0.7.0"},
+              {vsn,"0.8.0"},
               {applications,[kernel,stdlib,jsx]},
               {contributors,["Tristan Sloughter"]},
               {licenses,["MIT"]},
