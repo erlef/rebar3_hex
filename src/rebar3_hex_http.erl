@@ -15,7 +15,7 @@
 
 get(Path, Auth) ->
     case httpc:request(get, request(Path, Auth)
-                      ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}, {relaxed, true}]
+                      ,[{ssl, rebar_api:ssl_opts(rebar3_hex_config:api_url())}, {relaxed, true}]
                       ,[{body_format, binary}]
                       ,hex) of
         {ok, {{_, 200, _}, _, RespBody}} ->
@@ -26,7 +26,7 @@ get(Path, Auth) ->
 
 delete(Path, Auth) ->
     case httpc:request(delete, request(Path, Auth)
-                      ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}]
+                      ,[{ssl, rebar_api:ssl_opts(rebar3_hex_config:api_url())}]
                       ,[{body_format, binary}]
                       ,hex) of
         {ok, {{_, 204, _}, _, _}} ->
@@ -37,7 +37,7 @@ delete(Path, Auth) ->
 
 put(Path, Auth, Body) ->
     case httpc:request(put, json_request(Path, Auth, Body)
-                      ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}]
+                      ,[{ssl, rebar_api:ssl_opts(rebar3_hex_config:api_url())}]
                       ,[{body_format, binary}]
                       ,hex) of
         {ok, {{_, Status, _}, _, _}} when Status >= 200, Status =< 299  ->
@@ -48,7 +48,7 @@ put(Path, Auth, Body) ->
 
 post_json(Path, Auth, Body) ->
     case httpc:request(post, json_request(Path, Auth, Body)
-                      ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}]
+                      ,[{ssl, rebar_api:ssl_opts(rebar3_hex_config:api_url())}]
                       ,[{body_format, binary}]
                       ,hex) of
         {ok, {{_, Status, _}, _, RespBody}} when Status >= 200, Status =< 299 ->
@@ -69,7 +69,7 @@ post(Path, Auth, Tar, Size) ->
            end,
 
     case httpc:request(post, file_request(Path, Auth, Body, Size)
-                      ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}]
+                      ,[{ssl, rebar_api:ssl_opts(rebar3_hex_config:api_url())}]
                       ,[{body_format, binary}]
                       ,hex) of
         {ok, {{_, Status, _}, _, _RespBody}} when Status >= 200, Status =< 299 ->
@@ -97,13 +97,6 @@ file_request(Path, Auth, Body, ContentLength) ->
      ,{"content-length", ContentLength}]
     ,"application/octet-stream", {Body, 0}}.
 
-ssl_opts(Url) ->
-    {ok, {_, _, Hostname, _, _, _}} = http_uri:parse(ec_cnv:to_list(Url)),
-    VerifyFun = {fun ssl_verify_hostname:verify_fun/3, [{check_hostname, Hostname}]},
-    CACerts = cacerts(),
-    [{verify, verify_peer}, {depth, 2}, {cacerts, CACerts}
-    ,{partial_chain, fun partial_chain/1}, {verify_fun, VerifyFun}].
-
 maybe_setup_proxy() ->
     maybe_setup_proxy(https_proxy, rebar3_hex_config:https_proxy()),
     maybe_setup_proxy(proxy, rebar3_hex_config:http_proxy()).
@@ -113,32 +106,6 @@ maybe_setup_proxy(_, []) ->
 maybe_setup_proxy(Scheme, Proxy) ->
     {ok, {_, _, Host, Port, _, _}} = http_uri:parse(Proxy),
     httpc:set_options([{Scheme, {{Host, Port}, []}}], hex).
-
-partial_chain(Certs) ->
-    Certs = [{Cert, public_key:pkix_decode_cert(Cert, otp)} || Cert <- Certs],
-    CACerts = cacerts(),
-    CACerts1 = [public_key:pkix_decode_cert(Cert, otp) || Cert <- CACerts],
-
-    case ec_lists:find(fun({_, Cert}) ->
-                              check_cert(CACerts1, Cert)
-                       end, Certs) of
-        {ok, Trusted} ->
-            {trusted_ca, element(1, Trusted)};
-        _ ->
-            unknown_ca
-    end.
-
-extract_public_key_info(Cert) ->
-    ((Cert#'OTPCertificate'.tbsCertificate)#'OTPTBSCertificate'.subjectPublicKeyInfo).
-
-cacerts() ->
-    Pems = public_key:pem_decode(rebar3_hex_cacerts:cacerts()),
-    [Der || {'Certificate', Der, _} <- Pems].
-
-check_cert(CACerts, Cert) ->
-    lists:any(fun(CACert) ->
-                      extract_public_key_info(CACert) == extract_public_key_info(Cert)
-              end, CACerts).
 
 encode(Term) ->
     quote_plus(Term).
