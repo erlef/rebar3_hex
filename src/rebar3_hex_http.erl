@@ -15,7 +15,7 @@
 
 get(Path, Auth) ->
     case httpc:request(get, request(Path, Auth)
-                      ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}]
+                      ,[{ssl, [ssl_opts(rebar3_hex_config:api_url())]}, {relaxed, true}]
                       ,[{body_format, binary}]
                       ,hex) of
         {ok, {{_, 200, _}, _, RespBody}} ->
@@ -119,31 +119,25 @@ partial_chain(Certs) ->
     CACerts = cacerts(),
     CACerts1 = [public_key:pkix_decode_cert(Cert, otp) || Cert <- CACerts],
 
-    case ec_lists:find(fun({Der, Cert}) ->
-                              check_cert(CACerts1, Der, Cert)
+    case ec_lists:find(fun({_, Cert}) ->
+                              check_cert(CACerts1, Cert)
                        end, Certs) of
         {ok, Trusted} ->
-            {trusted_ca, Trusted};
+            {trusted_ca, element(1, Trusted)};
         _ ->
             unknown_ca
     end.
 
-extract_key(Cert) ->
-    ((Cert#'OTPCertificate'.tbsCertificate)#'OTPTBSCertificate'.subjectPublicKeyInfo)#'OTPSubjectPublicKeyInfo'.subjectPublicKey.
+extract_public_key_info(Cert) ->
+    ((Cert#'OTPCertificate'.tbsCertificate)#'OTPTBSCertificate'.subjectPublicKeyInfo).
 
 cacerts() ->
     Pems = public_key:pem_decode(rebar3_hex_cacerts:cacerts()),
     [Der || {'Certificate', Der, _} <- Pems].
 
-check_cert(CACerts, Der, Cert) ->
+check_cert(CACerts, Cert) ->
     lists:any(fun(CACert) ->
-                      case public_key:pkix_is_issuer(Cert, CACert) of
-                          true ->
-                              Key = extract_key(CACert),
-                              public_key:pkix_verify(Der, Key);
-                          _ ->
-                              false
-                      end
+                      extract_public_key_info(CACert) == extract_public_key_info(Cert)
               end, CACerts).
 
 encode(Term) ->
