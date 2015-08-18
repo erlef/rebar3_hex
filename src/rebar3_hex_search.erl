@@ -32,12 +32,14 @@ do(State) ->
         {ok, Registry} ->
             {Args, _} = rebar_state:command_parsed_args(State),
             Term = proplists:get_value(term, Args, undefined),
-            ets:foldl(fun({Name, _}, ok) when is_binary(Name) ->
+            ets:foldl(fun({Name, [Vsns]}, ok) when is_binary(Name) ->
                               case string:str(binary_to_list(Name), Term) of
                                   0 ->
                                       ok;
                                   N when N >= 0 ->
-                                      io:format("~s~n", [Name])
+                                      Vsns1 = [binary_to_list(Vsn) || Vsn <- Vsns],
+                                      Vsns2 = string:join(Vsns1, ", "),
+                                      io:format("~s: ~s~n", [Name, Vsns2])
                               end;
                          (_, ok) ->
                               ok
