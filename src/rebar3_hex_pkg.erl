@@ -113,21 +113,16 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     MetaString = [{<<"meta">>, rebar3_hex_utils:binarify(Meta)}],
     {ok, Auth} = rebar3_hex_config:auth(),
 
-    case create_package(Auth, Name, MetaString) of
-        ok ->
-            ec_talk:say("Publishing ~s ~s", [Name, Version]),
-            ec_talk:say("  Dependencies:~n    ~s", [format_deps(Deps)]),
-            ec_talk:say("  Excluded dependencies (not part of the Hex package):~n    ~s", [string:join(Excluded, "\n    ")]),
-            ec_talk:say("  Included files:~n    ~s", [string:join(Files, "\n    ")]),
-            case ec_talk:ask_default("Proceed?", boolean, "Y") of
-                true ->
-                    upload_package(Auth, Name, Version, Meta, Files);
-                _ ->
-                    ec_talk:say("Goodbye..."),
-                    ok
-            end;
-        {error, Error} ->
-            ?PRV_ERROR(Error)
+    ec_talk:say("Publishing ~s ~s", [Name, Version]),
+    ec_talk:say("  Dependencies:~n    ~s", [format_deps(Deps)]),
+    ec_talk:say("  Excluded dependencies (not part of the Hex package):~n    ~s", [string:join(Excluded, "\n    ")]),
+    ec_talk:say("  Included files:~n    ~s", [string:join(Files, "\n    ")]),
+    case ec_talk:ask_default("Proceed?", boolean, "Y") of
+        true ->
+            upload_package(Auth, Name, Version, Meta, Files);
+        _ ->
+            ec_talk:say("Goodbye..."),
+            ok
     end.
 
 %% Internal functions
@@ -141,9 +136,6 @@ delete(Name, Version) ->
         {error, _} ->
             rebar_api:error("Unable to delete package ~s ~s", [Name, Version])
     end.
-
-create_package(Auth, Name, MetaString) ->
-    rebar3_hex_http:put(filename:join([?ENDPOINT, Name]), Auth, MetaString).
 
 upload_package(Auth, Name, Version, Meta, Files) ->
     {ok, Tar} = rebar3_hex_tar:create(Name, Version, Meta, Files),
