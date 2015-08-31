@@ -30,6 +30,8 @@ create(Name, Version, Meta, Files) ->
     Tar.
 
 encode_term(Meta) ->
-    Term = io_lib_pretty:print(rebar3_hex_utils:binarify(X), [{encoding, utf8}]),
-    Data = [unicode:characters_to_binary([Term, ".\n"]) || X <- Meta],
+    Data = lists:map(fun(MetaPair) ->
+        String = io_lib_pretty:print(rebar3_hex_utils:binarify(MetaPair), [{encoding, utf8}]),
+        unicode:characters_to_binary([String, ".\n"])
+    end, Meta),
     iolist_to_binary(Data).
