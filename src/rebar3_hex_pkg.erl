@@ -107,10 +107,8 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
                ,{links, Links}
                ,{build_tools, [<<"rebar">>]}],
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
-
     Meta = [{name, Name}, {version, Version} | OptionalFiltered],
 
-    MetaString = [{<<"meta">>, rebar3_hex_utils:binarify(Meta)}],
     {ok, Auth} = rebar3_hex_config:auth(),
 
     ec_talk:say("Publishing ~s ~s", [Name, Version]),
