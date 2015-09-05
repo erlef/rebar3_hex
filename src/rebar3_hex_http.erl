@@ -6,7 +6,8 @@
         ,post_json/3
         ,post/4
         ,encode/1
-        ,maybe_setup_proxy/0]).
+        ,maybe_setup_proxy/0
+        ,user_agent/0]).
 
 -include("rebar3_hex.hrl").
 -include_lib("public_key/include/OTP-PUB-KEY.hrl").
@@ -84,17 +85,17 @@ post(Path, Auth, Tar, Size) ->
 
 request(Path, Auth) ->
     {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ ec_cnv:to_list(filename:join(?ENDPOINT, Path))
-    ,[{"authorization",  ec_cnv:to_list(Auth)}]}.
+    ,[{"authorization",  ec_cnv:to_list(Auth)}, {"user-agent", user_agent()}]}.
 
 json_request(Path, Auth, Body) ->
     {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ ec_cnv:to_list(filename:join(?ENDPOINT, Path))
-    ,[{"authorization",  ec_cnv:to_list(Auth)}]
+    ,[{"authorization",  ec_cnv:to_list(Auth)}, {"user-agent", user_agent()}]
     ,"application/json", jsx:encode(Body)}.
 
 file_request(Path, Auth, Body, ContentLength) ->
     {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ ec_cnv:to_list(filename:join(?ENDPOINT, Path))
     ,[{"authorization", ec_cnv:to_list(Auth)}
-     ,{"content-length", ContentLength}]
+     ,{"content-length", ContentLength}, {"user-agent", user_agent()}]
     ,"application/octet-stream", {Body, 0}}.
 
 maybe_setup_proxy() ->
@@ -142,3 +143,11 @@ quote_plus([$\s | Rest], Acc) ->
 quote_plus([C | Rest], Acc) ->
     <<Hi:4, Lo:4>> = <<C>>,
     quote_plus(Rest, [hexdigit(Lo), hexdigit(Hi), ?PERCENT | Acc]).
+
+user_agent() ->
+    application:load(rebar3_hex),
+    {ok, RebarVsn} = application:get_key(rebar, vsn),
+    {ok, RebarHexVsn} = application:get_key(rebar3_hex, vsn),
+    io_lib:format("rebar3_hex/~s (rebar3/~s Erlang/~s)", [RebarHexVsn
+                                                         ,RebarVsn
+                                                         ,rebar_utils:otp_release()]).

@@ -105,7 +105,7 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
                ,{files, Files}
                ,{licenses, Licenses}
                ,{links, Links}
-               ,{build_tools, [<<"rebar">>]}],
+               ,{build_tools, [<<"rebar3">>]}],
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
     Meta = [{name, Name}, {version, Version} | OptionalFiltered],
 
