@@ -7,7 +7,7 @@ Providers for interacting with the Erlang package manager [hex.pm](https://hex.p
 Usage
 ------
 
-Add to your projects `rebar.config`:
+Add to your global rebar3 config in `~/.config/rebar3/rebar.config`:
 
 ```erlang
 {plugins, [rebar3_hex]}.
