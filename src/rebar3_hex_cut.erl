@@ -88,7 +88,7 @@ do_(Type, App, State) ->
                     case ec_talk:ask_default("Push new tag to origin?", boolean, "Y") of
                         true ->
                             rebar_api:info("Pushing new tag v~s...", [NewVersion]),
-                            rebar_utils:sh(io_lib:format("git push origin ~s", [NewVersion]), []),
+                            rebar_utils:sh(io_lib:format("git push origin v~s", [NewVersion]), []),
                             {ok, State1};
                         false ->
                             {ok, State1}
