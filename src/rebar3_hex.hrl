@@ -1,6 +1,6 @@
 -define(VERSION, <<"3">>).
 
--define(DEFAULT_FILES, ["src", "c_src", "include"
+-define(DEFAULT_FILES, ["src", "c_src", "include", "rebar.config.script"
                        ,"priv", "rebar.config", "rebar.lock"
                        ,"README*", "readme*"
                        ,"LICENSE*", "license*"]).

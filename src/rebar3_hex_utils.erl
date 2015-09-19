@@ -1,11 +1,21 @@
 -module(rebar3_hex_utils).
 
--export([select_apps/1
+-export([update_app_src/2
+        ,select_apps/1
         ,hex_home/0
         ,binarify/1
         ,expand_paths/2]).
 
 -define(DEFAULT_HEX_DIR, ".hex").
+
+update_app_src(App, Version) ->
+    AppSrcFile = rebar_app_info:app_file_src(App),
+    AppSrc = rebar_file_utils:try_consult(AppSrcFile),
+    [{application, Name, Details}] = AppSrc,
+
+    NewDetails = lists:keyreplace(vsn, 1, Details, {vsn, ec_cnv:to_list(Version)}),
+
+    {application, Name, NewDetails}.
 
 select_apps([App]) ->
     [App];

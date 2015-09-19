@@ -77,11 +77,16 @@ publish(App, State) ->
     Name = rebar_app_info:name(App),
 
     Version = rebar_app_info:original_vsn(App),
+    ResolvedVersion = rebar_utils:vcs_vsn(Version,
+                                          rebar_app_info:dir(App),
+                                          rebar_state:resources(State)),
+    {application, _, AppDetails} = rebar3_hex_utils:update_app_src(App, ResolvedVersion),
+
     Deps = rebar_state:get(State, {locks, default}, []),
     TopLevel = [{N, V} || {_,{pkg,N,V},0} <- Deps],
     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
-    AppDetails = rebar_app_info:app_details(App),
-    case publish(AppDir, Name, Version, TopLevel, Excluded, AppDetails) of
+
+    case publish(AppDir, Name, ResolvedVersion, TopLevel, Excluded, AppDetails) of
         ok ->
             {ok, State};
         Error ->
@@ -91,7 +96,13 @@ publish(App, State) ->
 publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
     FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
+    AppSrc = [{application, ec_cnv:to_atom(Name), AppDetails}],
     Files = rebar3_hex_utils:expand_paths(FilePaths, AppDir),
+
+    AppFileSrc = filename:join("src", ec_cnv:to_list(Name)++".app.src"),
+    AppSrcBinary = ec_cnv:to_binary(lists:flatten(io_lib:format("~p", [AppSrc]))),
+    Files1 = [{AppFileSrc, AppSrcBinary} | lists:delete(AppFileSrc, Files)],
+
     Contributors = proplists:get_value(contributors, AppDetails, []),
     Licenses = proplists:get_value(licenses, AppDetails, []),
     Links = proplists:get_value(links, AppDetails, []),
@@ -102,7 +113,7 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
                ,{precompiled, false}
                ,{parameters, []}
                ,{description, Description}
-               ,{files, Files}
+               ,{files, Files1}
                ,{licenses, Licenses}
                ,{links, Links}
                ,{build_tools, [<<"rebar3">>]}],
@@ -110,14 +121,13 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     Meta = [{name, Name}, {version, Version} | OptionalFiltered],
 
     {ok, Auth} = rebar3_hex_config:auth(),
-
     ec_talk:say("Publishing ~s ~s", [Name, Version]),
     ec_talk:say("  Dependencies:~n    ~s", [format_deps(Deps)]),
     ec_talk:say("  Excluded dependencies (not part of the Hex package):~n    ~s", [string:join(Excluded, "\n    ")]),
     ec_talk:say("  Included files:~n    ~s", [string:join(Files, "\n    ")]),
     case ec_talk:ask_default("Proceed?", boolean, "Y") of
         true ->
-            upload_package(Auth, Name, Version, Meta, Files);
+            upload_package(Auth, Name, Version, Meta, Files1);
         _ ->
             ec_talk:say("Goodbye..."),
             ok
