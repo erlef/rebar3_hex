@@ -87,8 +87,8 @@ delete(Name, Version) ->
         ok ->
             rebar_api:info("Successfully deleted docs for ~s ~s", [Name, Version]),
             ok;
-        {error, _} ->
-            rebar_api:error("Unable to delete docs ~s ~s", [Name, Version])
+        {error, Status, _} ->
+            rebar_api:error("Unable to delete docs ~s ~s (~p)", [Name, Version, Status])
     end.
 
 file_list(Files) ->

@@ -43,8 +43,8 @@ put(Path, Auth, Body) ->
                       ,hex) of
         {ok, {{_, Status, _}, _, _}} when Status >= 200, Status =< 299  ->
             ok;
-        {ok, {{_, _, _}, _, RespBody}} ->
-            {error, RespBody}
+        {ok, {{_, Status, _}, _, RespBody}} ->
+            {error, Status, RespBody}
     end.
 
 post_json(Path, Auth, Body) ->
@@ -55,9 +55,9 @@ post_json(Path, Auth, Body) ->
         {ok, {{_, Status, _}, _, RespBody}} when Status >= 200, Status =< 299 ->
             {ok, jsx:decode(RespBody)};
         {ok, {{_, Status, _}, _, _}} when Status >= 500->
-            {error, undefined_server_error};
-        {ok, {{_, _, _}, _, RespBody}} ->
-            {error, RespBody}
+            {error, Status, undefined_server_error};
+        {ok, {{_, Status, _}, _, RespBody}} ->
+            {error, Status, RespBody}
     end.
 
 post(Path, Auth, Tar, Size) ->
@@ -76,7 +76,7 @@ post(Path, Auth, Tar, Size) ->
         {ok, {{_, Status, _}, _, _RespBody}} when Status >= 200, Status =< 299 ->
             ok;
         {ok, {{_, Status, _}, _RespHeaders, _RespBodyJson}} when Status >= 500->
-            {error, undefined_server_error};
+            {error, Status, undefined_server_error};
         {ok, {{_, Status, _}, _RespHeaders, RespBodyJson}} ->
             {error, Status, jsx:decode(RespBodyJson)}
     end.

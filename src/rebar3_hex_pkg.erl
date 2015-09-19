@@ -148,8 +148,8 @@ delete(Name, Version) ->
                 _ ->
                     ok
             end;
-        {error, _} ->
-            rebar_api:error("Unable to delete package ~s ~s", [Name, Version])
+        {error, Status, _} ->
+            rebar_api:error("Unable to delete package ~s ~s (~p)", [Name, Version, Status])
     end.
 
 upload_package(Auth, Name, Version, Meta, Files) ->

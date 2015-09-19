@@ -57,8 +57,8 @@ add(Package, Email) ->
     case rebar3_hex_http:put(Path, [Auth], []) of
         ok ->
             ec_talk:say("Added ~s to ~s", [Email, Package]);
-        {error, Error} ->
-            rebar_api:error("Unable to remove package ~p, ~p", [Package, Error])
+        {error, Status, Error} ->
+            rebar_api:error("Unable to remove package ~p, ~p (~p)", [Package, Error, Status])
     end.
 
 remove(Package, Email) ->
@@ -67,8 +67,8 @@ remove(Package, Email) ->
     case rebar3_hex_http:delete(Path, [Auth]) of
         ok ->
             ec_talk:say("Removed ~s from ~s", [Email, Package]);
-        {error, _} ->
-            rebar_api:error("Unable to remove package ~p", [Package])
+        {error, Status, _} ->
+            rebar_api:error("Unable to remove package ~p (~p)", [Package, Status])
     end.
 
 list(Package) ->

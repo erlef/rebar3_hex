@@ -138,8 +138,8 @@ create_user(Username, Email, Password) ->
         generate_key(Username, Password),
         ec_talk:say("You are required to confirm your email to access your account, "
                     "a confirmation email has been sent to ~s", [Email]);
-      _ ->
-        ec_talk:say("Registration of user ~s failed", [Username]),
+      {error, StatusCode, _} ->
+        ec_talk:say("Registration of user ~s failed (~p)", [Username, StatusCode]),
         error
     end.
 
@@ -150,8 +150,8 @@ generate_key(Username, Password) ->
     case new_key(list_to_binary(Name), Username, Password) of
         {ok, Body} ->
             update_config(Username, Body);
-        {error, Body} ->
-            ec_talk:say("Generation of API key failed.", []),
+        {error, StatusCode, Body} ->
+            ec_talk:say("Generation of API key failed (~p)", [StatusCode]),
             {error, Body}
     end.
 
