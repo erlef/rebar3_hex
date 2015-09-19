@@ -98,7 +98,7 @@ publish(App, State) ->
 publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
     FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
-    AppSrc = [{application, ec_cnv:to_atom(Name), AppDetails}],
+    AppSrc = {application, ec_cnv:to_atom(Name), AppDetails},
     Files = rebar3_hex_utils:expand_paths(FilePaths, AppDir),
 
     AppFileSrc = filename:join("src", ec_cnv:to_list(Name)++".app.src"),
