@@ -140,7 +140,12 @@ delete(Name, Version) ->
     case rebar3_hex_http:delete(filename:join([?ENDPOINT, Name, "releases", Version]), Auth) of
         ok ->
             rebar_api:info("Successfully deleted package ~s ~s", [Name, Version]),
-            ok;
+            case ec_talk:ask_default(io_lib:format("Also delete tag v~s?", [Version]), boolean, "N") of
+                true ->
+                    rebar_utils:sh(io_lib:format("git tag -d v~s", [Version]), []);
+                _ ->
+                    ok
+            end;
         {error, _} ->
             rebar_api:error("Unable to delete package ~s ~s", [Name, Version])
     end.
