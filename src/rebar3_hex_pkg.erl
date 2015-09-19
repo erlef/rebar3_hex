@@ -127,6 +127,7 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     ec_talk:say("  Dependencies:~n    ~s", [format_deps(Deps)]),
     ec_talk:say("  Excluded dependencies (not part of the Hex package):~n    ~s", [string:join(Excluded, "\n    ")]),
     ec_talk:say("  Included files:~n    ~s", [string:join(Files, "\n    ")]),
+    ec_talk:say("Before publishing, please read Hex CoC: https://hex.pm/docs/codeofconduct", []),
     case ec_talk:ask_default("Proceed?", boolean, "Y") of
         true ->
             upload_package(Auth, Name, Version, Meta, Files1);
