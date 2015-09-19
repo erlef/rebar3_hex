@@ -84,14 +84,16 @@ do_(Type, App, State) ->
             rebar_api:info("Creating new tag v~s...", [NewVersion]),
             rebar_utils:sh(io_lib:format("git tag v~s", [NewVersion]), []),
             case rebar3_hex_pkg:publish(rebar_app_info:original_vsn(App, NewVersion), State) of
-                {ok, State1} ->
+                stopped ->
+                    {ok, State};
+                ok ->
                     case ec_talk:ask_default("Push new tag to origin?", boolean, "Y") of
                         true ->
                             rebar_api:info("Pushing new tag v~s...", [NewVersion]),
                             rebar_utils:sh(io_lib:format("git push origin v~s", [NewVersion]), []),
-                            {ok, State1};
+                            {ok, State};
                         false ->
-                            {ok, State1}
+                            {ok, State}
                     end;
                 Error ->
                     rebar_api:info("Deleting new tag v~s...", [NewVersion]),

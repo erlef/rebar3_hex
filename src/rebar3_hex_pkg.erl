@@ -62,7 +62,14 @@ do_(App, State) ->
     Revert = proplists:get_value(revert, Args, undefined),
     case Revert of
         undefined ->
-            publish(App, State);
+            case publish(App, State) of
+                ok ->
+                    {ok, State};
+                stopped ->
+                    {ok, State};
+                Error ->
+                    Error
+            end;
         Version ->
             case delete(Name, Version) of
                 ok ->
@@ -86,12 +93,7 @@ publish(App, State) ->
     TopLevel = [{N, V} || {_,{pkg,N,V},0} <- Deps],
     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
 
-    case publish(AppDir, Name, ResolvedVersion, TopLevel, Excluded, AppDetails) of
-        ok ->
-            {ok, State};
-        Error ->
-            Error
-    end.
+    publish(AppDir, Name, ResolvedVersion, TopLevel, Excluded, AppDetails).
 
 publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
@@ -130,7 +132,7 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
             upload_package(Auth, Name, Version, Meta, Files1);
         _ ->
             ec_talk:say("Goodbye..."),
-            ok
+            stopped
     end.
 
 %% Internal functions
