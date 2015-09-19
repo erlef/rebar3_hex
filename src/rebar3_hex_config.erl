@@ -73,6 +73,8 @@ do(State) ->
     {ok, State}.
 
 -spec format_error(any()) -> iolist().
+format_error(no_user) ->
+    "No user registered. See https://hex.pm/docs/rebar3_publish for instructions.";
 format_error(Reason) ->
     io_lib:format("~p", [Reason]).
 
@@ -107,7 +109,7 @@ auth() ->
         {key, Key} ->
             {ok, Key};
         _ ->
-            error
+            throw({error, {?MODULE, no_user}})
     end.
 
 update(NewConfig) ->
