@@ -91,7 +91,7 @@ get_increment(Version) ->
     ec_talk:say("4) other", []),
     case ec_talk:ask("[1-4] ", number) of
         4 ->
-            ec_talk:ask("New Versions ", []);
+            ec_talk:ask("New Version ", string);
         Type ->
             int_to_bump(Type)
     end.
