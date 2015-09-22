@@ -93,7 +93,12 @@ publish(App, State) ->
     TopLevel = [{N, V} || {_,{pkg,N,V},0} <- Deps],
     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
 
-    publish(AppDir, Name, ResolvedVersion, TopLevel, Excluded, AppDetails).
+    case validate_app_details(AppDetails) of
+        true ->
+            publish(AppDir, Name, ResolvedVersion, TopLevel, Excluded, AppDetails);
+        false ->
+            error
+    end.
 
 publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
@@ -105,13 +110,13 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     AppSrcBinary = ec_cnv:to_binary(lists:flatten(io_lib:format("~p.\n", [AppSrc]))),
     Files1 = [{AppFileSrc, AppSrcBinary} | lists:delete(AppFileSrc, Files)],
 
-    Contributors = proplists:get_value(contributors, AppDetails, []),
+    Maintainers = proplists:get_value(maintainers, AppDetails, []),
     Licenses = proplists:get_value(licenses, AppDetails, []),
     Links = proplists:get_value(links, AppDetails, []),
 
     Optional = [{app, Name}
                ,{requirements, Deps}
-               ,{contributors, Contributors}
+               ,{maintainers, Maintainers}
                ,{precompiled, false}
                ,{parameters, []}
                ,{description, Description}
@@ -137,6 +142,15 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     end.
 
 %% Internal functions
+
+validate_app_details(AppDetails) ->
+    case proplists:is_defined(contributors, AppDetails) of
+        true ->
+            rebar_api:error("The contributors field is deprecated, change to maintainers"),
+            true;
+        false ->
+            false
+    end.
 
 delete(Name, Version) ->
     {ok, Auth} = rebar3_hex_config:auth(),
