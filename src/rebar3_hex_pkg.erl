@@ -42,6 +42,8 @@ do(State) ->
                 end, {ok, State}, Apps).
 
 -spec format_error(any()) -> iolist().
+format_error(has_contributors) ->
+    "The contributors field is deprecated, please change to maintainers and rerun.";
 format_error(undefined_server_error) ->
     "Unknown server error";
 format_error(Error) ->
@@ -94,10 +96,10 @@ publish(App, State) ->
     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
 
     case validate_app_details(AppDetails) of
-        true ->
+        ok ->
             publish(AppDir, Name, ResolvedVersion, TopLevel, Excluded, AppDetails);
-        false ->
-            error
+        Error ->
+            Error
     end.
 
 publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
@@ -146,10 +148,9 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
 validate_app_details(AppDetails) ->
     case proplists:is_defined(contributors, AppDetails) of
         true ->
-            rebar_api:error("The contributors field is deprecated, change to maintainers"),
-            true;
+            {error, {rebar3_hex_pkg, has_contributors}};
         false ->
-            false
+            ok
     end.
 
 delete(Name, Version) ->
