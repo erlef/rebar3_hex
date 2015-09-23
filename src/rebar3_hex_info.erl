@@ -58,8 +58,12 @@ package(Package) ->
             ec_talk:say("  Releases: ~s", [string:join([binary_to_list(proplists:get_value(<<"version">>, X)) || X <- Releases], ", ")]),
             Meta = proplists:get_value(<<"meta">>, Json, []),
 
+            % Remove this when Hex no longer supports contributors
             Contributors = proplists:get_value(<<"contributors">>, Meta, []),
             ec_talk:say("  Contributors: ~s", [join(Contributors)]),
+
+            Maintainers = proplists:get_value(<<"maintainers">>, Meta, []),
+            ec_talk:say("  Maintainers: ~s", [join(Maintainers)]),
 
             Licenses = proplists:get_value(<<"licenses">>, Meta, []),
             ec_talk:say("  Licenses: ~s", [join(Licenses)]),
