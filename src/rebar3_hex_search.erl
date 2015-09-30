@@ -28,27 +28,23 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    case rebar_packages:registry(State) of
-        {ok, Registry} ->
-            {Args, _} = rebar_state:command_parsed_args(State),
-            Term = proplists:get_value(term, Args, undefined),
-            ets:foldl(fun({Name, [Vsns]}, ok) when is_binary(Name) ->
-                              case string:str(binary_to_list(Name), Term) of
-                                  0 ->
-                                      ok;
-                                  N when N >= 0 ->
-                                      Vsns1 = [binary_to_list(Vsn) || Vsn <- Vsns],
-                                      Vsns2 = string:join(Vsns1, ", "),
-                                      io:format("~s: ~s~n", [Name, Vsns2])
-                              end;
-                         (_, ok) ->
-                              ok
-                      end, ok, Registry),
-            {ok, State};
-        error ->
-            ?PRV_ERROR(load_registry_fail)
-    end.
+    rebar_packages:packages(State),
+    {Args, _} = rebar_state:command_parsed_args(State),
+    Term = proplists:get_value(term, Args, undefined),
+    ets:foldl(fun({Name, Vsns}, ok) when is_binary(Name) ->
+                      case string:str(binary_to_list(Name), Term) of
+                          0 ->
+                              ok;
+                          N when N >= 0 ->
+                              Vsns1 = [binary_to_list(Vsn) || Vsn <- Vsns],
+                              Vsns2 = string:join(Vsns1, ", "),
+                              io:format("~s: ~s~n", [Name, Vsns2])
+                      end;
+                 (_, ok) ->
+                      ok
+              end, ok, package_index),
+    {ok, State}.
 
 -spec format_error(any()) -> iolist().
-format_error(load_registry_fail) ->
-    "Failed to load package regsitry. Try running 'rebar3 update' to fix".
+format_error(Reason) ->
+    io_lib:format("~p", [Reason]).
