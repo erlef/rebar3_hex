@@ -54,8 +54,7 @@ do_(App, State) ->
             Vsn = rebar_app_info:original_vsn(App),
 
             Tarball = Name++"-"++Vsn++"-docs.tar.gz",
-
-            ok = erl_tar:create(Tarball, file_list(Files)),
+            ok = erl_tar:create(Tarball, file_list(Files), [compressed]),
             {ok, Tar} = file:read_file(Tarball),
 
             file:delete(Tarball),
