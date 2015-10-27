@@ -6,6 +6,7 @@
         ,post_json/3
         ,post/4
         ,encode/1
+        ,pretty_print_status/1
         ,maybe_setup_proxy/0
         ,user_agent/0]).
 
@@ -78,8 +79,14 @@ post(Path, Auth, Tar, Size) ->
         {ok, {{_, Status, _}, _RespHeaders, _RespBodyJson}} when Status >= 500->
             {error, Status, undefined_server_error};
         {ok, {{_, Status, _}, _RespHeaders, RespBodyJson}} ->
-            {error, Status, jsx:decode(RespBodyJson)}
+            {error, Status, RespBodyJson}
     end.
+
+pretty_print_status(401) -> "Authentication failed (401)";
+pretty_print_status(403) -> "Forbidden (403)";
+pretty_print_status(404) -> "Entity not found (404)";
+pretty_print_status(422) -> "Validation failed (422)";
+pretty_print_status(Code) -> io_lib:format("HTTP status code: ~p", [Code]).
 
 %% Internal Functions
 

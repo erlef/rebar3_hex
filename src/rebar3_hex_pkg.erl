@@ -46,12 +46,15 @@ format_error(has_contributors) ->
     "The contributors field is deprecated, please change to maintainers and rerun.";
 format_error(undefined_server_error) ->
     "Unknown server error";
-format_error(Error) ->
+format_error({status, Status}) ->
+    rebar3_hex_http:pretty_print_status(Status);
+format_error({status, Status, Error}) ->
     Message = proplists:get_value(<<"message">>, Error, ""),
     Errors = proplists:get_value(<<"errors">>, Error, ""),
     ErrorString = errors_to_string(Errors),
 
-    io_lib:format("Hex Error: ~s~n\t~s", [Message, ErrorString]).
+    io_lib:format("Status Code: ~s~nHex Error: ~s~n\t~s", [rebar3_hex_http:pretty_print_status(Status),
+                                                           Message, ErrorString]).
 
 %% ===================================================================
 %% Public API
@@ -177,8 +180,10 @@ upload_package(Auth, Name, Version, Meta, Files) ->
         ok ->
             rebar_api:info("Published ~s ~s", [Name, Version]),
             ok;
-        {error, _, Error} ->
-            ?PRV_ERROR(Error)
+        {error, Status, <<>>} ->
+            ?PRV_ERROR({status, Status});
+        {error, Status, Error} ->
+            ?PRV_ERROR({status, Status, jsx:decode(Error)})
     end.
 
 errors_to_string(Value) when is_binary(Value) ->

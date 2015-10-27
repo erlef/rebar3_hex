@@ -94,8 +94,8 @@ deauth() ->
     Config = rebar3_hex_config:read(),
     rebar3_hex_config:write(lists:keydelete(username, 1, lists:keydelete(key, 1, Config))),
     ec_talk:say("User `~s` removed from the local machine. "
-               "To authenticate again, run `rebar3 hex.user auth` "
-               "or create a new user with `rebar3 hex.user register`", [Username]).
+               "To authenticate again, run `rebar3 hex user auth` "
+               "or create a new user with `rebar3 hex user register`", [Username]).
 
 reset_password() ->
     User = ec_talk:ask_default("Username or Email:", string, ""),
