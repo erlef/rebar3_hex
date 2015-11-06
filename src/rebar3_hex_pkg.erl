@@ -76,7 +76,7 @@ do_(App, State) ->
                     Error
             end;
         Version ->
-            case delete(Name, Version) of
+            case delete(App, Name, Version) of
                 ok ->
                     {ok, State};
                 Error ->
@@ -157,11 +157,13 @@ validate_app_details(AppDetails) ->
             ok
     end.
 
-delete(Name, Version) ->
+delete(App, Name, Version) ->
     {ok, Auth} = rebar3_hex_config:auth(),
-    case rebar3_hex_http:delete(filename:join([?ENDPOINT, Name, "releases", Version]), Auth) of
+    {application, _, AppDetails} = rebar3_hex_utils:update_app_src(App, Version),
+    PkgName = ec_cnv:to_binary(proplists:get_value(pkg_name, AppDetails, Name)),
+    case rebar3_hex_http:delete(filename:join([?ENDPOINT, PkgName, "releases", Version]), Auth) of
         ok ->
-            rebar_api:info("Successfully deleted package ~s ~s", [Name, Version]),
+            rebar_api:info("Successfully deleted package ~s ~s", [PkgName, Version]),
             case ec_talk:ask_default(io_lib:format("Also delete tag v~s?", [Version]), boolean, "N") of
                 true ->
                     rebar_utils:sh(io_lib:format("git tag -d v~s", [Version]), []);
@@ -169,7 +171,7 @@ delete(Name, Version) ->
                     ok
             end;
         {error, Status, _} ->
-            rebar_api:error("Unable to delete package ~s ~s (~p)", [Name, Version, Status])
+            rebar_api:error("Unable to delete package ~s ~s (~p)", [PkgName, Version, Status])
     end.
 
 upload_package(Auth, Name, Version, Meta, Files) ->
