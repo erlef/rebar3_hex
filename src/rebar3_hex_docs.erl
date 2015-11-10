@@ -68,7 +68,7 @@ do_(App, State) ->
                     rebar_api:info("Published docs for ~s ~s", [Name, Vsn]),
                     {ok, State};
                 {error, _, Error} ->
-                    Message = proplists:get_value(<<"message">>, Error, <<"">>),
+                    Message = maps:get(<<"message">>, Error, <<"">>),
                     ?PRV_ERROR({error, Name, Vsn, Message})
             end;
         Version ->

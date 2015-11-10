@@ -74,8 +74,8 @@ remove(Package, Email) ->
 list(Package) ->
     {ok, Auth} = rebar3_hex_config:auth(),
     case rebar3_hex_http:get(filename:join([?ENDPOINT, Package, "owners"]), [Auth]) of
-        {ok, Json} ->
-            Owners = [binary_to_list(proplists:get_value(<<"email">>, Owner, <<"">>)) || Owner <- Json],
+        {ok, Map} ->
+            Owners = [binary_to_list(maps:get(<<"email">>, Owner, <<"">>)) || Owner <- Map],
             OwnersString = string:join(Owners, "\n"),
             ec_talk:say("~s", [OwnersString]);
         {error, 404} ->
