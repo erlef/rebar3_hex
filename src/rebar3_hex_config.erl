@@ -93,7 +93,12 @@ api_url() ->
     proplists:get_value(api_url, read(), ?DEFAULT_API_URL).
 
 cdn_url() ->
-    proplists:get_value(cdn_url, read(), ?DEFAULT_CDN_URL).
+    case os:getenv("HEX_CDN") of
+        false ->
+            proplists:get_value(cdn_url, read(), ?DEFAULT_CDN_URL);
+        CDN ->
+            CDN
+    end.
 
 username() ->
     proplists:get_value(username, read(), "").
