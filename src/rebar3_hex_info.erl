@@ -52,26 +52,26 @@ general() ->
 
 package(Package) ->
     case rebar3_hex_http:get(filename:join(?ENDPOINT, Package), []) of
-        {ok, Json} ->
+        {ok, Map} ->
             ec_talk:say("~s", [Package]),
-            Releases = proplists:get_value(<<"releases">>, Json, []),
-            ec_talk:say("  Releases: ~s", [string:join([binary_to_list(proplists:get_value(<<"version">>, X)) || X <- Releases], ", ")]),
-            Meta = proplists:get_value(<<"meta">>, Json, []),
+            Releases = maps:get(<<"releases">>, Map, []),
+            ec_talk:say("  Releases: ~s", [string:join([binary_to_list(maps:get(<<"version">>, X, [])) || X <- Releases], ", ")]),
+            Meta = maps:get(<<"meta">>, Map),
 
             % Remove this when Hex no longer supports contributors
-            Contributors = proplists:get_value(<<"contributors">>, Meta, []),
+            Contributors = maps:get(<<"contributors">>, Meta, []),
             ec_talk:say("  Contributors: ~s", [join(Contributors)]),
 
-            Maintainers = proplists:get_value(<<"maintainers">>, Meta, []),
+            Maintainers = maps:get(<<"maintainers">>, Meta, []),
             ec_talk:say("  Maintainers: ~s", [join(Maintainers)]),
 
-            Licenses = proplists:get_value(<<"licenses">>, Meta, []),
+            Licenses = maps:get(<<"licenses">>, Meta, []),
             ec_talk:say("  Licenses: ~s", [join(Licenses)]),
 
-            Links = proplists:get_value(<<"links">>, Meta, []),
+            Links = maps:to_list(maps:get(<<"links">>, Meta, [])),
             ec_talk:say("  Links:\n    ~s", [tup_list_join(Links)]),
 
-            Description = proplists:get_value(<<"description">>, Meta, []),
+            Description = maps:get(<<"description">>, Meta, []),
             ec_talk:say(Description, []);
         {error, 404} ->
             rebar_api:error("No package with name ~s", [Package]);
@@ -81,10 +81,9 @@ package(Package) ->
 
 release(Package, Version) ->
     case rebar3_hex_http:get(filename:join([?ENDPOINT, Package, "releases", Version]), []) of
-        {ok, Json} ->
+        {ok, Map} ->
             ec_talk:say("~s ~s", [Package, Version]),
-            Requirements = proplists:get_value(<<"requirements">>, Json, []),
-            ec_talk:say("  Dependencies:\n    ~s", [req_join(Requirements)]);
+            ec_talk:say("  Dependencies:\n    ~s", [req_join(Map)]);
         {error, 404} ->
             rebar_api:error("No package with name ~s", [Package]);
         _ ->
@@ -97,5 +96,6 @@ join(List) ->
 tup_list_join(List) ->
     string:join([binary_to_list(X)++": "++binary_to_list(Y) || {X, Y} <- List], "\n    ").
 
-req_join(List) ->
-    string:join([binary_to_list(X)++": "++binary_to_list(proplists:get_value(<<"requirement">>, Y)) || {X, Y} <- List], "\n    ").
+req_join(ReleaseMap) ->
+    string:join([binary_to_list(X)++": "++binary_to_list(maps:get(<<"requirement">>, maps:get(X, maps:get(<<"requirements">>, ReleaseMap)))) 
+	|| X <- maps:keys(maps:get(<<"requirements">>, ReleaseMap))],"\n    ").

@@ -41,8 +41,8 @@ do(State) ->
         ["list"] ->
             {ok, Auth} = rebar3_hex_config:auth(),
             case rebar3_hex_http:get(?ENDPOINT, Auth) of
-                {ok, Keys} ->
-                    [ec_talk:say("~s", [proplists:get_value(<<"name">>, X)]) || X <- Keys],
+                {ok, Keys} ->                 
+		    [ec_talk:say("~s", [maps:get(<<"name">>, X)]) || X <- Keys],
                     {ok, State};
                 {error, 401} ->
                     ?PRV_ERROR(401)

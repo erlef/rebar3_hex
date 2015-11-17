@@ -50,7 +50,7 @@ do(State) ->
             auth(),
             {ok, State};
         ["deauth"] ->
-            auth(),
+	    deauth(),
             {ok, State};
         ["reset_password"] ->
             reset_password(),
@@ -99,7 +99,7 @@ deauth() ->
 
 reset_password() ->
     User = ec_talk:ask_default("Username or Email:", string, ""),
-    rebar3_hex_http:post_json(filename:join([?ENDPOINT, User, "reset"]), [], []).
+    rebar3_hex_http:post_map(filename:join([?ENDPOINT, User, "reset"]), [], []).
 
 %% Internal functions
 
@@ -156,15 +156,15 @@ generate_key(Username, Password) ->
     end.
 
 new(Username, Email, Password) ->
-    rebar3_hex_http:post_json(?ENDPOINT, []
-                             ,[{<<"username">>, Username}
+    rebar3_hex_http:post_map(?ENDPOINT, []
+                             ,maps:from_list([{<<"username">>, Username}
                               ,{<<"email">>, Email}
-                              ,{<<"password">>, Password}]).
+                              ,{<<"password">>, Password}])).
 
 new_key(Name, Username, Password) ->
     Auth = base64:encode_to_string(<<Username/binary, ":", Password/binary>>),
-    rebar3_hex_http:post_json("keys", "Basic "++Auth, [{<<"name">>, Name}]).
+    rebar3_hex_http:post_map("keys", "Basic "++Auth, maps:from_list([{<<"name">>, Name}])).
 
 update_config(Username, Body)->
-    {<<"secret">>, Secret}  = lists:keyfind(<<"secret">>, 1, Body),
+    Secret = maps:get(<<"secret">>, Body),
     rebar3_hex_config:update([{username, Username}, {key, Secret}]).

@@ -49,8 +49,8 @@ format_error(undefined_server_error) ->
 format_error({status, Status}) ->
     rebar3_hex_http:pretty_print_status(Status);
 format_error({status, Status, Error}) ->
-    Message = proplists:get_value(<<"message">>, Error, ""),
-    Errors = proplists:get_value(<<"errors">>, Error, ""),
+    Message = maps:get(<<"message">>, Error, ""),
+    Errors = maps:get(<<"errors">>, Error, ""),
     ErrorString = errors_to_string(Errors),
 
     io_lib:format("Status Code: ~s~nHex Error: ~s~n\t~s", [rebar3_hex_http:pretty_print_status(Status),
@@ -106,7 +106,6 @@ publish(App, State) ->
     end.
 
 publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
-    PkgName = ec_cnv:to_binary(proplists:get_value(pkg_name, AppDetails, Name)),
     Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
     FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
     AppSrc = {application, ec_cnv:to_atom(Name), AppDetails},
@@ -131,17 +130,17 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
                ,{links, Links}
                ,{build_tools, [<<"rebar3">>]}],
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
-    Meta = [{name, PkgName}, {version, Version} | OptionalFiltered],
+    Meta = [{name, Name}, {version, Version} | OptionalFiltered],
 
     {ok, Auth} = rebar3_hex_config:auth(),
-    ec_talk:say("Publishing ~s ~s", [PkgName, Version]),
+    ec_talk:say("Publishing ~s ~s", [Name, Version]),
     ec_talk:say("  Dependencies:~n    ~s", [format_deps(Deps)]),
     ec_talk:say("  Excluded dependencies (not part of the Hex package):~n    ~s", [string:join(Excluded, "\n    ")]),
     ec_talk:say("  Included files:~n    ~s", [string:join(Files, "\n    ")]),
     ec_talk:say("Before publishing, please read Hex CoC: https://hex.pm/docs/codeofconduct", []),
     case ec_talk:ask_default("Proceed?", boolean, "Y") of
         true ->
-            upload_package(Auth, PkgName, Version, Meta, Files1);
+            upload_package(Auth, Name, Version, Meta, Files1);
         _ ->
             ec_talk:say("Goodbye..."),
             stopped
@@ -186,7 +185,7 @@ upload_package(Auth, Name, Version, Meta, Files) ->
         {error, Status, <<>>} ->
             ?PRV_ERROR({status, Status});
         {error, Status, Error} ->
-            ?PRV_ERROR({status, Status, jsx:decode(Error)})
+	    ?PRV_ERROR({status, Status, Error})
     end.
 
 errors_to_string(Value) when is_binary(Value) ->

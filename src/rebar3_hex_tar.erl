@@ -33,5 +33,5 @@ encode_term(Meta) ->
     Data = lists:map(fun(MetaPair) ->
         String = io_lib_pretty:print(rebar3_hex_utils:binarify(MetaPair), [{encoding, utf8}]),
         unicode:characters_to_binary([String, ".\n"])
-    end, Meta),
+    	end, Meta),
     iolist_to_binary(Data).
