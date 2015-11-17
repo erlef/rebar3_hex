@@ -101,7 +101,7 @@ do_(Type, App, State) ->
                     Error
             end;
         _ ->
-            NewAppSrcFile = io_lib:format("~p.\n", [Spec]),
+            NewAppSrcFile = io_lib:format("~tp.\n", [Spec]),
             ok = rebar_file_utils:write_file_if_contents_differ(AppSrcFile, NewAppSrcFile),
             rebar3_hex_pkg:publish(rebar_app_info:original_vsn(App, NewVersion), State),
             ask_commit_and_push(),

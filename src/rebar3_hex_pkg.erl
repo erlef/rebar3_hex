@@ -112,7 +112,7 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     Files = rebar3_hex_utils:expand_paths(FilePaths, AppDir),
 
     AppFileSrc = filename:join("src", ec_cnv:to_list(Name)++".app.src"),
-    AppSrcBinary = ec_cnv:to_binary(lists:flatten(io_lib:format("~p.\n", [AppSrc]))),
+    AppSrcBinary = ec_cnv:to_binary(lists:flatten(io_lib:format("~tp.\n", [AppSrc]))),
     Files1 = [{AppFileSrc, AppSrcBinary} | lists:delete(AppFileSrc, Files)],
 
     Maintainers = proplists:get_value(maintainers, AppDetails, []),
