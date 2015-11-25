@@ -59,7 +59,7 @@ binarify(Term) ->
 expand_paths(Paths, Dir) ->
     AbsDir = filename:absname(Dir),
     Files = lists:flatmap(fun dir_files1/1, [filename:join(Dir, P) || P <- Paths]),
-    [F1 -- (AbsDir++"/") || F1 <- filter_regular(Files)].
+    [{F1 -- (AbsDir++"/"), F1} || F1 <- filter_regular(Files)].
 
 dir_files1(Dir) ->
     lists:flatmap(fun(Y) -> dir_files(Y) end, filelib:wildcard(Dir)).
