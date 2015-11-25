@@ -131,12 +131,13 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
                ,{build_tools, [<<"rebar3">>]}],
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
     Meta = [{name, Name}, {version, Version} | OptionalFiltered],
+    Filenames = [F || {_, F} <- Files],
 
     {ok, Auth} = rebar3_hex_config:auth(),
     ec_talk:say("Publishing ~s ~s", [Name, Version]),
     ec_talk:say("  Dependencies:~n    ~s", [format_deps(Deps)]),
     ec_talk:say("  Excluded dependencies (not part of the Hex package):~n    ~s", [string:join(Excluded, "\n    ")]),
-    ec_talk:say("  Included files:~n    ~s", [string:join(Files, "\n    ")]),
+    ec_talk:say("  Included files:~n    ~s", [string:join(Filenames, "\n    ")]),
     ec_talk:say("Before publishing, please read Hex CoC: https://hex.pm/docs/codeofconduct", []),
     case ec_talk:ask_default("Proceed?", boolean, "Y") of
         true ->
@@ -185,7 +186,7 @@ upload_package(Auth, Name, Version, Meta, Files) ->
         {error, Status, <<>>} ->
             ?PRV_ERROR({status, Status});
         {error, Status, Error} ->
-	    ?PRV_ERROR({status, Status, Error})
+        ?PRV_ERROR({status, Status, Error})
     end.
 
 errors_to_string(Value) when is_binary(Value) ->
