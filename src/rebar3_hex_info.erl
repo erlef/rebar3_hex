@@ -10,6 +10,8 @@
 -define(DEPS, []).
 
 -define(ENDPOINT, "packages").
+-define(RELEASE, "releases").
+-define(REGISTRY_FILE, "registry").
 
 %% ===================================================================
 %% Public API
@@ -35,7 +37,7 @@ init(State) ->
 do(State) ->
     case rebar_state:command_args(State) of
         [] ->
-            general();
+            general(State);
         [Package] ->
             package(Package);
         [Package, Version] ->
@@ -47,8 +49,96 @@ do(State) ->
 format_error(Reason) ->
     io_lib:format("~p", [Reason]).
 
-general() ->
-    ok.
+general(State) ->
+    Deps = [
+	case X of
+	    {Name, Ver} -> {normalize(Name), Ver};
+	    Name -> {normalize(Name), get_ver(normalize(Name), State)}
+	end
+	|| X <-rebar_state:get(State, deps, [])],
+    display(dedup({Deps, []}), [], State).
+
+%%prints out all deps at level 0, and 
+%%For those level 0 deps which are package dependencies (Found in Hex Database),  
+%%it continue printing deps at level > 0
+display([], _, _State) ->
+    ok;
+
+display([{Name, Vsn} | Deps], Listed, State) ->
+    ec_talk:say("~s ~s", [Name, Vsn]),
+    %accumulates already listed deps
+    NewListed = [{Name, Vsn} | Listed],
+    case get_deps(Name, Vsn, State) of
+	error ->
+	    display(Deps, NewListed, State);
+	NewDeps ->
+	    display(dedup({Deps ++ NewDeps, NewListed}), NewListed, State)
+    end.
+
+%gets deps name(s) and version(s) for a package 
+get_deps(Package, Version, State) ->
+    RegistryDir = rebar_packages:registry_dir(State),
+    case ets:file2tab(filename:join(RegistryDir, ?REGISTRY_FILE)) of
+	{ok, Registry} ->
+	    VerBin = ec_cnv:to_binary(Version),
+		case ets:lookup(Registry, {Package, VerBin}) of
+		    [{{Package, VerBin}, [DepList, _, _]}] ->
+			[{normalize(Name), Ver} || [Name, Ver, _ , _] <- DepList];
+		    _ -> error
+		end;
+	_ ->
+	    %registry table not found
+	    case rebar3_hex_http:get(filename:join([?ENDPOINT, Package, "releases", Version]), []) of
+		{ok, Map} ->
+		    [{normalize(X), binary_to_list(maps:get(<<"requirement">>, maps:get(X, maps:get(<<"requirements">>, Map))))} 
+			|| X <- maps:keys(maps:get(<<"requirements">>, Map))];
+		{error, 404} -> error;
+		_ -> error
+	    end		
+    end.
+
+%gets latest release version
+%returns " " if the Package is not found in Hex
+get_ver(Package, State) ->
+    RegistryDir = rebar_packages:registry_dir(State),
+    case ets:file2tab(filename:join(RegistryDir, ?REGISTRY_FILE)) of
+	{ok, Registry} ->
+	    case ets:lookup(Registry, Package) of
+		[{Package, [VerList]}] ->
+		    lists:last(VerList);
+		_ -> " "
+	    end;
+	_ ->
+	    %registry table not found
+	    case rebar3_hex_http:get(filename:join(?ENDPOINT, Package), []) of
+        	{ok, Map} ->
+            	    Release = hd(maps:get(<<"releases">>, Map, [])),
+            	    binary_to_list(maps:get(<<"version">>, Release, []));         
+        	{error, 404} ->
+            		" "; 
+        	_ ->
+            		" "
+    	    end
+    end.
+
+dedup({Deps, Listed}) -> 
+    Current = Deps ++ Listed,
+    dedup(Deps, [name(Dep) || Dep <- Current]).
+
+dedup([], _) -> [];
+dedup([Dep|Deps], [Name|DepNames]) ->
+    case lists:member(Name, DepNames) of
+        true -> dedup(Deps, DepNames);
+        false -> [Dep | dedup(Deps, DepNames)]
+    end.
+
+name(T) when is_tuple(T) -> element(1, T);
+name(B) when is_binary(B) -> B.
+
+normalize(Name) when is_binary(Name) ->
+    Name;
+normalize(Name) when is_atom(Name) ->
+    ec_cnv:to_binary(Name).
 
 package(Package) ->
     case rebar3_hex_http:get(filename:join(?ENDPOINT, Package), []) of
@@ -78,6 +168,7 @@ package(Package) ->
         _ ->
             rebar_api:error("Failed to retrieve package information")
     end.
+
 
 release(Package, Version) ->
     case rebar3_hex_http:get(filename:join([?ENDPOINT, Package, "releases", Version]), []) of
