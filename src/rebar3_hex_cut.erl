@@ -83,7 +83,7 @@ do_(Type, App, State) ->
         _Git when Version =:= git orelse Version =:= "git" ->
             rebar_api:info("Creating new tag v~s...", [NewVersion]),
             rebar_utils:sh(io_lib:format("git tag v~s", [NewVersion]), []),
-            case rebar3_hex_pkg:publish(rebar_app_info:original_vsn(App, NewVersion), State) of
+            case rebar3_hex_pkg:publish(App, State) of
                 stopped ->
                     {ok, State};
                 ok ->
