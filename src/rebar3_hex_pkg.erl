@@ -114,7 +114,7 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
 
     AppFileSrc = filename:join("src", ec_cnv:to_list(Name)++".app.src"),
     AppSrcBinary = ec_cnv:to_binary(lists:flatten(io_lib:format("~tp.\n", [AppSrc]))),
-    Files1 = [{AppFileSrc, AppSrcBinary} | lists:delete(AppFileSrc, Files)],
+    Files1 = [{AppFileSrc, AppSrcBinary} | lists:keydelete(AppFileSrc, 1, Files)],
 
     Maintainers = proplists:get_value(maintainers, AppDetails, []),
     Licenses = proplists:get_value(licenses, AppDetails, []),
