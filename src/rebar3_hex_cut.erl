@@ -77,30 +77,44 @@ do_(Type, App, State) ->
                                           rebar_state:resources(State)),
     NewVersion = increment(Type, ec_semver:parse(ResolvedVersion)),
     AppSrcFile = rebar_app_info:app_file_src(App),
-    Spec = rebar3_hex_utils:update_app_src(App, NewVersion),
 
     case Version of
         _Git when Version =:= git orelse Version =:= "git" ->
             rebar_api:info("Creating new tag v~s...", [NewVersion]),
             rebar_utils:sh(io_lib:format("git tag v~s", [NewVersion]), []),
-            case rebar3_hex_pkg:publish(App, State) of
-                stopped ->
-                    {ok, State};
+
+            {application, _, AppDetails} = rebar3_hex_utils:update_app_src(App, NewVersion),
+
+            case rebar3_hex_pkg:validate_app_details(AppDetails) of
                 ok ->
-                    case ec_talk:ask_default("Push new tag to origin?", boolean, "Y") of
-                        true ->
-                            rebar_api:info("Pushing new tag v~s...", [NewVersion]),
-                            rebar_utils:sh(io_lib:format("git push origin v~s", [NewVersion]), []),
+                    Name = rebar_app_info:name(App),
+                    AppDir = rebar_app_info:dir(App),
+                    Deps = rebar_state:get(State, {locks, default}, []),
+                    TopLevel = [{N, V} || {_,{pkg,N,V},0} <- Deps],
+                    Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
+
+                    case rebar3_hex_pkg:publish(AppDir, Name, NewVersion, TopLevel, Excluded, AppDetails) of
+                        stopped ->
                             {ok, State};
-                        false ->
-                            {ok, State}
+                        ok ->
+                            case ec_talk:ask_default("Push new tag to origin?", boolean, "Y") of
+                                true ->
+                                    rebar_api:info("Pushing new tag v~s...", [NewVersion]),
+                                    rebar_utils:sh(io_lib:format("git push origin v~s", [NewVersion]), []),
+                                    {ok, State};
+                                false ->
+                                    {ok, State}
+                            end;
+                        Error ->
+                            rebar_api:info("Deleting new tag v~s...", [NewVersion]),
+                            rebar_utils:sh(io_lib:format("git tag -d v~s", [NewVersion]), []),
+                            Error
                     end;
                 Error ->
-                    rebar_api:info("Deleting new tag v~s...", [NewVersion]),
-                    rebar_utils:sh(io_lib:format("git tag -d v~s", [NewVersion]), []),
                     Error
             end;
         _ ->
+            Spec = rebar3_hex_utils:update_app_src(App, NewVersion),
             NewAppSrcFile = io_lib:format("~tp.\n", [Spec]),
             ok = rebar_file_utils:write_file_if_contents_differ(AppSrcFile, NewAppSrcFile),
             rebar3_hex_pkg:publish(rebar_app_info:original_vsn(App, NewVersion), State),

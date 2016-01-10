@@ -5,7 +5,8 @@
          format_error/1]).
 
 -export([publish/2
-        ,publish/6]).
+        ,publish/6
+        ,validate_app_details/1]).
 
 -include("rebar3_hex.hrl").
 
