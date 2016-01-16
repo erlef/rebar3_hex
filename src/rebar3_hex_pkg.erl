@@ -11,7 +11,7 @@
 -include("rebar3_hex.hrl").
 
 -define(PROVIDER, publish).
--define(DEPS, [{default, app_discovery}]).
+-define(DEPS, [{default, lock}]).
 
 -define(ENDPOINT, "packages").
 
