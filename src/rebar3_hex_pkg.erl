@@ -96,7 +96,7 @@ publish(App, State) ->
     {application, _, AppDetails} = rebar3_hex_utils:update_app_src(App, ResolvedVersion),
 
     Deps = rebar_state:get(State, {locks, default}, []),
-    TopLevel = [{N, V} || {_,{pkg,N,V},0} <- Deps],
+    TopLevel = [{N, [{<<"app">>, N}, {<<"optional">>, <<"false">>}, {<<"requirement">>, V}]} || {_,{pkg,N,V},0} <- Deps],
     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
 
     case validate_app_details(AppDetails) of
@@ -199,4 +199,4 @@ errors_to_string(Errors) when is_list(Errors) ->
     lists:flatten([io_lib:format("~s", [errors_to_string(Values)]) || Values <- Errors]).
 
 format_deps(Deps) ->
-    string:join([binary_to_list(<<N/binary, " ", V/binary>>) || {N, V} <- Deps], "\n    ").
+    string:join([binary_to_list(<<N/binary, " ", V/binary>>) || {N, [{_, N}, {_, _}, {<<"requirement">>, V}]} <- Deps], "\n    ").

@@ -90,7 +90,7 @@ do_(Type, App, State) ->
                     Name = rebar_app_info:name(App),
                     AppDir = rebar_app_info:dir(App),
                     Deps = rebar_state:get(State, {locks, default}, []),
-                    TopLevel = [{N, V} || {_,{pkg,N,V},0} <- Deps],
+                    TopLevel = [{N, [{<<"app">>, N}, {<<"optional">>, <<"false">>}, {<<"requirement">>, V}]} || {_,{pkg,N,V},0} <- Deps],
                     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
 
                     case rebar3_hex_pkg:publish(AppDir, Name, NewVersion, TopLevel, Excluded, AppDetails) of
