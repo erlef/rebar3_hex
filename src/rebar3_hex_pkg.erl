@@ -49,6 +49,8 @@ format_error(undefined_server_error) ->
     "Unknown server error";
 format_error({status, Status}) ->
     rebar3_hex_http:pretty_print_status(Status);
+format_error({status, Status, undefined_server_error}) ->
+    "Unknown server error: " ++ rebar3_hex_http:pretty_print_status(Status);
 format_error({status, Status, Error}) ->
     Message = maps:get(<<"message">>, Error, ""),
     Errors = maps:get(<<"errors">>, Error, ""),
