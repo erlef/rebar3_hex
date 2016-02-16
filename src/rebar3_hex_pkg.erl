@@ -126,12 +126,7 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     %% We check the app file for the 'pkg' key wich allows us to select
     %% a package name other then the app anem, if it is not set we default
     %% back to the app name.
-    PkgName = case proplists:get_value(pkg, AppDetails) of
-                  undefined ->
-                      Name;
-                  PkgNameS ->
-                      list_to_binary(PkgNameS)
-              end,
+    PkgName = ec_cnv:to_binary(proplists:get_value(pkg_name, AppDetails, Name)),
 
     Optional = [{app, Name}
                ,{requirements, Deps}
