@@ -123,6 +123,16 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     Licenses = proplists:get_value(licenses, AppDetails, []),
     Links = proplists:get_value(links, AppDetails, []),
 
+    %% We check the app file for the 'pkg' key wich allows us to select
+    %% a package name other then the app anem, if it is not set we default
+    %% back to the app name.
+    PkgName = case proplists:get_value(pkg, AppDetails) of
+                  undefined ->
+                      Name;
+                  PkgNameS ->
+                      list_to_binary(PkgNameS)
+              end,
+
     Optional = [{app, Name}
                ,{requirements, Deps}
                ,{maintainers, Maintainers}
@@ -134,18 +144,18 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
                ,{links, Links}
                ,{build_tools, [<<"rebar3">>]}],
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
-    Meta = [{name, Name}, {version, Version} | OptionalFiltered],
+    Meta = [{name, PkgName}, {version, Version} | OptionalFiltered],
     Filenames = [F || {_, F} <- Files],
 
     {ok, Auth} = rebar3_hex_config:auth(),
-    ec_talk:say("Publishing ~s ~s", [Name, Version]),
+    ec_talk:say("Publishing ~s ~s", [PkgName, Version]),
     ec_talk:say("  Dependencies:~n    ~s", [format_deps(Deps)]),
     ec_talk:say("  Excluded dependencies (not part of the Hex package):~n    ~s", [string:join(Excluded, "\n    ")]),
     ec_talk:say("  Included files:~n    ~s", [string:join(Filenames, "\n    ")]),
     ec_talk:say("Before publishing, please read Hex CoC: https://hex.pm/docs/codeofconduct", []),
     case ec_talk:ask_default("Proceed?", boolean, "Y") of
         true ->
-            upload_package(Auth, Name, Version, Meta, Files1);
+            upload_package(Auth, PkgName, Version, Meta, Files1);
         _ ->
             ec_talk:say("Goodbye..."),
             stopped
