@@ -53,6 +53,8 @@ post_map(Path, Auth, Body) ->
                       ,[{ssl, rebar_api:ssl_opts(rebar3_hex_config:api_url())}]
                       ,[{body_format, binary}]
                       ,hex) of
+        {ok, {{_, 204, _}, _, <<>>}} ->
+            ok;
         {ok, {{_, Status, _}, _, RespBody}} when Status >= 200, Status =< 299 ->
             {ok, binary_to_term(RespBody)};
         {ok, {{_, Status, _}, _, _}} when Status >= 500->
