@@ -179,7 +179,7 @@ delete(App, Name, Version) ->
                 _ ->
                     ok
             end;
-        {error, Status, _} ->
+        {error, Status} ->
             rebar_api:error("Unable to delete package ~s ~s (~p)", [PkgName, Version, Status])
     end.
 

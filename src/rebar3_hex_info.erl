@@ -132,8 +132,7 @@ dedup([Dep|Deps], [Name|DepNames]) ->
         false -> [Dep | dedup(Deps, DepNames)]
     end.
 
-name(T) when is_tuple(T) -> element(1, T);
-name(B) when is_binary(B) -> B.
+name(T) when is_tuple(T) -> element(1, T).
 
 normalize(Name) when is_binary(Name) ->
     Name;

@@ -46,12 +46,8 @@ do(State) ->
             ec_talk:say("username: ~s", [username()]);
         ["key" | Value] ->
             maybe_update(key, Value),
-            case auth() of
-                {ok, Key} ->
-                    ec_talk:say("key: ~s", [Key]);
-                error ->
-                    ignore
-            end;
+            {ok, Key} = auth(),
+            ec_talk:say("key: ~s", [Key]);
         ["api_url" | Value] ->
             maybe_update(api_url, Value),
             ec_talk:say("api_url: ~s", [api_url()]);

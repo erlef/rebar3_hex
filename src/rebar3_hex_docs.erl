@@ -72,12 +72,7 @@ do_(App, State) ->
                     ?PRV_ERROR({error, Name, Vsn, Message})
             end;
         Version ->
-            case delete(Name, Version) of
-                ok ->
-                    {ok, State};
-                Error ->
-                    Error
-            end
+            ok = delete(Name, Version)
     end.
 
 delete(Name, Version) ->
@@ -86,7 +81,7 @@ delete(Name, Version) ->
         ok ->
             rebar_api:info("Successfully deleted docs for ~s ~s", [Name, Version]),
             ok;
-        {error, Status, _} ->
+        {error, Status} ->
             rebar_api:error("Unable to delete docs ~s ~s (~p)", [Name, Version, Status])
     end.
 
