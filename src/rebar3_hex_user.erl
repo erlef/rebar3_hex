@@ -99,7 +99,7 @@ deauth() ->
 
 reset_password() ->
     User = ec_talk:ask_default("Username or Email:", string, ""),
-    rebar3_hex_http:post_map(filename:join([?ENDPOINT, User, "reset"]), [], []).
+    ok = rebar3_hex_http:post_map(filename:join([?ENDPOINT, User, "reset"]), [], maps:new()).
 
 %% Internal functions
 
