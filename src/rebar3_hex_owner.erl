@@ -67,7 +67,7 @@ remove(Package, Email) ->
     case rebar3_hex_http:delete(Path, [Auth]) of
         ok ->
             ec_talk:say("Removed ~s from ~s", [Email, Package]);
-        {error, Status, _} ->
+        {error, Status} ->
             rebar_api:error("Unable to remove package ~p (~p)", [Package, Status])
     end.
 

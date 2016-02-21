@@ -120,7 +120,7 @@ get_password(Msg) ->
             Pw;
         _ ->
             error_logger:tty(false),
-            Port = open_port({spawn, 'tty_sl -e'}, [binary, eof]),
+            Port = open_port({spawn, "tty_sl -e"}, [binary, eof]),
             port_command(Port, <<?OP_PUTC, Msg/binary>>),
             receive
                 {Port, {data, PwLine}} ->
