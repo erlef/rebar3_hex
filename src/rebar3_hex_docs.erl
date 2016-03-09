@@ -86,7 +86,7 @@ delete(Name, Version) ->
     end.
 
 file_list(Files) ->
-    [{drop_path(File, ["doc"]), File} || File <- Files].
+    [{drop_path(ShortName, ["doc"]), FullName} || {ShortName, FullName} <- Files].
 
 drop_path(File, Path) ->
     filename:join(filename:split(File) -- Path).
