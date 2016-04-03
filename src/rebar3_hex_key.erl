@@ -4,6 +4,10 @@
          do/1,
          format_error/1]).
 
+-export([add/3,
+         remove/1,
+         list/0]).
+
 -include("rebar3_hex.hrl").
 
 -define(PROVIDER, key).
@@ -30,19 +34,28 @@ init(State) ->
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
     case rebar_state:command_args(State) of
-        ["remove", Key] ->
-            {ok, Auth} = rebar3_hex_config:auth(),
-            case rebar3_hex_http:delete(filename:join(?ENDPOINT, Key), Auth) of
-                ok ->
+        ["add", KeyName] ->
+            case add(KeyName) of
+                {ok, Key} ->
+                    ec_talk:say("New API key (~s): ~s", [KeyName, Key]),
                     {ok, State};
-                {error, 401} ->
+                {error, 401, _Response} ->
                     ?PRV_ERROR(401)
             end;
+        ["remove", Key] ->
+            case remove(Key) of
+                ok ->
+                    ec_talk:say("Removed API key ~s", [Key]),
+                    {ok, State};
+                {error, 401} ->
+                    ?PRV_ERROR(401);
+                {error, 404} ->
+                    ?PRV_ERROR(404)
+            end;
         ["list"] ->
-            {ok, Auth} = rebar3_hex_config:auth(),
-            case rebar3_hex_http:get(?ENDPOINT, Auth) of
-                {ok, Keys} ->                 
-		    [ec_talk:say("~s", [maps:get(<<"name">>, X)]) || X <- Keys],
+            case list() of
+                {ok, Keys} ->
+                    [ec_talk:say("~s", [maps:get(<<"name">>, X)]) || X <- Keys],
                     {ok, State};
                 {error, 401} ->
                     ?PRV_ERROR(401)
@@ -53,4 +66,27 @@ do(State) ->
 
 -spec format_error(any()) -> iolist().
 format_error(401) ->
-    "Authentication failed (401)".
+    "Authentication failed (401)";
+format_error(404) ->
+    "Not found (404)".
+
+list() ->
+    {ok, Auth} = rebar3_hex_config:auth(),
+    rebar3_hex_http:get(?ENDPOINT, Auth).
+
+remove(Key) ->
+    {ok, Auth} = rebar3_hex_config:auth(),
+    rebar3_hex_http:delete(filename:join(?ENDPOINT, Key), Auth).
+
+add(KeyName) ->
+    {ok, {Username,Password}} = rebar3_hex_user:ask_password(),
+    add(KeyName, Username, Password).
+add(KeyName, Username, Password) ->
+    Auth = base64:encode_to_string(<<Username/binary, ":", Password/binary>>),
+    rebar_api:info("key=~p", [KeyName]),
+    case rebar3_hex_http:post_map("keys", "Basic "++Auth, maps:from_list([{<<"name">>, list_to_binary(KeyName)}])) of
+        {ok, Response} ->
+            {ok, maps:get(<<"secret">>, Response)};
+        {error, Code, Response} ->
+            {error, Code, Response}
+    end.
