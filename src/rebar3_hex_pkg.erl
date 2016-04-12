@@ -111,13 +111,20 @@ publish(App, State) ->
 publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
     FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
+    IncludeFilePaths = proplists:get_value(include_files, AppDetails, []),
+    ExcludeFilePaths = proplists:get_value(exclude_files, AppDetails, []),
     AppSrc = {application, ec_cnv:to_atom(Name), AppDetails},
-    Files = rebar3_hex_utils:expand_paths(FilePaths, AppDir),
+    Files = lists:ukeysort(2, rebar3_hex_utils:expand_paths(FilePaths, AppDir)),
+    IncludeFiles = lists:ukeysort(2, rebar3_hex_utils:expand_paths(IncludeFilePaths, AppDir)),
+    ExcludeFiles = lists:ukeysort(2, rebar3_hex_utils:expand_paths(ExcludeFilePaths, AppDir)),
+
+    Files1 = lists:ukeymerge(2, Files, IncludeFiles),
+    Files2 = lists:filter(fun ({_, Path}) -> lists:keymember(Path, 2, ExcludeFiles) =/= true end, Files1),
 
     AppFileSrc = filename:join("src", ec_cnv:to_list(Name)++".app.src"),
     AppSrcBinary = ec_cnv:to_binary(lists:flatten(io_lib:format("~tp.\n", [AppSrc]))),
-    Files1 = [{AppFileSrc, AppSrcBinary} | lists:keydelete(AppFileSrc, 1, Files)],
-    MetaDataFiles = [File || {File, _} <- Files],
+    FilesAndApp = [{AppFileSrc, AppSrcBinary} | lists:keydelete(AppFileSrc, 1, Files2)],
+    MetaDataFiles = [File || {File, _} <- FilesAndApp],
 
     Maintainers = proplists:get_value(maintainers, AppDetails, []),
     Licenses = proplists:get_value(licenses, AppDetails, []),
@@ -140,7 +147,9 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
                ,{build_tools, [<<"rebar3">>]}],
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
     Meta = [{name, PkgName}, {version, Version} | OptionalFiltered],
-    Filenames = [F || {_, F} <- Files],
+    Filenames = [F || {_, F} <- Files2],
+
+rebar_api:info("Filenames=~p FilesAndApp=~p Files2=~p Files1=~p Files=~p", [Filenames, FilesAndApp, Files2, Files1, Files]),
 
     {ok, Auth} = rebar3_hex_config:auth(),
     ec_talk:say("Publishing ~s ~s", [PkgName, Version]),
@@ -150,7 +159,7 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     ec_talk:say("Before publishing, please read Hex CoC: https://hex.pm/docs/codeofconduct", []),
     case ec_talk:ask_default("Proceed?", boolean, "Y") of
         true ->
-            upload_package(Auth, PkgName, Version, Meta, Files1);
+            upload_package(Auth, PkgName, Version, Meta, FilesAndApp);
         _ ->
             ec_talk:say("Goodbye..."),
             stopped
