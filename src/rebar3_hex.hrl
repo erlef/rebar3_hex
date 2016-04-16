@@ -3,7 +3,8 @@
 -define(DEFAULT_FILES, ["src", "c_src", "include", "rebar.config.script"
                        ,"priv", "rebar.config", "rebar.lock"
                        ,"README*", "readme*"
-                       ,"LICENSE*", "license*"]).
+                       ,"LICENSE*", "license*"
+                       ,"NOTICE"]).
 
 -define(CHUNK, 10000).
 
