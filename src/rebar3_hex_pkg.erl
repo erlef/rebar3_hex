@@ -109,6 +109,10 @@ publish(App, State) ->
     end.
 
 publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
+    Config = rebar_config:consult(AppDir),
+    ConfigDeps = proplists:get_value(deps, Config, []),
+    Deps1 = update_versions(ConfigDeps, Deps),
+
     Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
     FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
     AppSrc = {application, ec_cnv:to_atom(Name), AppDetails},
@@ -129,7 +133,7 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     PkgName = ec_cnv:to_binary(proplists:get_value(pkg_name, AppDetails, Name)),
 
     Optional = [{app, Name}
-               ,{requirements, Deps}
+               ,{requirements, Deps1}
                ,{maintainers, Maintainers}
                ,{precompiled, false}
                ,{parameters, []}
@@ -144,7 +148,7 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
 
     {ok, Auth} = rebar3_hex_config:auth(),
     ec_talk:say("Publishing ~s ~s", [PkgName, Version]),
-    ec_talk:say("  Dependencies:~n    ~s", [format_deps(Deps)]),
+    ec_talk:say("  Dependencies:~n    ~s", [format_deps(Deps1)]),
     ec_talk:say("  Excluded dependencies (not part of the Hex package):~n    ~s", [string:join(Excluded, "\n    ")]),
     ec_talk:say("  Included files:~n    ~s", [string:join(Filenames, "\n    ")]),
     ec_talk:say("Before publishing, please read Hex CoC: https://hex.pm/docs/codeofconduct", []),
@@ -207,3 +211,13 @@ errors_to_string(Errors) when is_list(Errors) ->
 
 format_deps(Deps) ->
     string:join([binary_to_list(<<N/binary, " ", V/binary>>) || {N, [{_, N}, {_, _}, {<<"requirement">>, V}]} <- Deps], "\n    ").
+
+update_versions(ConfigDeps, Deps) ->
+    [begin
+         case lists:keyfind(binary_to_atom(N, utf8), 1, ConfigDeps) of
+             {_, V} ->
+                 {N, lists:keyreplace(<<"requirement">>, 1, M, {<<"requirement">>, list_to_binary(V)})};
+             _ ->
+                 {N, M}
+         end
+     end || {N, M} <- Deps].
