@@ -64,6 +64,8 @@ format_error(Reason) ->
     io_lib:format("~p", [Reason]).
 
 hex_register() ->
+    ec_talk:say("By registering an account on Hex.pm you accept all our "
+                "policies and terms of service found at https://hex.pm/policies\n"),
     Username = list_to_binary(ec_talk:ask_default("Username:", string, "")),
     Email = list_to_binary(ec_talk:ask_default("Email:", string, "")),
     case get_password() of
