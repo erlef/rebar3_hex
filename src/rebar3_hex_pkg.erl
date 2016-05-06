@@ -43,6 +43,8 @@ do(State) ->
                 end, {ok, State}, Apps).
 
 -spec format_error(any()) -> iolist().
+format_error({non_hex_deps, Excluded}) ->
+    io_lib:format("Can not publish package because the following deps are not available in hex: ~s", [string:join(Excluded, ", ")]);
 format_error(has_contributors) ->
     "The contributors field is deprecated, please change to maintainers and rerun.";
 format_error(undefined_server_error) ->
@@ -108,7 +110,7 @@ publish(App, State) ->
             Error
     end.
 
-publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
+publish(AppDir, Name, Version, Deps, [], AppDetails) ->
     Config = rebar_config:consult(AppDir),
     ConfigDeps = proplists:get_value(deps, Config, []),
     Deps1 = update_versions(ConfigDeps, Deps),
@@ -149,7 +151,6 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
     {ok, Auth} = rebar3_hex_config:auth(),
     ec_talk:say("Publishing ~s ~s", [PkgName, Version]),
     ec_talk:say("  Dependencies:~n    ~s", [format_deps(Deps1)]),
-    ec_talk:say("  Excluded dependencies (not part of the Hex package):~n    ~s", [string:join(Excluded, "\n    ")]),
     ec_talk:say("  Included files:~n    ~s", [string:join(Filenames, "\n    ")]),
     ec_talk:say("Before publishing, please read Hex CoC: https://hex.pm/docs/codeofconduct", []),
     case ec_talk:ask_default("Proceed?", boolean, "Y") of
@@ -158,7 +159,9 @@ publish(AppDir, Name, Version, Deps, Excluded, AppDetails) ->
         _ ->
             ec_talk:say("Goodbye..."),
             stopped
-    end.
+    end;
+publish(_AppDir, _Name, _Version, _Deps, Excluded, _AppDetails) ->
+    ?PRV_ERROR({non_hex_deps, Excluded}).
 
 %% Internal functions
 
@@ -199,7 +202,7 @@ upload_package(Auth, Name, Version, Meta, Files) ->
         {error, Status, <<>>} ->
             ?PRV_ERROR({status, Status});
         {error, Status, Error} ->
-        ?PRV_ERROR({status, Status, Error})
+            ?PRV_ERROR({status, Status, Error})
     end.
 
 errors_to_string(Value) when is_binary(Value) ->
