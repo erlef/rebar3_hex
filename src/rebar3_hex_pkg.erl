@@ -128,6 +128,7 @@ publish(AppDir, Name, Version, Deps, [], AppDetails) ->
     Maintainers = proplists:get_value(maintainers, AppDetails, []),
     Licenses = proplists:get_value(licenses, AppDetails, []),
     Links = proplists:get_value(links, AppDetails, []),
+    BuildTools = proplists:get_value(build_tools, AppDetails, [<<"rebar3">>]),
 
     %% We check the app file for the 'pkg' key wich allows us to select
     %% a package name other then the app anem, if it is not set we default
@@ -143,15 +144,20 @@ publish(AppDir, Name, Version, Deps, [], AppDetails) ->
                ,{files, MetaDataFiles}
                ,{licenses, Licenses}
                ,{links, Links}
-               ,{build_tools, [<<"rebar3">>]}],
+               ,{build_tools, BuildTools}],
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
     Meta = [{name, PkgName}, {version, Version} | OptionalFiltered],
     Filenames = [F || {_, F} <- Files],
 
     {ok, Auth} = rebar3_hex_config:auth(),
     ec_talk:say("Publishing ~s ~s", [PkgName, Version]),
+    ec_talk:say("  Description: ~s", [Description]),
     ec_talk:say("  Dependencies:~n    ~s", [format_deps(Deps1)]),
     ec_talk:say("  Included files:~n    ~s", [string:join(Filenames, "\n    ")]),
+    ec_talk:say("  Maintainers:~n    ~s", [format_maintainers(Maintainers)]),
+    ec_talk:say("  Licenses: ~s", [format_licenses(Licenses)]),
+    ec_talk:say("  Links:~n    ~s", [format_links(Links)]),
+    ec_talk:say("  Build tools: ~s", [format_build_tools(BuildTools)]),
     ec_talk:say("Before publishing, please read Hex CoC: https://hex.pm/docs/codeofconduct", []),
     case ec_talk:ask_default("Proceed?", boolean, "Y") of
         true ->
@@ -214,6 +220,18 @@ errors_to_string(Errors) when is_list(Errors) ->
 
 format_deps(Deps) ->
     string:join([binary_to_list(<<N/binary, " ", V/binary>>) || {N, [{_, N}, {_, _}, {<<"requirement">>, V}]} <- Deps], "\n    ").
+
+format_maintainers(Maintainers) ->
+    string:join(Maintainers, "\n    ").
+
+format_licenses(Licenses) ->
+    string:join(Licenses, ", ").
+
+format_links(Links) ->
+    string:join([lists:flatten([Name, ": ", Url]) || {Name, Url} <- Links], "\n    ").
+
+format_build_tools(BuildTools) ->
+    string:join([io_lib:format("~s", [Tool]) || Tool <- BuildTools], ", ").
 
 update_versions(ConfigDeps, Deps) ->
     [begin
