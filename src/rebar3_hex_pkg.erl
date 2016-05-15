@@ -143,7 +143,6 @@ publish(AppDir, Name, Version, Deps, [], AppDetails) ->
     PkgName = ec_cnv:to_binary(proplists:get_value(pkg_name, AppDetails, Name)),
 
     Optional = [{app, Name}
-               ,{requirements, Deps1}
                ,{maintainers, Maintainers}
                ,{precompiled, false}
                ,{parameters, []}
@@ -153,7 +152,7 @@ publish(AppDir, Name, Version, Deps, [], AppDetails) ->
                ,{links, Links}
                ,{build_tools, BuildTools}],
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
-    Meta = [{name, PkgName}, {version, Version} | OptionalFiltered],
+    Meta = [{name, PkgName}, {version, Version},{requirements, Deps1} | OptionalFiltered],
     Filenames = [F || {_, F} <- Files2],
 
 rebar_api:info("Filenames=~p FilesAndApp=~p Files2=~p Files1=~p Files=~p", [Filenames, FilesAndApp, Files2, Files1, Files]),
