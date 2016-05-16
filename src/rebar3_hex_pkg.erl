@@ -152,7 +152,7 @@ publish(AppDir, Name, Version, Deps, [], AppDetails) ->
                ,{links, Links}
                ,{build_tools, BuildTools}],
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
-    Meta = [{name, PkgName}, {version, Version}, {requirements, Deps1} | OptionalFiltered],
+    Meta = [{name, PkgName}, {version, Version}, {requirements, maps:from_list(Deps1)} | OptionalFiltered],
     Filenames = [F || {_, F} <- Files2],
 
     {ok, Auth} = rebar3_hex_config:auth(),
@@ -243,8 +243,8 @@ update_versions(ConfigDeps, Deps) ->
     [begin
          case lists:keyfind(binary_to_atom(N, utf8), 1, ConfigDeps) of
              {_, V} ->
-                 #{N => maps:from_list(lists:keyreplace(<<"requirement">>, 1, M, {<<"requirement">>, list_to_binary(V)}))};
+                 {N, maps:from_list(lists:keyreplace(<<"requirement">>, 1, M, {<<"requirement">>, list_to_binary(V)}))};
              _ ->
-                 #{N => maps:from_list(M)}
+                 {N, maps:from_list(M)}
          end
      end || {N, M} <- Deps].
