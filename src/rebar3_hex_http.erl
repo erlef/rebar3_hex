@@ -3,7 +3,7 @@
 -export([get/2
         ,delete/2
         ,put/3
-	,post_map/3
+        ,post_map/3
         ,post/4
         ,encode/1
         ,pretty_print_status/1
@@ -21,7 +21,7 @@ get(Path, Auth) ->
                       ,[{body_format, binary}]
                       ,hex) of
         {ok, {{_, 200, _}, _, RespBody}} ->
-	    {ok, binary_to_term(RespBody)};
+        {ok, binary_to_term(RespBody)};
         {ok, {{_, Status, _}, _, _}} ->
             {error, Status}
     end.
@@ -78,9 +78,10 @@ post(Path, Auth, Tar, Size) ->
                       ,hex) of
         {ok, {{_, Status, _}, _, _RespBody}} when Status >= 200, Status =< 299 ->
             ok;
-	{ok, {{_, Status, _}, _RespHeaders, _RespBodyMap}} when Status >= 500->
+    {ok, {{_, Status, _}, _RespHeaders, _RespBodyMap}} when Status >= 500->
+            io:format("~p ~p~n", [_RespHeaders, _RespBodyMap]),
             {error, Status, undefined_server_error};
-	{ok, {{_, Status, _}, _RespHeaders, RespBodyMap}} ->
+    {ok, {{_, Status, _}, _RespHeaders, RespBodyMap}} ->
             {error, Status, binary_to_term(RespBodyMap)}
     end.
 
@@ -95,12 +96,12 @@ pretty_print_status(Code) -> io_lib:format("HTTP status code: ~p", [Code]).
 request(Path, Auth) ->
     {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ ec_cnv:to_list(filename:join(?ENDPOINT, Path))
     ,[{"authorization",  ec_cnv:to_list(Auth)}, {"user-agent", user_agent()}
-	 , {"Accept", "application/vnd.hex+erlang"}]}.
+     , {"Accept", "application/vnd.hex+erlang"}]}.
 
 map_request(Path, Auth, Body) ->
     {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ ec_cnv:to_list(filename:join(?ENDPOINT, Path))
     ,[{"authorization",  ec_cnv:to_list(Auth)}, {"user-agent", user_agent()},
-	  {"Accept", "application/vnd.hex+erlang"}]
+      {"Accept", "application/vnd.hex+erlang"}]
     ,"application/vnd.hex+erlang", term_to_binary(Body)}.
 
 
@@ -108,7 +109,7 @@ file_request(Path, Auth, Body, ContentLength) ->
     {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ ec_cnv:to_list(filename:join(?ENDPOINT, Path))
     ,[{"authorization", ec_cnv:to_list(Auth)}
      ,{"content-length", ContentLength}, {"user-agent", user_agent()},
-	  {"Accept", "application/vnd.hex+erlang"}] %%Erlang media type
+      {"Accept", "application/vnd.hex+erlang"}] %%Erlang media type
     ,"application/octet-stream", {Body, 0}}.
 
 maybe_setup_proxy() ->

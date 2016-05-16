@@ -152,10 +152,8 @@ publish(AppDir, Name, Version, Deps, [], AppDetails) ->
                ,{links, Links}
                ,{build_tools, BuildTools}],
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
-    Meta = [{name, PkgName}, {version, Version},{requirements, Deps1} | OptionalFiltered],
+    Meta = [{name, PkgName}, {version, Version}, {requirements, Deps1} | OptionalFiltered],
     Filenames = [F || {_, F} <- Files2],
-
-rebar_api:info("Filenames=~p FilesAndApp=~p Files2=~p Files1=~p Files=~p", [Filenames, FilesAndApp, Files2, Files1, Files]),
 
     {ok, Auth} = rebar3_hex_config:auth(),
     ec_talk:say("Publishing ~s ~s", [PkgName, Version]),
@@ -245,8 +243,8 @@ update_versions(ConfigDeps, Deps) ->
     [begin
          case lists:keyfind(binary_to_atom(N, utf8), 1, ConfigDeps) of
              {_, V} ->
-                 {N, lists:keyreplace(<<"requirement">>, 1, M, {<<"requirement">>, list_to_binary(V)})};
+                 #{N => maps:from_list(lists:keyreplace(<<"requirement">>, 1, M, {<<"requirement">>, list_to_binary(V)}))};
              _ ->
-                 {N, M}
+                 #{N => maps:from_list(M)}
          end
      end || {N, M} <- Deps].
