@@ -225,7 +225,7 @@ errors_to_string(Errors) when is_list(Errors) ->
     lists:flatten([io_lib:format("~s", [errors_to_string(Values)]) || Values <- Errors]).
 
 format_deps(Deps) ->
-    string:join([binary_to_list(<<N/binary, " ", V/binary>>) || {N, [{_, N}, {_, _}, {<<"requirement">>, V}]} <- Deps], "\n    ").
+    string:join([binary_to_list(<<N/binary, " ", V/binary>>) || {N, #{<<"requirement">> := V}} <- Deps], "\n    ").
 
 format_maintainers(Maintainers) ->
     string:join(Maintainers, "\n    ").
