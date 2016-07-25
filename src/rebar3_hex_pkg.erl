@@ -221,6 +221,9 @@ errors_to_string(Value) when is_binary(Value) ->
     Value;
 errors_to_string({Key, Value}) ->
     io_lib:format("~s: ~s", [Key, errors_to_string(Value)]);
+errors_to_string(#{<<"requirements">> := Rs}) ->
+    lists:flatten(["Requirements could not be computed\n",
+                  [io_lib:format("~s\n~20.20c\n~s\n",[P,$-, R]) || {P, R} <- maps:to_list(Rs)]]);
 errors_to_string(Errors) when is_list(Errors) ->
     lists:flatten([io_lib:format("~s", [errors_to_string(Values)]) || Values <- Errors]).
 
