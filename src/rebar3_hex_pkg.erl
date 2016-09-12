@@ -15,6 +15,10 @@
 
 -define(ENDPOINT, "packages").
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 %% ===================================================================
 %% Public API
 %% ===================================================================
@@ -219,6 +223,13 @@ upload_package(Auth, Name, Version, Meta, Files) ->
 
 errors_to_string(Value) when is_binary(Value) ->
     Value;
+errors_to_string(Map) when is_map(Map) ->
+    errors_to_string(maps:to_list(Map));
+errors_to_string({<<"inserted_at">>, E}) ->
+    lists:flatten(io_lib:format("Inserted At: ~s~n", [E]));
+errors_to_string({<<"requirements">>,  Rs}) ->
+    lists:flatten(["Requirements could not be computed\n",
+                  [io_lib:format("~s\n~20.20c\n~s\n",[P,$-, R]) || {P, R} <- maps:to_list(Rs)]]);
 errors_to_string({Key, Value}) ->
     io_lib:format("~s: ~s", [Key, errors_to_string(Value)]);
 errors_to_string(Errors) when is_list(Errors) ->
@@ -248,3 +259,12 @@ update_versions(ConfigDeps, Deps) ->
                  {N, maps:from_list(M)}
          end
      end || {N, M} <- Deps].
+
+-ifdef(TEST).
+
+error_test() ->
+    E = #{<<"inserted_at">> => <<"can only modify a release up to one hour after creation">>,
+          <<"requirements">> => #{nil => <<"Failed to use \"lager\" (version 3.0.2) because\n  rebar.config requires 3.0.2\n  rebar.config requires ~>3.2.0\n">>}},
+    ?assert(is_list(errors_to_string(E))).
+
+-endif.
