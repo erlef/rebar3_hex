@@ -164,7 +164,7 @@ publish(AppDir, Name, Version, Deps, [], AppDetails) ->
     ec_talk:say("  Licenses: ~s", [format_licenses(Licenses)]),
     ec_talk:say("  Links:~n    ~s", [format_links(Links)]),
     ec_talk:say("  Build tools: ~s", [format_build_tools(BuildTools)]),
-    ec_talk:say("Before publishing, please read Hex CoC: https://hex.pm/docs/codeofconduct", []),
+    ec_talk:say("Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct", []),
     case ec_talk:ask_default("Proceed?", boolean, "Y") of
         true ->
             upload_package(Auth, PkgName, Version, Meta, FilesAndApp);
