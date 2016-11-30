@@ -62,7 +62,7 @@ general(State) ->
 display([], _, _State) ->
     ok;
 
-display([{Name, Vsn} | Deps], Listed, State) ->
+display([{Name, Vsn} | Deps], Listed, State) when is_list(Vsn) ->
     ec_talk:say("~s ~s", [Name, Vsn]),
     %% accumulates already listed deps
     NewListed = [{Name, Vsn} | Listed],
@@ -72,26 +72,31 @@ display([{Name, Vsn} | Deps], Listed, State) ->
         NewDeps ->
             display(dedup({Deps ++ NewDeps, NewListed}), NewListed, State)
     end.
+%% FIXME: function_clause error for non-hex or {pkg, _ _} deps
 
 %% gets deps name(s) and version(s) for a package
 get_deps(Package, Version, State) ->
-    RegistryDir = rebar_packages:registry_dir(State),
-    case ets:file2tab(filename:join(RegistryDir, ?REGISTRY_FILE)) of
-        {ok, Registry} ->
-            VerBin = ec_cnv:to_binary(Version),
-            case ets:lookup(Registry, {Package, VerBin}) of
-                [{{Package, VerBin}, [DepList, _, _]}] ->
-                    [{normalize(Name), Ver} || [Name, Ver, _ , _] <- DepList];
-                _ -> error
-            end;
-        _ ->
-            %% registry table not found
-            case rebar3_hex_http:get(filename:join([?ENDPOINT, Package, "releases", Version]), []) of
-                {ok, Map} ->
-                    [{normalize(X), binary_to_list(maps:get(<<"requirement">>, maps:get(X, maps:get(<<"requirements">>, Map))))}
-                    || X <- maps:keys(maps:get(<<"requirements">>, Map))];
-                {error, 404} -> error;
-                _ -> error
+    case rebar_packages:registry_dir(State) of
+        {uri_parse_error, _CDN} ->
+            error;
+        {ok, RegistryDir} ->
+            case ets:file2tab(filename:join(RegistryDir, ?REGISTRY_FILE)) of
+                {ok, Registry} ->
+                    VerBin = ec_cnv:to_binary(Version),
+                    case ets:lookup(Registry, {Package, VerBin}) of
+                        [{{Package, VerBin}, [DepList, _, _]}] ->
+                            [{normalize(Name), Ver} || [Name, Ver, _ , _] <- DepList];
+                        _ -> error
+                    end;
+                _ ->
+                    %% registry table not found
+                    case rebar3_hex_http:get(filename:join([?ENDPOINT, Package, "releases", Version]), []) of
+                        {ok, Map} ->
+                            [{normalize(X), binary_to_list(maps:get(<<"requirement">>, maps:get(X, maps:get(<<"requirements">>, Map))))}
+                             || X <- maps:keys(maps:get(<<"requirements">>, Map))];
+                        {error, 404} -> error;
+                        _ -> error
+                    end
             end
     end.
 

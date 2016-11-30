@@ -253,7 +253,7 @@ format_build_tools(BuildTools) ->
 update_versions(ConfigDeps, Deps) ->
     [begin
          case lists:keyfind(binary_to_atom(N, utf8), 1, ConfigDeps) of
-             {_, V} ->
+             {_, V} when is_list(V) ->
                  {N, maps:from_list(lists:keyreplace(<<"requirement">>, 1, M, {<<"requirement">>, list_to_binary(V)}))};
              _ ->
                  {N, maps:from_list(M)}
