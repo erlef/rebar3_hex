@@ -45,34 +45,35 @@ format_error({error, Name, Vsn, Message}) ->
 do_(App, State) ->
     AppDir = rebar_app_info:dir(App),
     Files = rebar3_hex_utils:expand_paths(["doc"], AppDir),
-
+    AppDetails = rebar_app_info:app_details(App),
     Name = binary_to_list(rebar_app_info:name(App)),
+    PkgName = ec_cnv:to_list(proplists:get_value(pkg_name, AppDetails, Name)),
     {Args, _} = rebar_state:command_parsed_args(State),
     Revert = proplists:get_value(revert, Args, undefined),
     case Revert of
         undefined ->
             Vsn = rebar_app_info:original_vsn(App),
 
-            Tarball = Name++"-"++Vsn++"-docs.tar.gz",
+            Tarball = PkgName++"-"++Vsn++"-docs.tar.gz",
             ok = erl_tar:create(Tarball, file_list(Files), [compressed]),
             {ok, Tar} = file:read_file(Tarball),
 
             file:delete(Tarball),
 
             {ok, Auth} = rebar3_hex_config:auth(),
-            case rebar3_hex_http:post(filename:join([?ENDPOINT, Name, "releases", Vsn, "docs"])
+            case rebar3_hex_http:post(filename:join([?ENDPOINT, PkgName, "releases", Vsn, "docs"])
                                      ,Auth
                                      ,Tar
                                      ,integer_to_list(byte_size(Tar))) of
                 ok ->
-                    rebar_api:info("Published docs for ~s ~s", [Name, Vsn]),
+                    rebar_api:info("Published docs for ~s ~s", [PkgName, Vsn]),
                     {ok, State};
                 {error, _, Error} ->
                     Message = maps:get(<<"message">>, Error, <<"">>),
-                    ?PRV_ERROR({error, Name, Vsn, Message})
+                    ?PRV_ERROR({error, PkgName, Vsn, Message})
             end;
         Version ->
-            ok = delete(Name, Version)
+            ok = delete(PkgName, Version)
     end.
 
 delete(Name, Version) ->
