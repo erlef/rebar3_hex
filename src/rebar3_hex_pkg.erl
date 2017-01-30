@@ -256,7 +256,9 @@ update_versions(ConfigDeps, Deps) ->
              {_, V} when is_list(V) ->
                  {N, maps:from_list(lists:keyreplace(<<"requirement">>, 1, M, {<<"requirement">>, list_to_binary(V)}))};
              _ ->
-                 {N, maps:from_list(M)}
+                 %% using version from lock. prepend ~> to make it looser
+                 {_, Version} = lists:keyfind(<<"requirement">>, 1, M),
+                 {N, maps:from_list(lists:keyreplace(<<"requirement">>, 1, M, {<<"requirement">>, <<"~>", Version/binary>>}))}
          end
      end || {N, M} <- Deps].
 
