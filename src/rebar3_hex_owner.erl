@@ -58,7 +58,7 @@ add(Package, Email) ->
         ok ->
             ec_talk:say("Added ~s to ~s", [Email, Package]);
         {error, Status, Error} ->
-            rebar_api:error("Unable to remove package ~p, ~p (~p)", [Package, Error, Status])
+            rebar_api:error("Unable to add owner for package ~p, ~p (~p)", [Package, Error, Status])
     end.
 
 remove(Package, Email) ->
@@ -68,7 +68,7 @@ remove(Package, Email) ->
         ok ->
             ec_talk:say("Removed ~s from ~s", [Email, Package]);
         {error, Status} ->
-            rebar_api:error("Unable to remove package ~p (~p)", [Package, Status])
+            rebar_api:error("Unable to remove owner for package ~p (~p)", [Package, Status])
     end.
 
 list(Package) ->
