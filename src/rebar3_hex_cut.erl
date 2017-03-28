@@ -117,8 +117,8 @@ do_(Type, App, State) ->
             Spec = rebar3_hex_utils:update_app_src(App, NewVersion),
             NewAppSrcFile = io_lib:format("~tp.\n", [Spec]),
             ok = rebar_file_utils:write_file_if_contents_differ(AppSrcFile, NewAppSrcFile),
+            ask_commit_and_push(NewVersion),
             rebar3_hex_pkg:publish(rebar_app_info:original_vsn(App, NewVersion), State),
-            ask_commit_and_push(),
             {ok, State}
     end.
 
@@ -154,10 +154,10 @@ string_to_bump("minor") -> minor;
 string_to_bump("major") -> major;
 string_to_bump(_) -> error.
 
-ask_commit_and_push() ->
-    case ec_talk:ask_default("Create 'version bump' commit?", boolean, "Y") of
+ask_commit_and_push(NewVersion) ->
+    case ec_talk:ask_default(io_lib:format("Create 'v~s' commit?", [NewVersion]), boolean, "Y") of
         true ->
-            rebar_utils:sh("git commit -a -m 'version bump'", []),
+            rebar_utils:sh(io_lib:format("git commit -a -m 'v~s'", [NewVersion]), []),
             case ec_talk:ask_default("Push master to origin master?", boolean, "N") of
                 true ->
                     rebar_utils:sh("git push origin master:master", []);
