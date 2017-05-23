@@ -10,6 +10,8 @@
         ,deauth/0
         ,reset_password/0]).
 
+-export([ask_password/0]).
+
 -include("rebar3_hex.hrl").
 
 -define(PROVIDER, user).
@@ -50,7 +52,7 @@ do(State) ->
             auth(),
             {ok, State};
         ["deauth"] ->
-	    deauth(),
+            deauth(),
             {ok, State};
         ["reset_password"] ->
             reset_password(),
@@ -86,9 +88,14 @@ whoami() ->
     Username = rebar3_hex_config:username(),
     ec_talk:say(Username).
 
-auth() ->
-    Username = list_to_binary(ec_talk:ask_default("Username:", string, "")),
+ask_password() ->
+    DefaultUsername = binary_to_list(rebar3_hex_config:username()),
+    Username = list_to_binary(ec_talk:ask_default("Username:", string, DefaultUsername)),
     Password = get_password(),
+    {ok, {Username, Password}}.
+
+auth() ->
+    {ok, {Username, Password}} = ask_password(),
     generate_key(Username, Password).
 
 deauth() ->
@@ -149,7 +156,7 @@ create_user(Username, Email, Password) ->
 generate_key(Username, Password) ->
     ec_talk:say("Generating API key..."),
     {ok, Name} = inet:gethostname(),
-    case new_key(list_to_binary(Name), Username, Password) of
+    case rebar3_hex_key:add(list_to_binary(Name), Username, Password) of
         {ok, Body} ->
             update_config(Username, Body);
         {error, StatusCode, Body} ->
@@ -162,10 +169,6 @@ new(Username, Email, Password) ->
                              ,maps:from_list([{<<"username">>, Username}
                               ,{<<"email">>, Email}
                               ,{<<"password">>, Password}])).
-
-new_key(Name, Username, Password) ->
-    Auth = base64:encode_to_string(<<Username/binary, ":", Password/binary>>),
-    rebar3_hex_http:post_map("keys", "Basic "++Auth, maps:from_list([{<<"name">>, Name}])).
 
 update_config(Username, Body)->
     Secret = maps:get(<<"secret">>, Body),
