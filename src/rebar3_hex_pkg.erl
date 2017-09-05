@@ -114,6 +114,23 @@ publish(App, State) ->
             Error
     end.
 
+
+known_exclude_file(Path, ExcludeRe) ->
+    KnownExcludes = [
+                     "~$",        %% emacs temp files
+                     "\\.o$",     %% c object files
+                     "\\.so$",    %% compiled nif libraries
+                     "\\.swp$"    %% vim swap files
+                    ],
+    lists:foldl(fun(_, true) -> true;
+                   (RE, false) ->
+                        re:run(Path, RE) =/= nomatch
+                end, false, KnownExcludes ++ ExcludeRe).
+
+exclude_file(Path, ExcludeFiles, ExcludeRe) ->
+    lists:keymember(Path, 2, ExcludeFiles) orelse
+        known_exclude_file(Path, ExcludeRe).
+
 publish(AppDir, Name, Version, Deps, [], AppDetails) ->
     Config = rebar_config:consult(AppDir),
     ConfigDeps = proplists:get_value(deps, Config, []),
@@ -123,13 +140,16 @@ publish(AppDir, Name, Version, Deps, [], AppDetails) ->
     FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
     IncludeFilePaths = proplists:get_value(include_files, AppDetails, []),
     ExcludeFilePaths = proplists:get_value(exclude_files, AppDetails, []),
+    ExcludeRes = proplists:get_value(exclude_regexps, AppDetails, []),
     AppSrc = {application, ec_cnv:to_atom(Name), AppDetails},
     Files = lists:ukeysort(2, rebar3_hex_utils:expand_paths(FilePaths, AppDir)),
     IncludeFiles = lists:ukeysort(2, rebar3_hex_utils:expand_paths(IncludeFilePaths, AppDir)),
     ExcludeFiles = lists:ukeysort(2, rebar3_hex_utils:expand_paths(ExcludeFilePaths, AppDir)),
 
-    Files1 = lists:ukeymerge(2, Files, IncludeFiles),
-    Files2 = lists:filter(fun ({_, Path}) -> lists:keymember(Path, 2, ExcludeFiles) =/= true end, Files1),
+    %% We filter first and then include, that way glob excludes can be
+    %% overwritten be explict includes
+    Files1 = lists:filter(fun ({_, Path}) -> not exclude_file(Path, ExcludeFiles, ExcludeRes) end, Files),
+    Files2 = lists:ukeymerge(2, Files1, IncludeFiles),
 
     AppFileSrc = filename:join("src", ec_cnv:to_list(Name)++".app.src"),
     AppSrcBinary = ec_cnv:to_binary(lists:flatten(io_lib:format("~tp.\n", [AppSrc]))),
