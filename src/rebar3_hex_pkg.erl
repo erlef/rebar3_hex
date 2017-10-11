@@ -136,7 +136,7 @@ publish(AppDir, Name, Version, Deps, [], AppDetails) ->
     ConfigDeps = proplists:get_value(deps, Config, []),
     Deps1 = update_versions(ConfigDeps, Deps),
 
-    Description = list_to_binary(proplists:get_value(description, AppDetails, "")),
+    Description = unicode:characters_to_binary(proplists:get_value(description, AppDetails, "")),
     FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
     IncludeFilePaths = proplists:get_value(include_files, AppDetails, []),
     ExcludeFilePaths = proplists:get_value(exclude_files, AppDetails, []),
