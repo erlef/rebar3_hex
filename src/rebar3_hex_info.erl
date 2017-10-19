@@ -62,7 +62,7 @@ general(State) ->
 display([], _, _State) ->
     ok;
 
-display([{Name, Vsn} | Deps], Listed, State) when is_list(Vsn) ->
+display([{Name, Vsn} | Deps], Listed, State) when is_list(Vsn); is_binary(Vsn) ->
     ec_talk:say("~s ~s", [Name, Vsn]),
     %% accumulates already listed deps
     NewListed = [{Name, Vsn} | Listed],
