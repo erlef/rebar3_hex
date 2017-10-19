@@ -93,23 +93,29 @@ pretty_print_status(Code) -> io_lib:format("HTTP status code: ~p", [Code]).
 
 %% Internal Functions
 
+%% @doc Only include authorization header if Auth key is not empty
+headers([]) ->
+    [{"user-agent", user_agent()}
+    ,{"Accept", "application/vnd.hex+erlang"} %% Erlang media type
+    ];
+headers(Auth) ->
+    [{"authorization",  ec_cnv:to_list(Auth)}
+     |headers([])].
+
 request(Path, Auth) ->
     {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ ec_cnv:to_list(filename:join(?ENDPOINT, Path))
-    ,[{"authorization",  ec_cnv:to_list(Auth)}, {"user-agent", user_agent()}
-     , {"Accept", "application/vnd.hex+erlang"}]}.
+    ,headers(Auth)}.
 
 map_request(Path, Auth, Body) ->
     {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ ec_cnv:to_list(filename:join(?ENDPOINT, Path))
-    ,[{"authorization",  ec_cnv:to_list(Auth)}, {"user-agent", user_agent()},
-      {"Accept", "application/vnd.hex+erlang"}]
+    ,headers(Auth)
     ,"application/vnd.hex+erlang", term_to_binary(Body)}.
 
 
 file_request(Path, Auth, Body, ContentLength) ->
     {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ ec_cnv:to_list(filename:join(?ENDPOINT, Path))
-    ,[{"authorization", ec_cnv:to_list(Auth)}
-     ,{"content-length", ContentLength}, {"user-agent", user_agent()},
-      {"Accept", "application/vnd.hex+erlang"}] %%Erlang media type
+    ,[{"content-length", ContentLength}
+      |headers(Auth)]
     ,"application/octet-stream", {Body, 0}}.
 
 maybe_setup_proxy() ->
