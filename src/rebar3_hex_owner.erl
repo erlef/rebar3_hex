@@ -80,6 +80,7 @@ list(Package) ->
             ec_talk:say("~s", [OwnersString]);
         {error, 404} ->
             rebar_api:error("No package with name ~s", [Package]);
-        _ ->
-            rebar_api:error("Failed to retrieve package information", [])
+        {error, Status} ->
+            rebar_api:error("Failed to retrieve package information: ~s",
+                            [rebar3_hex_http:pretty_print_status(Status)])
     end.
