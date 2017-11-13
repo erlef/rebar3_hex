@@ -45,9 +45,9 @@ binarify(Term) when is_atom(Term) ->
 binarify([]) ->
     [];
 binarify(Term) when is_list(Term) ->
-    case io_lib:printable_list(Term) of
+    case io_lib:printable_unicode_list(Term) of
         true ->
-            list_to_binary(Term);
+            unicode:characters_to_binary(Term);
         false ->
             [binarify(X) || X <- Term]
     end;
