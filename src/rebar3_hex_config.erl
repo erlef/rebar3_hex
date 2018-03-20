@@ -19,7 +19,7 @@
 -define(DEPS, []).
 
 -define(DEFAULT_HEX_CONFIG, "hex.config").
--define(DEFAULT_API_URL, "https://hex.pm").
+-define(DEFAULT_API_URL, "https://hex.pm/api").
 -define(DEFAULT_CDN_URL, "https://s3.amazonaws.com/s3.hex.pm").
 
 -spec init(rebar_state:t()) -> {ok, rebar_state:t()}.

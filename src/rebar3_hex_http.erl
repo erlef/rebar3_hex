@@ -13,8 +13,6 @@
 -include("rebar3_hex.hrl").
 -include_lib("public_key/include/OTP-PUB-KEY.hrl").
 
--define(ENDPOINT, "/api").
-
 get(Path, Auth) ->
     case httpc:request(get, request(Path, Auth)
                       ,[{ssl, rebar_api:ssl_opts(rebar3_hex_config:api_url())}, {relaxed, true}]
@@ -94,19 +92,19 @@ pretty_print_status(Code) -> io_lib:format("HTTP status code: ~p", [Code]).
 %% Internal Functions
 
 request(Path, Auth) ->
-    {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ ec_cnv:to_list(filename:join(?ENDPOINT, Path))
+    {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ "/" ++ ec_cnv:to_list(Path)
     ,[{"authorization",  ec_cnv:to_list(Auth)}, {"user-agent", user_agent()}
      , {"Accept", "application/vnd.hex+erlang"}]}.
 
 map_request(Path, Auth, Body) ->
-    {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ ec_cnv:to_list(filename:join(?ENDPOINT, Path))
+    {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ "/" ++ ec_cnv:to_list(Path)
     ,[{"authorization",  ec_cnv:to_list(Auth)}, {"user-agent", user_agent()},
       {"Accept", "application/vnd.hex+erlang"}]
     ,"application/vnd.hex+erlang", term_to_binary(Body)}.
 
 
 file_request(Path, Auth, Body, ContentLength) ->
-    {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ ec_cnv:to_list(filename:join(?ENDPOINT, Path))
+    {ec_cnv:to_list(rebar3_hex_config:api_url()) ++ "/" ++ ec_cnv:to_list(Path)
     ,[{"authorization", ec_cnv:to_list(Auth)}
      ,{"content-length", ContentLength}, {"user-agent", user_agent()},
       {"Accept", "application/vnd.hex+erlang"}] %%Erlang media type
