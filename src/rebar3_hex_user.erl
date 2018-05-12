@@ -140,11 +140,17 @@ create_user(Username, Email, Password) ->
         generate_key(Username, Password),
         ec_talk:say("You are required to confirm your email to access your account, "
                     "a confirmation email has been sent to ~s", [Email]);
-      {error, StatusCode, _} ->
-        ec_talk:say("Registration of user ~s failed (~p)", [Username, StatusCode]),
+      {error, StatusCode, Message} ->
+        case Message of
+          #{<<"message">> := Reason} ->
+            ec_talk:say("Registration of user ~s failed (~p, ~s)",
+                        [Username, StatusCode, Reason]);
+          _ ->
+            ec_talk:say("Registration of user ~s failed (~p)",
+                        [Username, StatusCode])
+        end,
         error
     end.
-
 
 generate_key(Username, Password) ->
     ec_talk:say("Generating API key..."),

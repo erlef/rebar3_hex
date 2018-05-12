@@ -70,7 +70,8 @@ do(State) ->
 
 -spec format_error(any()) -> iolist().
 format_error(no_user) ->
-    "No user registered. See https://hex.pm/docs/rebar3_publish for instructions.";
+    ("No user registered. Either register or, if you have registered, "
+     "please auth. See https://hex.pm/docs/rebar3_publish for instructions.");
 format_error(Reason) ->
     io_lib:format("~p", [Reason]).
 
