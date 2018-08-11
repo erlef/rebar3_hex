@@ -5,7 +5,7 @@
          format_error/1]).
 
 -export([publish/2
-        ,publish/6
+        ,publish/7
         ,validate_app_details/1]).
 
 -include("rebar3_hex.hrl").
@@ -34,7 +34,8 @@ init(State) ->
                                 {example, "rebar3 hex publish"},
                                 {short_desc, "Publish a new version of your package and update the package"},
                                 {desc, ""},
-                                {opts, [{revert, undefined, "revert", string, "Revert given version."}]}
+                                {opts, [{revert, undefined, "revert", string, "Revert given version."},
+                                        {yes, $y, "yes", boolean, "Automatic yes to prompts"}]}
                                 ]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
@@ -107,9 +108,12 @@ publish(App, State) ->
     TopLevel = [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"requirement">>, V}]} || {A,{pkg,N,V,_},0} <- Deps],
     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
 
+    {Args, _} = rebar_state:command_parsed_args(State),
+    Yes = proplists:get_value(yes, Args, false),
+
     case validate_app_details(AppDetails) of
         ok ->
-            publish(AppDir, Name, ResolvedVersion, TopLevel, Excluded, AppDetails);
+            publish(AppDir, Name, ResolvedVersion, TopLevel, Excluded, AppDetails, Yes);
         Error ->
             Error
     end.
@@ -131,7 +135,7 @@ exclude_file(Path, ExcludeFiles, ExcludeRe) ->
     lists:keymember(Path, 2, ExcludeFiles) orelse
         known_exclude_file(Path, ExcludeRe).
 
-publish(AppDir, Name, Version, Deps, [], AppDetails) ->
+publish(AppDir, Name, Version, Deps, [], AppDetails, Yes) ->
     Config = rebar_config:consult(AppDir),
     ConfigDeps = proplists:get_value(deps, Config, []),
     Deps1 = update_versions(ConfigDeps, Deps),
@@ -189,14 +193,20 @@ publish(AppDir, Name, Version, Deps, [], AppDetails) ->
     ec_talk:say("  Links:~n    ~s", [format_links(Links)]),
     ec_talk:say("  Build tools: ~s", [format_build_tools(BuildTools)]),
     ec_talk:say("Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct", []),
-    case ec_talk:ask_default("Proceed?", boolean, "Y") of
+    Proceed = case Yes of
+        false ->
+            ec_talk:ask_default("Proceed?", boolean, "Y");
+        true ->
+            true
+    end,
+    case Proceed of
         true ->
             upload_package(Auth, PkgName, Version, Meta, FilesAndApp);
         _ ->
             ec_talk:say("Goodbye..."),
             stopped
     end;
-publish(_AppDir, _Name, _Version, _Deps, Excluded, _AppDetails) ->
+publish(_AppDir, _Name, _Version, _Deps, Excluded, _AppDetails, _Yes) ->
     ?PRV_ERROR({non_hex_deps, Excluded}).
 
 %% Internal functions
