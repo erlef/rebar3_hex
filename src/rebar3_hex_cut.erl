@@ -26,33 +26,44 @@ init(State) ->
                                 {example, "rebar3 hex cut"},
                                 {short_desc, "Increment version number and publish package"},
                                 {desc, ""},
-                                {opts, [{increment, $i, "increment", string, "Type of semver increment: major, minor or patch"}]}
+                                {opts, [{increment, $i, "increment", string,
+                                         "Type of semver increment: major, minor or patch"},
+                                        rebar3_hex_utils:repo_opt()]}
                                 ]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    {Args, _} = rebar_state:command_parsed_args(State),
-    case proplists:get_value(increment, Args, undefined) of
+    Repo = rebar3_hex_utils:repo(State),
+    case maps:get(write_key, Repo, undefined) of
         undefined ->
-            Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
-            lists:foldl(fun(App, {ok, StateAcc}) ->
-                                do_(App, StateAcc)
-                        end, {ok, State}, Apps);
-         Type ->
-            case string_to_bump(Type) of
-                error ->
-                    {error, {?MODULE, {bad_increment, Type}}};
-                Bump ->
+            ?PRV_ERROR({no_write_key, maps:get(name, Repo)});
+        WriteKey ->
+            HexConfig = Repo#{api_key => WriteKey},
+            {Args, _} = rebar_state:command_parsed_args(State),
+            case proplists:get_value(increment, Args, undefined) of
+                undefined ->
                     Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
                     lists:foldl(fun(App, {ok, StateAcc}) ->
-                                do_(Bump, App, StateAcc)
-                        end, {ok, State}, Apps)
+                                        do_(App, HexConfig, StateAcc)
+                                end, {ok, State}, Apps);
+                Type ->
+                    case string_to_bump(Type) of
+                        error ->
+                            {error, {?MODULE, {bad_increment, Type}}};
+                        Bump ->
+                            Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
+                            lists:foldl(fun(App, {ok, StateAcc}) ->
+                                                do_(Bump, App, StateAcc)
+                                        end, {ok, State}, Apps)
+                    end
             end
     end.
 
 -spec format_error(any()) -> iolist().
+format_error({no_write_key, RepoName}) ->
+    io_lib:format("No api key with permissions to write to the repository ~ts was found.", [RepoName]);
 format_error({bad_increment, Type}) ->
     io_lib:format("Increment must be major, minor or patch. ~s is not valid.", [Type]);
 format_error(Error) ->
@@ -62,15 +73,15 @@ format_error(Error) ->
 %% Public API
 %% ===================================================================
 
-do_(App, State) ->
+do_(App, HexConfig, State) ->
     Version = rebar_app_info:original_vsn(App),
     ResolvedVersion = rebar_utils:vcs_vsn(Version,
                                           rebar_app_info:dir(App),
                                           rebar_state:resources(State)),
     Type = get_increment(ResolvedVersion),
-    do_(Type, App, State).
+    do_(Type, App, HexConfig, State).
 
-do_(Type, App, State) ->
+do_(Type, App, HexConfig, State) ->
     Version = rebar_app_info:original_vsn(App),
     ResolvedVersion = rebar_utils:vcs_vsn(Version,
                                           rebar_app_info:dir(App),
@@ -85,15 +96,17 @@ do_(Type, App, State) ->
 
             {application, _, AppDetails} = rebar3_hex_utils:update_app_src(App, NewVersion),
 
-            case rebar3_hex_pkg:validate_app_details(AppDetails) of
+            case rebar3_hex_publish:validate_app_details(AppDetails) of
                 ok ->
                     Name = rebar_app_info:name(App),
                     AppDir = rebar_app_info:dir(App),
                     Deps = rebar_state:get(State, {locks, default}, []),
-                    TopLevel = [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"requirement">>, V}]} || {A,{pkg,N,V,_},0} <- Deps],
+                    TopLevel = [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"requirement">>, V}]}
+                                || {A,{pkg,N,V,_},0} <- Deps],
                     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
 
-                    case rebar3_hex_pkg:publish(AppDir, Name, NewVersion, TopLevel, Excluded, AppDetails) of
+                    case rebar3_hex_publish:publish(AppDir, Name, NewVersion, TopLevel,
+                                                    Excluded, AppDetails, HexConfig, State) of
                         stopped ->
                             {ok, State};
                         ok ->
@@ -118,7 +131,7 @@ do_(Type, App, State) ->
             NewAppSrcFile = io_lib:format("~tp.\n", [Spec]),
             ok = rebar_file_utils:write_file_if_contents_differ(AppSrcFile, NewAppSrcFile),
             ask_commit_and_push(NewVersion),
-            rebar3_hex_pkg:publish(rebar_app_info:original_vsn(App, NewVersion), State),
+            rebar3_hex_publish:publish(rebar_app_info:original_vsn(App, NewVersion), HexConfig, State),
             {ok, State}
     end.
 

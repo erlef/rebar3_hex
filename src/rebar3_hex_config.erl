@@ -4,21 +4,20 @@
          do/1,
          format_error/1]).
 
--export([path/0
-        ,read/0
-        ,api_url/0
-        ,cdn_url/0
-        ,username/0
-        ,auth/0
-        ,http_proxy/0
-        ,https_proxy/0
-        ,update/1
-        ,write/1]).
+-export([path/1
+        ,read/1
+        ,api_url/1
+        ,cdn_url/1
+        ,username/1
+        ,auth/1
+        ,http_proxy/1
+        ,https_proxy/1
+        ,update/2
+        ,write/2]).
 
 -define(PROVIDER, config).
 -define(DEPS, []).
 
--define(DEFAULT_HEX_CONFIG, "hex.config").
 -define(DEFAULT_API_URL, "https://hex.pm").
 -define(DEFAULT_CDN_URL, "https://s3.amazonaws.com/s3.hex.pm").
 
@@ -42,24 +41,24 @@ init(State) ->
 do(State) ->
     case rebar_state:command_args(State) of
         ["username" | Value] ->
-            maybe_update(username, Value),
-            ec_talk:say("username: ~s", [username()]);
+            maybe_update(username, Value, State),
+            ec_talk:say("username: ~s", [username(State)]);
         ["key" | Value] ->
-            maybe_update(key, Value),
-            {ok, Key} = auth(),
+            maybe_update(key, Value, State),
+            {ok, Key} = auth(State),
             ec_talk:say("key: ~s", [Key]);
         ["api_url" | Value] ->
-            maybe_update(api_url, Value),
-            ec_talk:say("api_url: ~s", [api_url()]);
+            maybe_update(api_url, Value, State),
+            ec_talk:say("api_url: ~s", [api_url(State)]);
         ["cdn_url" | Value] ->
-            maybe_update(cdn_url, Value),
-            ec_talk:say("cdn_url: ~s", [cdn_url()]);
+            maybe_update(cdn_url, Value, State),
+            ec_talk:say("cdn_url: ~s", [cdn_url(State)]);
         ["http_proxy" | Value] ->
-            maybe_update(http_proxy, Value),
-            ec_talk:say("http_proxy: ~s", [http_proxy()]);
+            maybe_update(http_proxy, Value, State),
+            ec_talk:say("http_proxy: ~s", [http_proxy(State)]);
         ["https_proxy" | Value] ->
-            maybe_update(https_proxy, Value),
-            ec_talk:say("https_proxy: ~s", [https_proxy()]);
+            maybe_update(https_proxy, Value, State),
+            ec_talk:say("https_proxy: ~s", [https_proxy(State)]);
         [Other | _]->
             rebar_api:error("Config does not contain a key ~s", [Other]);
         [] ->
@@ -75,62 +74,62 @@ format_error(no_user) ->
 format_error(Reason) ->
     io_lib:format("~p", [Reason]).
 
-path() ->
-    filename:join(rebar3_hex_utils:hex_home(), ?DEFAULT_HEX_CONFIG).
+path(State) ->
+    filename:join(rebar_dir:global_config_dir(State)).
 
-read() ->
-    case file:consult(path()) of
-        {ok, Config} ->
+read(State) ->
+    case file:consult(path(State)) of
+        {ok, [Config]} ->
             Config;
         _ ->
-            []
+            #{}
     end.
 
-api_url() ->
-    proplists:get_value(api_url, read(), ?DEFAULT_API_URL).
+api_url(State) ->
+    proplists:get_value(api_url, read(State), ?DEFAULT_API_URL).
 
-cdn_url() ->
+cdn_url(State) ->
     case os:getenv("HEX_CDN") of
         false ->
-            proplists:get_value(cdn_url, read(), ?DEFAULT_CDN_URL);
+            proplists:get_value(cdn_url, read(State), ?DEFAULT_CDN_URL);
         CDN ->
             CDN
     end.
 
-username() ->
-    proplists:get_value(username, read(), "").
+username(State) ->
+    proplists:get_value(username, read(State), undefined).
 
-http_proxy() ->
-    proplists:get_value(http_proxy, read(), "").
+http_proxy(State) ->
+    proplists:get_value(http_proxy, read(State), "").
 
-https_proxy() ->
-    proplists:get_value(https_proxy, read(), "").
+https_proxy(State) ->
+    proplists:get_value(https_proxy, read(State), "").
 
-auth() ->
-    case lists:keyfind(key, 1, read()) of
+auth(State) ->
+    case lists:keyfind(key, 1, read(State)) of
         {key, Key} ->
             {ok, Key};
         _ ->
             throw({error, {?MODULE, no_user}})
     end.
 
-update(NewConfig) ->
-    Config = read(),
+update(NewConfig, State) ->
+    Config = read(State),
     Config1 = lists:ukeymerge(1
                              ,lists:keysort(1, NewConfig)
                              ,lists:keysort(1, Config)),
-    write(Config1).
+    write(Config1, State).
 
-write(Config) ->
-    filelib:ensure_dir(path()),
-    ok = file:write_file(path(), encode_config(Config)).
+write(Config, State) ->
+    filelib:ensure_dir(path(State)),
+    ok = file:write_file(path(State), encode_config([Config])).
 
 %% Internal functions
 
-maybe_update(_, []) ->
+maybe_update(_, [], _) ->
     ok;
-maybe_update(Key, Value) ->
-    update([{Key, ec_cnv:to_binary(Value)}]).
+maybe_update(Key, Value, State) ->
+    update([{Key, ec_cnv:to_binary(Value)}], State).
 
 encode_config(Config) ->
     iolist_to_binary([[io_lib:print(Term) | ".\n"] || Term <- Config]).

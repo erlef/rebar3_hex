@@ -1,14 +1,17 @@
 -module(rebar3_hex_user).
 
--export([init/1
-        ,do/1
-        ,format_error/1]).
+-export([init/1,
+         do/1,
+         format_error/1]).
 
--export([hex_register/0
-        ,whoami/0
-        ,auth/0
-        ,deauth/0
-        ,reset_password/0]).
+-export([hex_register/2,
+         whoami/2,
+         auth/2,
+         deauth/2,
+         reset_password/2,
+         encrypt_write_key/3,
+         decrypt_write_key/2,
+         decrypt_write_key/3]).
 
 -include("rebar3_hex.hrl").
 
@@ -23,47 +26,51 @@
 
 -spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
 init(State) ->
-    Provider = providers:create([
-                                {name, ?PROVIDER},
-                                {module, ?MODULE},
-                                {namespace, hex},
-                                {bare, true},
-                                {deps, ?DEPS},
-                                {example, "rebar3 hex user <command>"},
-                                {short_desc, "Hex user tasks"},
-                                {desc, ""},
-                                {opts, []}
-                                ]),
+    Provider = providers:create([{name, ?PROVIDER},
+                                 {module, ?MODULE},
+                                 {namespace, hex},
+                                 {bare, true},
+                                 {deps, ?DEPS},
+                                 {example, "rebar3 hex user <command>"},
+                                 {short_desc, "Hex user tasks"},
+                                 {desc, ""},
+                                 {opts, [rebar3_hex_utils:repo_opt()]}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
+    Repo = rebar3_hex_utils:repo(State),
     case rebar_state:command_args(State) of
-        ["register"] ->
-            hex_register(),
-            {ok, State};
-        ["whoami"] ->
-            whoami(),
-            {ok, State};
-        ["auth"] ->
-            auth(),
-            {ok, State};
-        ["deauth"] ->
-	    deauth(),
-            {ok, State};
-        ["reset_password"] ->
-            reset_password(),
-            {ok, State};
-        [] ->
-            {ok, State}
+        ["register" | _] ->
+            hex_register(Repo, State);
+        ["whoami" | _] ->
+            whoami(Repo, State);
+        ["auth" | _] ->
+            auth(Repo, State);
+        ["deauth" | _] ->
+            deauth(Repo, State);
+        ["reset_password" | _] ->
+            reset_password(Repo, State);
+        _ ->
+            ?PRV_ERROR(bad_command)
     end.
 
 -spec format_error(any()) -> iolist().
+format_error({whoami_failure, Reason}) ->
+    io_lib:format("Fetching currently authenticated user failed: ~ts", [Reason]);
+format_error({registration_failure, Reason}) ->
+    io_lib:format("Registration of user failed: ~ts", [Reason]);
+format_error({generate_key, Reason}) ->
+    io_lib:format("Failure generating authentication tokens: ~ts", [Reason]);
+format_error(no_match_local_password) ->
+    "Password confirmation failed. The passwords must match.";
+format_error(bad_command) ->
+    "Command must be one of register, whoami, auth, deauth or reset_password";
 format_error(Reason) ->
     io_lib:format("~p", [Reason]).
 
-hex_register() ->
+hex_register(Repo, State) ->
     ec_talk:say("By registering an account on Hex.pm you accept all our "
                 "policies and terms of service found at https://hex.pm/policies\n"),
     Username = list_to_binary(ec_talk:ask_default("Username:", string, "")),
@@ -76,42 +83,76 @@ hex_register() ->
             case Password =:= PasswordConfirm of
                 true ->
                     ec_talk:say("Registering..."),
-                    create_user(Username, Email, Password);
+                    create_user(Username, Email, Password, Repo, State);
                 false ->
                     error
             end
     end.
 
-whoami() ->
-    Username = rebar3_hex_config:username(),
-    ec_talk:say(Username).
+whoami(Repo, State) ->
+    case maps:get(read_key, Repo, undefined) of
+        undefined ->
+            ec_talk:say("Not authenticated as any user currently for this repository");
+        ReadKey ->
+            case hex_api_user:me(Repo#{api_key => ReadKey}) of
+                {ok, {200, _Headers, #{<<"username">> := Username,
+                                       <<"email">> := Email}}} ->
+                    ec_talk:say("~ts (~ts)", [Username, Email]),
+                    {ok, State};
+                {ok, {_Status, _Headers, #{<<"message">> := Message}}} ->
+                    ?PRV_ERROR({whoami_failure, Message});
+                {error, Reason} ->
+                    ?PRV_ERROR({whoami_failure, io_lib:format("~p", [Reason])})
+            end
+    end.
 
-auth() ->
+auth(Repo, State) ->
     Username = list_to_binary(ec_talk:ask_default("Username:", string, "")),
     Password = get_password(),
-    generate_key(Username, Password).
 
-deauth() ->
-    Username = rebar3_hex_config:username(),
-    Config = rebar3_hex_config:read(),
+    ec_talk:say("You have authenticated on Hex using your account password. However, "
+                "Hex requires you to have a local password that applies only to this machine for security "
+                "purposes. Please enter it."),
+
+    LocalPassword = get_password(<<"Local Password: ">>),
+    ConfirmLocalPassword = get_password(<<"Local Password (confirm): ">>),
+
+    case LocalPassword =:= ConfirmLocalPassword of
+        true ->
+            generate_all_keys(Username, Password, LocalPassword, Repo, State);
+        false ->
+            throw(?PRV_ERROR(no_match_local_password))
+    end.
+
+deauth(_Repo, State) ->
+    Username = rebar3_hex_config:username(State),
+    Config = rebar3_hex_config:read(State),
     rebar3_hex_config:write(lists:keydelete(username, 1, lists:keydelete(key, 1, Config))),
     ec_talk:say("User `~s` removed from the local machine. "
                "To authenticate again, run `rebar3 hex user auth` "
                "or create a new user with `rebar3 hex user register`", [Username]).
 
-reset_password() ->
+reset_password(Repo, State) ->
     User = ec_talk:ask_default("Username or Email:", string, ""),
-    ok = rebar3_hex_http:post_map(filename:join([?ENDPOINT, User, "reset"]), [], maps:new()).
+    case hex_api_user:reset_password(User, Repo) of
+        {ok, {201, _Headers, #{<<"email">> := Email}}} ->
+            ec_talk:say("Email with reset link sent to ~ts", [Email]),
+            {ok, State};
+        {ok, {_Status, _Headers, #{<<"message">> := Message}}} ->
+            ?PRV_ERROR({reset_failure, Message});
+        {error, Reason} ->
+            ?PRV_ERROR({reset_failure, io_lib:format("~p", [Reason])})
+    end.
 
 %% Internal functions
 
 get_password() ->
-    get_password(<<"Password: ">>).
+    get_password(<<"Account Password: ">>).
 
 -define(OP_PUTC, 0).
 
 get_password(confirm) ->
-    get_password(<<"Password (confirm): ">>);
+    get_password(<<"Account Password (confirm): ">>);
 get_password(Msg) ->
     case io:setopts([binary, {echo, false}]) of
         ok ->
@@ -134,45 +175,95 @@ get_password(Msg) ->
             end
     end.
 
-create_user(Username, Email, Password) ->
-    case new(Username, Email, Password) of
-      {ok, _} ->
-        generate_key(Username, Password),
-        ec_talk:say("You are required to confirm your email to access your account, "
-                    "a confirmation email has been sent to ~s", [Email]);
-      {error, StatusCode, Message} ->
-        case Message of
-          #{<<"message">> := Reason} ->
-            ec_talk:say("Registration of user ~s failed (~p, ~s)",
-                        [Username, StatusCode, Reason]);
-          _ ->
-            ec_talk:say("Registration of user ~s failed (~p)",
-                        [Username, StatusCode])
-        end,
-        error
+create_user(Username, Email, Password, Repo, State) ->
+    case hex_api_user:create(Repo, Username, Password, Email) of
+        {ok, {201, _Headers, _Body}} ->
+            ec_talk:say("You are required to confirm your email to access your account, "
+                        "a confirmation email has been sent to ~s", [Email]),
+            ec_talk:say("Then run `rebar3 hex auth -r ~ts` to create and configure api tokens locally.",
+                        [maps:get(name, Repo)]),
+            {ok, State};
+        {ok, {_Status, _Headers, #{<<"message">> := Message}}} ->
+            ?PRV_ERROR({registration_failure, Message});
+        {error, Reason} ->
+            ?PRV_ERROR({registration_failure, io_lib:format("~p", [Reason])})
     end.
 
-generate_key(Username, Password) ->
-    ec_talk:say("Generating API key..."),
-    {ok, Name} = inet:gethostname(),
-    case new_key(list_to_binary(Name), Username, Password) of
-        {ok, Body} ->
-            update_config(Username, Body);
-        {error, StatusCode, Body} ->
-            ec_talk:say("Generation of API key failed (~p)", [StatusCode]),
-            {error, Body}
+pad(Binary) ->
+    case byte_size(Binary) of
+        Size when Size =< 16 ->
+            <<Binary/binary, 0:((16 - Size) * 8)>>;
+        Size when Size =< 24 ->
+            <<Binary/binary, 0:((24 - Size) * 8)>>;
+        Size when Size =< 32 ->
+            <<Binary/binary, 0:((32 - Size) * 8)>>;
+        <<Bin:32/binary, _/binary>> ->
+            Bin
     end.
 
-new(Username, Email, Password) ->
-    rebar3_hex_http:post_map(?ENDPOINT, []
-                             ,maps:from_list([{<<"username">>, Username}
-                              ,{<<"email">>, Email}
-                              ,{<<"password">>, Password}])).
+generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
+    ec_talk:say("Generating all keys..."),
 
-new_key(Name, Username, Password) ->
+    RepoName = maps:get(name, Repo),
     Auth = base64:encode_to_string(<<Username/binary, ":", Password/binary>>),
-    rebar3_hex_http:post_map("keys", "Basic "++Auth, maps:from_list([{<<"name">>, Name}])).
+    RepoConfig0 = Repo#{api_key => list_to_binary("Basic " ++ Auth)},
 
-update_config(Username, Body)->
-    Secret = maps:get(<<"secret">>, Body),
-    rebar3_hex_config:update([{username, Username}, {key, Secret}]).
+    %% write key
+    WriteKeyName = api_key_name(),
+    WritePermissions = [#{<<"domain">> => <<"api">>}],
+    {ok, WriteKey} = generate_key(RepoConfig0, WriteKeyName, WritePermissions),
+
+    WriteKeyEncrypted = encrypt_write_key(Username, LocalPassword, WriteKey),
+
+    %% read key
+    RepoConfig1 = Repo#{api_key => WriteKey},
+    ReadKeyName = api_key_name("read"),
+    ReadPermissions = [#{<<"domain">> => <<"api">>, <<"resource">> => <<"read">>}],
+    {ok, ReadKey} = generate_key(RepoConfig1, ReadKeyName, ReadPermissions),
+
+    %% repo key
+    ReposKeyName = repos_key_name(),
+    ReposPermissions = [#{<<"domain">> => <<"repositories">>}],
+    {ok, ReposKey} = generate_key(RepoConfig1, ReposKeyName, ReposPermissions),
+
+    rebar_hex_repos:update_auth_config(#{RepoName => #{username => Username,
+                                                       write_key => WriteKeyEncrypted,
+                                                       read_key => ReadKey,
+                                                       repos_key => ReposKey}}, State),
+    {ok, State}.
+
+encrypt_write_key(Username, LocalPassword, WriteKey) ->
+    AAD = Username,
+    IV = crypto:strong_rand_bytes(16),
+    {IV, crypto:block_encrypt(aes_gcm, pad(LocalPassword), IV, {AAD, WriteKey})}.
+
+decrypt_write_key(Username, {IV, {CipherText, CipherTag}}) ->
+    LocalPassword = get_password(<<"Local Password: ">>),
+    decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}).
+
+decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}) ->
+     crypto:block_decrypt(aes_gcm, pad(LocalPassword), IV, {Username, CipherText, CipherTag}).
+
+generate_key(RepoConfig, KeyName, Permissions) ->
+    case hex_api_key:add(RepoConfig, KeyName, Permissions) of
+        {ok, {201, _Headers, #{<<"secret">> := Secret}}} ->
+            {ok, Secret};
+        {ok, {_Status, _Headers, #{<<"message">> := Message}}} ->
+            ?PRV_ERROR({generate_key, Message});
+        {error, Reason} ->
+            ?PRV_ERROR({generate_key, io_lib:format("~p", [Reason])})
+    end.
+
+hostname() ->
+    {ok, Name} = inet:gethostname(),
+    Name.
+
+api_key_name() ->
+    list_to_binary(hostname()).
+
+api_key_name(Postfix) ->
+    list_to_binary([hostname(), "-api-", Postfix]).
+
+repos_key_name() ->
+    list_to_binary([hostname(), "-repositories"]).
+

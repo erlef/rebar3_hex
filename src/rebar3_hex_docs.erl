@@ -26,7 +26,8 @@ init(State) ->
                                 {example, "rebar3 hex docs"},
                                 {short_desc, "Publish documentation for the current project and version"},
                                 {desc, ""},
-                                {opts, [{revert, undefined, "revert", string, "Revert given version."}]}
+                                {opts, [{revert, undefined, "revert", string, "Revert given version."},
+                                        rebar3_hex_utils:repo_opt()]}
                                 ]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
@@ -39,8 +40,16 @@ do(State) ->
                 end, {ok, State}, Apps).
 
 -spec format_error(any()) -> iolist().
-format_error({error, Name, Vsn, Message}) ->
-    io_lib:format("Failed to publish docs for ~s ~s. Error: ~s.", [Name, Vsn, Message]).
+format_error({publish, Status, Package, Version}) when is_integer(Status) ->
+    io_lib:format("Error publishing docs for package ~ts ~ts: ~ts",
+                  [Package, Version, rebar3_hex_utils:pretty_print_status(Status)]);
+format_error({publish, Package, Version, Reason}) ->
+    io_lib:format("Error publishing docs for package ~ts ~ts: ~p", [Package, Version, Reason]);
+format_error({revert, Status, Package, Version}) when is_integer(Status) ->
+    io_lib:format("Error deleting docs for package ~ts ~ts: ~ts",
+                  [Package, Version, rebar3_hex_utils:pretty_print_status(Status)]);
+format_error({revert, Package, Version, Reason}) ->
+    io_lib:format("Error deleting docs for package ~ts ~ts: ~p", [Package, Version, Reason]).
 
 do_(App, State) ->
     AppDir = rebar_app_info:dir(App),
@@ -50,40 +59,37 @@ do_(App, State) ->
     PkgName = ec_cnv:to_list(proplists:get_value(pkg_name, AppDetails, Name)),
     {Args, _} = rebar_state:command_parsed_args(State),
     Revert = proplists:get_value(revert, Args, undefined),
+
+    Repo = rebar3_hex_utils:repo(State),
+
     case Revert of
         undefined ->
             Vsn = rebar_app_info:original_vsn(App),
 
             Tarball = PkgName++"-"++Vsn++"-docs.tar.gz",
             ok = erl_tar:create(Tarball, file_list(Files), [compressed]),
-            {ok, Tar} = file:read_file(Tarball),
-
+            {ok, _Tar} = file:read_file(Tarball),
             file:delete(Tarball),
 
-            {ok, Auth} = rebar3_hex_config:auth(),
-            case rebar3_hex_http:post(filename:join([?ENDPOINT, PkgName, "releases", Vsn, "docs"])
-                                     ,Auth
-                                     ,Tar
-                                     ,integer_to_list(byte_size(Tar))) of
-                ok ->
-                    rebar_api:info("Published docs for ~s ~s", [PkgName, Vsn]),
+            case hex_api_docs:add(Repo, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn)) of
+                {ok, {201, _Headers, _Body}} ->
+                    rebar_api:info("Published docs for ~ts ~ts", [PkgName, Vsn]),
                     {ok, State};
-                {error, _, Error} ->
-                    Message = maps:get(<<"message">>, Error, <<"">>),
-                    ?PRV_ERROR({error, PkgName, Vsn, Message})
+                {ok, {Status, _Headers, _Body}} ->
+                    ?PRV_ERROR({publish, Status, PkgName, Vsn});
+                {error, Reason} ->
+                    ?PRV_ERROR({publish, PkgName, Vsn, Reason})
             end;
-        Version ->
-            ok = delete(PkgName, Version)
-    end.
-
-delete(Name, Version) ->
-    {ok, Auth} = rebar3_hex_config:auth(),
-    case rebar3_hex_http:delete(filename:join([?ENDPOINT, Name, "releases", Version, "docs"]), Auth) of
-        ok ->
-            rebar_api:info("Successfully deleted docs for ~s ~s", [Name, Version]),
-            ok;
-        {error, Status} ->
-            rebar_api:error("Unable to delete docs ~s ~s (~p)", [Name, Version, Status])
+        Vsn ->
+            case hex_api_docs:delete(Repo, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn)) of
+                {ok, {204, _Headers, _Body}} ->
+                    rebar_api:info("Successfully deleted docs for ~ts ~ts", [Name, Vsn]),
+                    ok;
+                {ok, {Status, _Headers, _Body}} ->
+                    ?PRV_ERROR({revert, Status, PkgName, Vsn});
+                {error, Reason} ->
+                    ?PRV_ERROR({revert, PkgName, Vsn, Reason})
+            end
     end.
 
 file_list(Files) ->

@@ -13,44 +13,31 @@
 
 -spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
 init(State) ->
-    Provider = providers:create([
-                                {name, ?PROVIDER},
-                                {module, ?MODULE},
-                                {namespace, hex},
-                                {bare, true},
-                                {deps, ?DEPS},
-                                {example, "rebar3 hex key [list | remove <key>]"},
-                                {short_desc, "Remove or list API keys associated with your account"},
-                                {desc, ""},
-                                {opts, []}
-                                ]),
+    Provider = providers:create([{name, ?PROVIDER},
+                                 {module, ?MODULE},
+                                 {namespace, hex},
+                                 {bare, true},
+                                 {deps, ?DEPS},
+                                 {example, "rebar3 hex key [list | remove <key>]"},
+                                 {short_desc, "Remove or list API keys associated with your account"},
+                                 {desc, ""},
+                                 {opts, []}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
     case rebar_state:command_args(State) of
-        ["remove", Key] ->
-            {ok, Auth} = rebar3_hex_config:auth(),
-            case rebar3_hex_http:delete(filename:join(?ENDPOINT, Key), Auth) of
-                ok ->
-                    {ok, State};
-                {error, 401} ->
-                    ?PRV_ERROR(401)
-            end;
+        ["remove", _KeyName] ->
+            ?PRV_ERROR(not_implemented);
         ["list"] ->
-            {ok, Auth} = rebar3_hex_config:auth(),
-            case rebar3_hex_http:get(?ENDPOINT, Auth) of
-                {ok, Keys} ->                 
-		    [ec_talk:say("~s", [maps:get(<<"name">>, X)]) || X <- Keys],
-                    {ok, State};
-                {error, 401} ->
-                    ?PRV_ERROR(401)
-            end;
+            ?PRV_ERROR(not_implemented);
         _ ->
-            {ok, State}
+            ?PRV_ERROR(bad_command)
     end.
 
 -spec format_error(any()) -> iolist().
-format_error(401) ->
-    "Authentication failed (401)".
+format_error(not_implemented) ->
+    "Not implemented";
+format_error(bad_command) ->
+    "Unknown command. Command must be remove or list.".
