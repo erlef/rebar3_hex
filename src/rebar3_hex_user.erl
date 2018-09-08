@@ -59,6 +59,8 @@ do(State) ->
 -spec format_error(any()) -> iolist().
 format_error({whoami_failure, Reason}) ->
     io_lib:format("Fetching currently authenticated user failed: ~ts", [Reason]);
+format_error(bad_local_password) ->
+    "Failure to decrypt write key: bad local password";
 format_error({registration_failure, Reason}) ->
     io_lib:format("Registration of user failed: ~ts", [Reason]);
 format_error({generate_key, Reason}) ->
@@ -242,7 +244,12 @@ decrypt_write_key(Username, {IV, {CipherText, CipherTag}}) ->
     decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}).
 
 decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}) ->
-     crypto:block_decrypt(aes_gcm, pad(LocalPassword), IV, {Username, CipherText, CipherTag}).
+    case crypto:block_decrypt(aes_gcm, pad(LocalPassword), IV, {Username, CipherText, CipherTag}) of
+        error ->
+            throw(?PRV_ERROR(bad_local_password));
+        Result ->
+            Result
+    end.
 
 generate_key(RepoConfig, KeyName, Permissions) ->
     case hex_api_key:add(RepoConfig, KeyName, Permissions) of

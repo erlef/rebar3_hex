@@ -15,4 +15,7 @@ encrypt_decrypt_write_key(_Config) ->
 
     WriteKeyEncrypted = rebar3_hex_user:encrypt_write_key(Username, LocalPassword, WriteKey),
 
+    ?assertThrow({error,{rebar3_hex_user,bad_local_password}},
+                 rebar3_hex_user:decrypt_write_key(Username, <<"wrong password">>, WriteKeyEncrypted)),
+
     ?assertEqual(WriteKey, rebar3_hex_user:decrypt_write_key(Username, LocalPassword, WriteKeyEncrypted)).
