@@ -21,8 +21,8 @@ Usage
 If you already have a user for [hex.pm](https://hex.pm) run:
 
 
-```erlang
-rebar3 hex user auth
+```shell
+$ rebar3 hex user auth
 ```
 
 Note that this will ask for your hex.pm username and password, as well as a password for encrypting your api token that has write permissions to the repository. When publishing a package you will have to give this password to decrypt the token in order to publish.
@@ -43,14 +43,14 @@ Note that this will ask for your hex.pm username and password, as well as a pass
 
 If you have a private organization or other private repository it is recommended that you use a repo specific auth token for reading from the repository in CI. To generate a token:
 
-```erlang
+```shell
 $ rebar3 hex repo auth <repo> generate
 Generated key: abc123
 ```
 
 Then in CI use whatever method is available for setting an environment variable to the token and add this call at the beginning of your CI runs to add the token to your rebar3 hex tokens:
 
-```erlang
+```shell
 $ rebar3 hex repo auth <repo> --key $REPO_KEY
 ```
 
@@ -74,7 +74,7 @@ This command will ask how to increment (major, minor, patch) the version number 
 
 ## Publishing Docs
 
-``` erlang
+``` shell
 $ rebar3 hex docs
 ```
 
@@ -82,6 +82,6 @@ $ rebar3 hex docs
 
 Owners can be added and removed for packages you are an owner of with the `hex owner` command:
 
-``` erlang
+``` shell
 $ rebar3 hex owner [add | remove] <package> <email>
 ```
