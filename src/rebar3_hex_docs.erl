@@ -68,10 +68,10 @@ do_(App, State) ->
 
             Tarball = PkgName++"-"++Vsn++"-docs.tar.gz",
             ok = erl_tar:create(Tarball, file_list(Files), [compressed]),
-            {ok, _Tar} = file:read_file(Tarball),
+            {ok, Tar} = file:read_file(Tarball),
             file:delete(Tarball),
 
-            case hex_api_docs:add(Repo, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn)) of
+            case hex_api_publish_docs(Repo, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn), Tar) of
                 {ok, {201, _Headers, _Body}} ->
                     rebar_api:info("Published docs for ~ts ~ts", [PkgName, Vsn]),
                     {ok, State};
@@ -81,7 +81,7 @@ do_(App, State) ->
                     ?PRV_ERROR({publish, PkgName, Vsn, Reason})
             end;
         Vsn ->
-            case hex_api_docs:delete(Repo, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn)) of
+            case hex_api_delete_docs(Repo, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn)) of
                 {ok, {204, _Headers, _Body}} ->
                     rebar_api:info("Successfully deleted docs for ~ts ~ts", [Name, Vsn]),
                     ok;
@@ -91,6 +91,19 @@ do_(App, State) ->
                     ?PRV_ERROR({revert, PkgName, Vsn, Reason})
             end
     end.
+
+hex_api_publish_docs(Config, Name, Version, Tarball) ->
+    TarballContentType = "application/octet-stream",
+
+    Headers = maps:get(http_headers, Config, #{}),
+    Headers1 = maps:put(<<"content-length">>, integer_to_binary(byte_size(Tarball)), Headers),
+    Config2 = maps:put(http_headers, Headers1, Config),
+
+    Body = {TarballContentType, Tarball},
+    hex_api:post(Config2, ["packages", Name, "releases", Version, "docs"], Body).
+
+hex_api_delete_docs(Config, Name, Version) ->
+    hex_api:delete(Config, ["packages", Name, "releases", Version, "docs"]).
 
 file_list(Files) ->
     [{drop_path(ShortName, ["doc"]), FullName} || {ShortName, FullName} <- Files].

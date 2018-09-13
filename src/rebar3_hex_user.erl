@@ -126,13 +126,11 @@ auth(Repo, State) ->
             throw(?PRV_ERROR(no_match_local_password))
     end.
 
-deauth(_Repo, State) ->
-    Username = rebar3_hex_config:username(State),
-    Config = rebar3_hex_config:read(State),
-    rebar3_hex_config:write(lists:keydelete(username, 1, lists:keydelete(key, 1, Config))),
-    ec_talk:say("User `~s` removed from the local machine. "
-               "To authenticate again, run `rebar3 hex user auth` "
-               "or create a new user with `rebar3 hex user register`", [Username]).
+deauth(_Repo, _State) ->
+    ec_talk:say("Currently not implemented.").
+    %% ec_talk:say("User `~s` removed from the local machine. "
+    %%             "To authenticate again, run `rebar3 hex user auth` "
+    %%             "or create a new user with `rebar3 hex user register`", [Username]).
 
 reset_password(Repo, State) ->
     User = ec_talk:ask_default("Username or Email:", string, ""),

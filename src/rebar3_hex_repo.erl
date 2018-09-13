@@ -85,7 +85,6 @@ generate(Repo, State) ->
     WriteKey = maps:get(write_key, RepoConfig),
     Username = maps:get(username, RepoConfig),
     DecryptedWriteKey = rebar3_hex_user:decrypt_write_key(Username, WriteKey),
-
     case hex_api_key:add(RepoConfig#{api_key => DecryptedWriteKey}, Name, Permissions) of
         {ok, {201, _Headers, #{<<"secret">> := Secret}}} ->
             ec_talk:say("Generated key: ~ts", [Secret]),

@@ -23,7 +23,7 @@ repo_opt() ->
 repo(State) ->
     {Args, _} = rebar_state:command_parsed_args(State),
     Resources = rebar_state:resources(State),
-    #{repos := Repos} = rebar_resource:find_resource_state(pkg, Resources),
+    #{repos := Repos} = rebar_resource_v2:find_resource_state(pkg, Resources),
     case proplists:get_value(repo, Args, undefined) of
         undefined ->
             [Repo | _] = Repos,
