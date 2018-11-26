@@ -53,8 +53,9 @@ do(State) ->
         ["reset_password" | _] ->
             reset_password(Repo, State);
         _ ->
-            ?PRV_ERROR(bad_command)
-    end.
+            throw(?PRV_ERROR(bad_command))
+    end,
+    {ok, State}.
 
 -spec format_error(any()) -> iolist().
 format_error({whoami_failure, Reason}) ->
