@@ -125,15 +125,14 @@ publish(AppDir, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
 
     Optional = [{<<"app">>, Name},
                 {<<"maintainers">>, rebar3_hex_utils:binarify(Maintainers)},
-                {<<"precompiled">>, false},
                 {<<"parameters">>, []},
                 {<<"description">>, unicode:characters_to_binary(Description)},
-                {<<"files">>, [File || {File, _} <- PackageFiles]},
+                {<<"files">>, [rebar3_hex_utils:binarify(File) || {File, _} <- PackageFiles]},
                 {<<"licenses">>, rebar3_hex_utils:binarify(Licenses)},
                 {<<"links">>, to_map(rebar3_hex_utils:binarify(Links))},
                 {<<"build_tools">>, rebar3_hex_utils:binarify(BuildTools)}],
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
-    Metadata = maps:from_list([{<<"name">>, PkgName}, {<<"version">>, Version},
+    Metadata = maps:from_list([{<<"name">>, PkgName}, {<<"version">>, rebar3_hex_utils:binarify(Version)},
                                {<<"requirements">>, maps:from_list(Deps1)} | OptionalFiltered]),
 
     ec_talk:say("Publishing ~ts ~ts to ~ts", [PkgName, Version, maps:get(name, HexConfig)]),
@@ -178,12 +177,16 @@ maybe_say_coc(_) ->
 create_and_publish(Metadata, PackageFiles, HexConfig) ->
     {ok, {Tarball, _Checksum}} = hex_tarball:create(Metadata, PackageFiles),
     case hex_api_release:publish(HexConfig, Tarball) of
+        {ok, {400, _Headers, #{<<"message">> := Message}}} ->
+            ?PRV_ERROR({publish_failed, Message});
         {ok, {401, _Headers, #{<<"message">> := Message}}} ->
             ?PRV_ERROR({publish_failed, Message});
         {ok, {422, _Headers, #{<<"errors">> := Errors,
                                <<"message">> := Message}}} ->
             ?PRV_ERROR({validation_errors, Errors, Message});
         {ok, {201, _Headers, _Body}} ->
+            ok;
+        {ok, {200, _Headers, _Body}} ->
             ok;
         {error, Reason} ->
             ?PRV_ERROR({error, Reason})
