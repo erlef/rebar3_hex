@@ -54,8 +54,7 @@ do(State) ->
             reset_password(Repo, State);
         _ ->
             throw(?PRV_ERROR(bad_command))
-    end,
-    {ok, State}.
+    end.
 
 -spec format_error(any()) -> iolist().
 format_error({whoami_failure, Reason}) ->
@@ -148,33 +147,10 @@ reset_password(Repo, State) ->
 %% Internal functions
 
 get_password() ->
-    get_password(<<"Account Password: ">>).
-
--define(OP_PUTC, 0).
+    rebar3_hex_utils:get_password(<<"Account Password: ">>).
 
 get_password(confirm) ->
-    get_password(<<"Account Password (confirm): ">>);
-get_password(Msg) ->
-    case io:setopts([binary, {echo, false}]) of
-        ok ->
-            PwLine = io:get_line(Msg),
-            ok = io:setopts([binary, {echo, true}]),
-            io:format("\n"),
-            [Pw | _] = binary:split(PwLine, <<"\n">>),
-            Pw;
-        _ ->
-            error_logger:tty(false),
-            Port = open_port({spawn, "tty_sl -e"}, [binary, eof]),
-            port_command(Port, <<?OP_PUTC, Msg/binary>>),
-            receive
-                {Port, {data, PwLine}} ->
-                    [Pw | _] = binary:split(PwLine, <<"\n">>),
-                    port_command(Port, <<?OP_PUTC, $\n>>),
-                    port_close(Port),
-                    error_logger:tty(true),
-                    Pw
-            end
-    end.
+    rebar3_hex_utils:get_password(<<"Account Password (confirm): ">>).
 
 create_user(Username, Email, Password, Repo, State) ->
     case hex_api_user:create(Repo, Username, Password, Email) of
@@ -184,8 +160,9 @@ create_user(Username, Email, Password, Repo, State) ->
             ec_talk:say("Then run `rebar3 hex auth -r ~ts` to create and configure api tokens locally.",
                         [maps:get(name, Repo)]),
             {ok, State};
-        {ok, {_Status, _Headers, #{<<"message">> := Message}}} ->
-            ?PRV_ERROR({registration_failure, Message});
+        {ok, {_Status, _Headers, #{<<"errors">> := Errors}}} ->
+            ?PRV_ERROR({registration_failure,
+                        rebar3_hex_utils:pretty_print_errors(Errors)});
         {error, Reason} ->
             ?PRV_ERROR({registration_failure, io_lib:format("~p", [Reason])})
     end.
