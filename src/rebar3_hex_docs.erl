@@ -35,9 +35,15 @@ init(State) ->
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
     Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
-    lists:foldl(fun(App, {ok, StateAcc}) ->
-                        do_(App, StateAcc)
-                end, {ok, State}, Apps).
+    Repo = rebar3_hex_utils:repo(State),
+    case maps:get(write_key, Repo, undefined) of
+        undefined ->
+            ?PRV_ERROR(no_write_key);
+        _ ->
+            lists:foldl(fun(App, {ok, StateAcc}) ->
+                                do_(App, StateAcc)
+                        end, {ok, State}, Apps)
+    end.
 
 -spec format_error(any()) -> iolist().
 format_error({publish, Status, Package, Version}) when is_integer(Status) ->
@@ -92,7 +98,11 @@ do_(App, State) ->
             end
     end.
 
-hex_api_publish_docs(Config, Name, Version, Tarball) ->
+hex_api_publish_docs(Config0, Name, Version, Tarball) ->
+    Username = maps:get(username, Config0),
+    WriteKey = maps:get(write_key, Config0),
+    Config = Config0#{api_key => rebar3_hex_user:decrypt_write_key(Username, WriteKey)},
+
     TarballContentType = "application/octet-stream",
 
     Headers = maps:get(http_headers, Config, #{}),

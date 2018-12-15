@@ -52,6 +52,8 @@ do(State) ->
     end.
 
 -spec format_error(any()) -> iolist().
+format_error(no_write_key) ->
+    "No write key found for user. Be sure to authenticate first with: rebar3 hex auth";
 format_error({validation_errors, Errors, Message}) ->
     ErrorString = errors_to_string(Errors),
     io_lib:format("Failed to publish package: ~ts~n\t~ts", [Message, ErrorString]);
