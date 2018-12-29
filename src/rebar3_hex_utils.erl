@@ -1,13 +1,15 @@
 -module(rebar3_hex_utils).
 
 -export([pretty_print_status/1,
+         pretty_print_errors/1,
          repo_opt/0,
          repo/1,
          format_error/1,
          update_app_src/2,
          select_apps/1,
          binarify/1,
-         expand_paths/2]).
+         expand_paths/2,
+         get_password/1]).
 
 -include("rebar3_hex.hrl").
 
@@ -17,6 +19,14 @@ pretty_print_status(404) -> "Entity not found (404)";
 pretty_print_status(422) -> "Validation failed (422)";
 pretty_print_status(Code) -> io_lib:format("HTTP status code: ~p", [Code]).
 
+pretty_print_errors(Errors) -> 
+  L =  maps:fold(fun(K,V,Acc) ->
+                Acc ++ [<<K/binary, " ", V/binary>>]
+        end,
+    [],
+  Errors),
+  binary:list_to_bin(lists:join(", ", L)).
+    
 repo_opt() ->
     {repo, $r, "repo", string, "Repository to use for this command."}.
 
@@ -39,6 +49,31 @@ repo(State) ->
 
 format_error({not_valid_repo, RepoName}) ->
     io_lib:format("No configuration for repository ~ts found.", [RepoName]).
+
+-define(OP_PUTC, 0).
+
+get_password(Msg) ->
+    case io:setopts([binary, {echo, false}]) of
+        ok ->
+            PwLine = io:get_line(Msg),
+            ok = io:setopts([binary, {echo, true}]),
+            io:format("\n"),
+            [Pw | _] = binary:split(PwLine, <<"\n">>),
+            Pw;
+        _ ->
+            error_logger:tty(false),
+            Port = open_port({spawn, "tty_sl -e"}, [binary, eof]),
+            port_command(Port, <<?OP_PUTC, Msg/binary>>),
+            receive
+                {Port, {data, PwLine}} ->
+                    [Pw | _] = binary:split(PwLine, <<"\n">>),
+                    port_command(Port, <<?OP_PUTC, $\n>>),
+                    port_close(Port),
+                    error_logger:tty(true),
+                    Pw
+            end
+    end.
+
 
 update_app_src(App, Version) ->
     AppSrcFile = rebar_app_info:app_file_src(App),
