@@ -1,0 +1,16 @@
+{application, bad_ver,
+ [{description, "An OTP application"},
+  {vsn, "0.a.1b..0.-foo"},
+  {registered, []},
+  {mod, {bad_ver_app, []}},
+  {applications,
+   [kernel,
+    stdlib
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, ["Apache 2.0"]},
+  {links, []}
+ ]}.

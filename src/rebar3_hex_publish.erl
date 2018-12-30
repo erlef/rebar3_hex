@@ -52,6 +52,9 @@ do(State) ->
     end.
 
 -spec format_error(any()) -> iolist().
+format_error({invalid_semver, AppName, Version}) ->
+    Err = "Can not publish package to hex using the non-semantic version number \"~ts\" in app ~ts",
+    io_lib:format(Err, [Version, AppName]);
 format_error(no_write_key) ->
     "No write key found for user. Be sure to authenticate first with: rebar3 hex user auth";
 format_error({validation_errors, Errors, Message}) ->
@@ -98,12 +101,17 @@ publish(App, HexConfig, State) ->
                      {<<"requirement">>, V}]} || {A,{pkg,N,V,_},0} <- Deps],
     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
 
-    case validate_app_details(AppDetails) of
-        ok ->
-            publish(AppDir, Name, ResolvedVersion, TopLevel,
+    case ec_semver_parser:parse(Version) of
+        {fail, _} -> 
+            ?PRV_ERROR({invalid_semver, Name, Version});
+        _ -> 
+            case validate_app_details(AppDetails) of
+                ok ->
+                    publish(AppDir, Name, ResolvedVersion, TopLevel,
                     Excluded, AppDetails, HexConfig, State);
-        Error ->
-            ?PRV_ERROR(Error)
+                Error ->
+                    ?PRV_ERROR(Error)
+            end
     end.
 
 publish(AppDir, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
