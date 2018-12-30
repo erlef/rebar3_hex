@@ -8,13 +8,19 @@
          format_error/1]).
 
 -export([publish/3
-        ,publish/8
-        ,validate_app_details/1]).
+        ,publish/8,
+        validate_app_details/1]).
 
 -include("rebar3_hex.hrl").
 
 -define(PROVIDER, publish).
 -define(DEPS, [{default, lock}]).
+
+-define(VALIDATIONS, [  has_semver 
+                      , has_contributors
+                      , has_maintainers
+                      , has_description
+                      , has_licenses ]).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -51,21 +57,42 @@ do(State) ->
                         end, {ok, State}, Apps)
     end.
 
+
 -spec format_error(any()) -> iolist().
+format_error(ErrList) when is_list(ErrList) ->
+    F = fun(Err, Acc) -> 
+            ErrStr = format_error(Err),
+            Acc ++ "     " ++ ErrStr ++ "\n"
+        end,
+    More = "\n     Please see https://hex.pm/docs/rebar3_publish for more info.\n",
+    lists:foldl(F, "Validator Errors:\n", ErrList) ++ More;
 format_error({invalid_semver, AppName, Version}) ->
-    Err = "Can not publish package to hex using the non-semantic version number \"~ts\" in app ~ts",
-    io_lib:format(Err, [Version, AppName]);
+    Err = "~ts.app.src : non-semantic version number \"~ts\" found",
+    io_lib:format(Err, [AppName, Version]);
+format_error({no_description, AppName}) ->
+    Err = "~ts.app.src : missing or empty description property",
+    io_lib:format(Err, [AppName]);
+format_error({no_license, AppName}) ->
+    Err = "~ts.app.src : missing or empty licenses property",
+    io_lib:format(Err, [AppName]);
+format_error({has_maintainers, AppName}) ->
+    Err = "~ts.app.src : deprecated field maintainers found", 
+    io_lib:format(Err, [AppName]);
+format_error({has_contributors, AppName}) ->
+    Err = "~ts.app.src : deprecated field contributors found", 
+    io_lib:format(Err, [AppName]);
 format_error(no_write_key) ->
-    "No write key found for user. Be sure to authenticate first with: rebar3 hex user auth";
+    "No write key found for user. Be sure to authenticate first with:" 
+    ++ " rebar3 hex user auth";
 format_error({validation_errors, Errors, Message}) ->
     ErrorString = errors_to_string(Errors),
     io_lib:format("Failed to publish package: ~ts~n\t~ts", [Message, ErrorString]);
 format_error({publish_failed, Message}) ->
     io_lib:format("Failed to publish package: ~ts", [Message]);
 format_error({non_hex_deps, Excluded}) ->
-    io_lib:format("Can not publish package because the following deps are not available in hex: ~s", [string:join(Excluded, ", ")]);
-format_error(has_contributors) ->
-    "The contributors field is deprecated, please change to maintainers and rerun.";
+    Err = "Can not publish package because the following deps are not available"
+         ++ " in hex: ~s",
+    io_lib:format(Err, [string:join(Excluded, ", ")]);
 format_error(undefined_server_error) ->
     "Unknown server error";
 format_error({status, Status}) ->
@@ -101,17 +128,12 @@ publish(App, HexConfig, State) ->
                      {<<"requirement">>, V}]} || {A,{pkg,N,V,_},0} <- Deps],
     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
 
-    case ec_semver_parser:parse(Version) of
-        {fail, _} -> 
-            ?PRV_ERROR({invalid_semver, Name, Version});
-        _ -> 
-            case validate_app_details(AppDetails) of
-                ok ->
-                    publish(AppDir, Name, ResolvedVersion, TopLevel,
+    case is_valid_app({App, Name, Version, AppDetails}) of
+        ok -> 
+            publish(AppDir, Name, ResolvedVersion, TopLevel,
                     Excluded, AppDetails, HexConfig, State);
-                Error ->
-                    ?PRV_ERROR(Error)
-            end
+        {error, Errors} -> 
+            ?PRV_ERROR(Errors)
     end.
 
 publish(AppDir, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
@@ -123,7 +145,6 @@ publish(AppDir, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
 
     PackageFiles = include_files(Name, AppDir, AppDetails),
 
-    Maintainers = proplists:get_value(maintainers, AppDetails, []),
     Licenses = proplists:get_value(licenses, AppDetails, []),
     Links = proplists:get_value(links, AppDetails, []),
     BuildTools = proplists:get_value(build_tools, AppDetails, [<<"rebar3">>]),
@@ -134,7 +155,6 @@ publish(AppDir, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
     PkgName = ec_cnv:to_binary(proplists:get_value(pkg_name, AppDetails, Name)),
 
     Optional = [{<<"app">>, Name},
-                {<<"maintainers">>, rebar3_hex_utils:binarify(Maintainers)},
                 {<<"parameters">>, []},
                 {<<"description">>, unicode:characters_to_binary(Description)},
                 {<<"files">>, [rebar3_hex_utils:binarify(File) || {File, _} <- PackageFiles]},
@@ -149,7 +169,6 @@ publish(AppDir, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
     ec_talk:say("  Description: ~ts", [Description]),
     ec_talk:say("  Dependencies:~n    ~ts", [format_deps(Deps1)]),
     ec_talk:say("  Included files:~n    ~ts", [string:join([F || {_, F} <- tl(PackageFiles)], "\n    ")]),
-    ec_talk:say("  Maintainers:~n    ~ts", [format_maintainers(Maintainers)]),
     ec_talk:say("  Licenses: ~ts", [format_licenses(Licenses)]),
     ec_talk:say("  Links:~n    ~ts", [format_links(Links)]),
     ec_talk:say("  Build tools: ~ts", [format_build_tools(BuildTools)]),
@@ -248,6 +267,68 @@ include_files(Name, AppDir, AppDetails) ->
     [{AppFileSrc, AppSrcBinary} | lists:keydelete(AppFileSrc, 1, WithIncludes)].
 
 
+is_valid_app({_App, _Name, _Version, _AppDetails} = A) ->
+    F = fun(K, Acc) -> 
+            case validate_app(K, A) of 
+                ok -> 
+                    Acc;
+                {error, Error} -> 
+                    Acc ++ [Error]
+            end
+        end,
+    case lists:foldl(F, [], ?VALIDATIONS) of
+        [] -> 
+            ok;
+        Errors -> 
+            {error, Errors}
+    end.
+
+validate_app(has_semver, {_, Name, Ver, _}) -> 
+    case ec_semver_parser:parse(Ver) of
+        {fail, _} ->
+            {error, {invalid_semver, Name, Ver}};
+        _ -> 
+         ok
+    end; 
+validate_app(has_contributors, {_, Name, _, AppDetails}) ->
+    case proplists:is_defined(contributors, AppDetails) of
+        true ->
+            {error, {has_contributors, Name}};
+        false ->
+            ok
+    end;
+validate_app(has_maintainers, {_, Name, _, AppDetails}) ->
+    case proplists:is_defined(maintainers, AppDetails) of
+        true ->
+            {error, {has_maintainers, Name}};
+        false ->
+            ok
+    end;
+validate_app(has_description, {_, Name, _, AppDetails}) ->
+    case is_empty_prop(description, AppDetails) of
+        true ->
+            {error, {no_description, Name}};
+        false ->
+            ok
+    end;
+validate_app(has_licenses, {_, Name, _, AppDetails}) ->
+    case is_empty_prop(licenses, AppDetails)  of
+        true ->    
+          {error, {no_license, Name}};
+        _ ->
+          ok
+    end.    
+
+is_empty_prop(K, PropList) ->
+    Prop = proplists:get_value(K, PropList),
+    case Prop of
+        Empty when Empty =:= [] orelse Empty =:= undefined -> 
+          true;
+        _ ->
+          false
+    end.    
+
+%% TODO: Modify hex cut so we can deprecate this?
 validate_app_details(AppDetails) ->
     case proplists:is_defined(contributors, AppDetails) of
         true ->
@@ -258,9 +339,6 @@ validate_app_details(AppDetails) ->
 
 format_deps(Deps) ->
     string:join([binary_to_list(<<N/binary, " ", V/binary>>) || {N, #{<<"requirement">> := V}} <- Deps], "\n    ").
-
-format_maintainers(Maintainers) ->
-    string:join(Maintainers, "\n    ").
 
 format_licenses(Licenses) ->
     string:join(Licenses, ", ").

@@ -1,8 +1,8 @@
-{application, bad_ver,
+{application, has_contributors,
  [{description, "An OTP application"},
-  {vsn, "0.a.1b..0.-foo"},
+  {vsn, "0.1.0"},
   {registered, []},
-  {mod, {bad_ver_app, []}},
+  {mod, {has_contributors_app, []}},
   {applications,
    [kernel,
     stdlib
@@ -10,6 +10,7 @@
   {env,[]},
   {modules, []},
 
+  {contributors, ["Me Me Me"]},
   {licenses, ["Apache 2.0"]},
   {links, []}
  ]}.

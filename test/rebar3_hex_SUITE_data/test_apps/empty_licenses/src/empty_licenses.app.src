@@ -1,8 +1,8 @@
-{application, bad_ver,
+{application, empty_licenses,
  [{description, "An OTP application"},
-  {vsn, "0.a.1b..0.-foo"},
+  {vsn, "0.1.0"},
   {registered, []},
-  {mod, {bad_ver_app, []}},
+  {mod, {empty_licenses_app, []}},
   {applications,
    [kernel,
     stdlib
@@ -10,6 +10,6 @@
   {env,[]},
   {modules, []},
 
-  {licenses, ["Apache 2.0"]},
+  {licenses, []},
   {links, []}
  ]}.
