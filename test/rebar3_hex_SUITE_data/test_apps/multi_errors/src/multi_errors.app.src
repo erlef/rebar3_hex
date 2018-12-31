@@ -1,0 +1,15 @@
+{application, multi_errors,
+ [{description, ""},
+  {vsn, "0.1b-prod"},
+  {registered, []},
+  {mod, {multi_errors_app, []}},
+  {applications,
+   [kernel,
+    stdlib
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {maintainers, []},
+  {links, []}
+ ]}.

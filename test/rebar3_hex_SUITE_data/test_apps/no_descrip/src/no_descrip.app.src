@@ -1,8 +1,8 @@
-{application, bad_ver,
- [{description, "An OTP application"},
-  {vsn, "0.a.1b..0.-foo"},
+{application, no_descrip,
+ [
+  {vsn, "0.1.0"},
   {registered, []},
-  {mod, {bad_ver_app, []}},
+  {mod, {no_descrip_app, []}},
   {applications,
    [kernel,
     stdlib
