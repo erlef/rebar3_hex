@@ -53,6 +53,14 @@ format_error({not_valid_repo, RepoName}) ->
 -define(OP_PUTC, 0).
 
 get_password(Msg) ->
+    case os:type() of
+        {win32, nt} -> 
+            get_win32_password(Msg);
+         _ ->
+            get_passwd(Msg)
+    end.
+
+get_passwd(Msg) ->
     case io:setopts([binary, {echo, false}]) of
         ok ->
             PwLine = io:get_line(Msg),
@@ -74,6 +82,28 @@ get_password(Msg) ->
             end
     end.
 
+get_win32_password(Msg) ->
+    F = fun() -> win32_password_loop(Msg) end, 
+    Pid = spawn_link(F),
+    Ref = make_ref(),
+    Val = io:get_line(Msg),
+    Pid ! {done, self(), Ref},
+    receive 
+        {done, Pid, Ref} 
+        -> ok
+    end,
+    list_to_binary(Val).
+
+win32_password_loop(Prompt) -> 
+    receive 
+        {done, Parent, Ref} ->
+            Parent  ! {done, self(), Ref},
+            io:fwrite(standard_error, "\e[2K\r", [])
+    after
+        1 -> 
+            io:fwrite(standard_error, "\e[2K\r~ts", [Prompt]),
+            win32_password_loop(Prompt)
+    end.
 
 update_app_src(App, Version) ->
     AppSrcFile = rebar_app_info:app_file_src(App),
