@@ -87,7 +87,7 @@ hex_register(Repo, State) ->
                     ec_talk:say("Registering..."),
                     create_user(Username, Email, Password, Repo, State);
                 false ->
-                    error
+                    ?PRV_ERROR({error, "passwords do not match"})
             end
     end.
 
