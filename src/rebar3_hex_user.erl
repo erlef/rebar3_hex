@@ -77,11 +77,11 @@ hex_register(Repo, State) ->
                 "policies and terms of service found at https://hex.pm/policies\n"),
     Username = list_to_binary(ec_talk:ask_default("Username:", string, "")),
     Email = list_to_binary(ec_talk:ask_default("Email:", string, "")),
-    case get_password() of
+    case get_account_password() of
         <<"">> ->
             error;
         Password ->
-            PasswordConfirm = get_password(confirm),
+            PasswordConfirm = get_account_password(confirm),
             case Password =:= PasswordConfirm of
                 true ->
                     ec_talk:say("Registering..."),
@@ -110,14 +110,14 @@ whoami(Repo, State) ->
 
 auth(Repo, State) ->
     Username = list_to_binary(ec_talk:ask_default("Username:", string, "")),
-    Password = get_password(),
+    Password = get_account_password(),
 
     ec_talk:say("You have authenticated on Hex using your account password. However, "
                 "Hex requires you to have a local password that applies only to this machine for security "
                 "purposes. Please enter it."),
 
-    LocalPassword = get_password(<<"Local Password: ">>),
-    ConfirmLocalPassword = get_password(<<"Local Password (confirm): ">>),
+    LocalPassword = rebar3_hex_utils:get_password(<<"Local Password: ">>),
+    ConfirmLocalPassword = rebar3_hex_utils:get_password(<<"Local Password (confirm): ">>),
 
     case LocalPassword =:= ConfirmLocalPassword of
         true ->
@@ -146,10 +146,10 @@ reset_password(Repo, State) ->
 
 %% Internal functions
 
-get_password() ->
+get_account_password() ->
     rebar3_hex_utils:get_password(<<"Account Password: ">>).
 
-get_password(confirm) ->
+get_account_password(confirm) ->
     rebar3_hex_utils:get_password(<<"Account Password (confirm): ">>).
 
 create_user(Username, Email, Password, Repo, State) ->
@@ -216,7 +216,7 @@ encrypt_write_key(Username, LocalPassword, WriteKey) ->
     {IV, crypto:block_encrypt(aes_gcm, pad(LocalPassword), IV, {AAD, WriteKey})}.
 
 decrypt_write_key(Username, {IV, {CipherText, CipherTag}}) ->
-    LocalPassword = get_password(<<"Local Password: ">>),
+    LocalPassword = rebar3_hex_utils:get_password(<<"Local Password: ">>),
     decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}).
 
 decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}) ->
