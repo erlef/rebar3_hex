@@ -55,7 +55,7 @@ do(State) ->
                         Bump ->
                             Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
                             lists:foldl(fun(App, {ok, StateAcc}) ->
-                                                do_(Bump, App, StateAcc)
+                                                do_(Bump, App, HexConfig, StateAcc)
                                         end, {ok, State}, Apps)
                     end
             end
