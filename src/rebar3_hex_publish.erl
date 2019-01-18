@@ -16,7 +16,7 @@
 -define(PROVIDER, publish).
 -define(DEPS, [{default, lock}]).
 
--define(VALIDATIONS, [  has_semver 
+-define(VALIDATIONS, [  has_semver
                       , has_contributors
                       , has_maintainers
                       , has_description
@@ -60,12 +60,12 @@ do(State) ->
 
 -spec format_error(any()) -> iolist().
 format_error(ErrList) when is_list(ErrList) ->
-    F = fun(Err, Acc) -> 
-            ErrStr = format_error(Err),
-            Acc ++ "     " ++ ErrStr ++ "\n"
-        end,
-    More = "\n     Please see https://hex.pm/docs/rebar3_publish for more info.\n",
-    lists:foldl(F, "Validator Errors:\n", ErrList) ++ More;
+  F = fun(Err, Acc) ->
+          ErrStr = format_error(Err),
+          Acc ++ "     " ++ ErrStr ++ "\n"
+      end,
+  More = "\n     Please see https://hex.pm/docs/rebar3_publish for more info.\n",
+  lists:foldl(F, "Validator Errors:\n", ErrList) ++ More;
 format_error({invalid_semver, AppName, Version}) ->
     Err = "~ts.app.src : non-semantic version number \"~ts\" found",
     io_lib:format(Err, [AppName, Version]);
@@ -76,13 +76,13 @@ format_error({no_license, AppName}) ->
     Err = "~ts.app.src : missing or empty licenses property",
     io_lib:format(Err, [AppName]);
 format_error({has_maintainers, AppName}) ->
-    Err = "~ts.app.src : deprecated field maintainers found", 
+    Err = "~ts.app.src : deprecated field maintainers found",
     io_lib:format(Err, [AppName]);
 format_error({has_contributors, AppName}) ->
-    Err = "~ts.app.src : deprecated field contributors found", 
+    Err = "~ts.app.src : deprecated field contributors found",
     io_lib:format(Err, [AppName]);
 format_error(no_write_key) ->
-    "No write key found for user. Be sure to authenticate first with:" 
+    "No write key found for user. Be sure to authenticate first with:"
     ++ " rebar3 hex user auth";
 format_error({validation_errors, Errors, Message}) ->
     ErrorString = errors_to_string(Errors),
@@ -100,12 +100,12 @@ format_error({status, Status}) ->
 format_error({status, Status, undefined_server_error}) ->
     "Unknown server error: " ++ rebar3_hex_utils:pretty_print_status(Status);
 format_error({status, Status, Error}) ->
-    Message = maps:get(<<"message">>, Error, ""),
-    Errors = maps:get(<<"errors">>, Error, ""),
-    ErrorString = errors_to_string(Errors),
+  Message = maps:get(<<"message">>, Error, ""),
+  Errors = maps:get(<<"errors">>, Error, ""),
+  ErrorString = errors_to_string(Errors),
 
-    io_lib:format("Status Code: ~s~nHex Error: ~s~n\t~s", [rebar3_hex_utils:pretty_print_status(Status),
-                                                           Message, ErrorString]).
+  io_lib:format("Status Code: ~s~nHex Error: ~s~n\t~s", [rebar3_hex_utils:pretty_print_status(Status),
+                                                         Message, ErrorString]).
 
 %% ===================================================================
 %% Public API
@@ -129,10 +129,10 @@ publish(App, HexConfig, State) ->
     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
 
     case is_valid_app({App, Name, Version, AppDetails}) of
-        ok -> 
+        ok ->
             publish(AppDir, Name, ResolvedVersion, TopLevel,
                     Excluded, AppDetails, HexConfig, State);
-        {error, Errors} -> 
+        {error, Errors} ->
             ?PRV_ERROR(Errors)
     end.
 
@@ -268,28 +268,28 @@ include_files(Name, AppDir, AppDetails) ->
 
 
 is_valid_app({_App, _Name, _Version, _AppDetails} = A) ->
-    F = fun(K, Acc) -> 
-            case validate_app(K, A) of 
-                ok -> 
+    F = fun(K, Acc) ->
+            case validate_app(K, A) of
+                ok ->
                     Acc;
-                {error, Error} -> 
+                {error, Error} ->
                     Acc ++ [Error]
             end
         end,
     case lists:foldl(F, [], ?VALIDATIONS) of
-        [] -> 
+        [] ->
             ok;
-        Errors -> 
+        Errors ->
             {error, Errors}
     end.
 
-validate_app(has_semver, {_, Name, Ver, _}) -> 
+validate_app(has_semver, {_, Name, Ver, _}) ->
     case ec_semver_parser:parse(Ver) of
         {fail, _} ->
             {error, {invalid_semver, Name, Ver}};
-        _ -> 
+        _ ->
          ok
-    end; 
+    end;
 validate_app(has_contributors, {_, Name, _, AppDetails}) ->
     case proplists:is_defined(contributors, AppDetails) of
         true ->
@@ -313,20 +313,20 @@ validate_app(has_description, {_, Name, _, AppDetails}) ->
     end;
 validate_app(has_licenses, {_, Name, _, AppDetails}) ->
     case is_empty_prop(licenses, AppDetails)  of
-        true ->    
+        true ->
           {error, {no_license, Name}};
         _ ->
           ok
-    end.    
+    end.
 
 is_empty_prop(K, PropList) ->
     Prop = proplists:get_value(K, PropList),
     case Prop of
-        Empty when Empty =:= [] orelse Empty =:= undefined -> 
+        Empty when Empty =:= [] orelse Empty =:= undefined ->
           true;
         _ ->
           false
-    end.    
+    end.
 
 %% TODO: Modify hex cut so we can deprecate this?
 validate_app_details(AppDetails) ->
