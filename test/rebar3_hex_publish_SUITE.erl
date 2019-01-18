@@ -22,11 +22,11 @@ publish_invalid_semver(Config) ->
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
 			  repo_verify => false}),
-    State = State = rebar_state:new(),
+    State = rebar_state:new(),
     Exp = {error,
             {rebar3_hex_publish,
              [{invalid_semver,<<"bad_ver">>,"0.a.1b..0.-foo"}]}},
-    Exp = rebar3_hex_publish:publish(App, Repo, State),
+    ?assertEqual(Exp, rebar3_hex_publish:publish(App, Repo, State)),
     ok.
 
 publish_has_contributors(Config) ->
@@ -36,13 +36,12 @@ publish_has_contributors(Config) ->
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
 			  repo_verify => false}),
-    State = State = rebar_state:new(),
+    State = rebar_state:new(),
     Exp =  {error,
                 {rebar3_hex_publish,
                     [{has_contributors,<<"has_contributors">>}]}},
-    Exp = rebar3_hex_publish:publish(App, Repo, State),
+    ?assertEqual(Exp, rebar3_hex_publish:publish(App, Repo, State)),
     ok.
-
 
 publish_has_maintainers(Config) ->
     App = mock_app("has_maintainers", Config),
@@ -51,9 +50,9 @@ publish_has_maintainers(Config) ->
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
 			  repo_verify => false}),
-    State = State = rebar_state:new(),
+    State = rebar_state:new(),
     Exp = {error,{rebar3_hex_publish,[{has_maintainers,<<"has_maintainers">>}]}},
-    Exp = rebar3_hex_publish:publish(App, Repo, State),
+    ?assertEqual(Exp, rebar3_hex_publish:publish(App, Repo, State)),
     ok.
 
 publish_no_descrip(Config) ->
@@ -63,9 +62,9 @@ publish_no_descrip(Config) ->
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
 			  repo_verify => false}),
-    State = State = rebar_state:new(),
+    State = rebar_state:new(),
     Exp = {error,{rebar3_hex_publish,[{no_description,<<"no_descrip">>}]}},
-    Exp = rebar3_hex_publish:publish(App, Repo, State),
+    ?assertEqual(Exp, rebar3_hex_publish:publish(App, Repo, State)),
     ok.
 
 publish_no_licenses(Config) ->
@@ -75,9 +74,9 @@ publish_no_licenses(Config) ->
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
 			  repo_verify => false}),
-    State = State = rebar_state:new(),
+    State = rebar_state:new(),
     Exp = {error,{rebar3_hex_publish,[{no_license,<<"no_licenses">>}]}},
-    Exp = rebar3_hex_publish:publish(App, Repo, State),
+    ?assertEqual(Exp, rebar3_hex_publish:publish(App, Repo, State)),
     ok.
 
 publish_empty_licenses(Config) ->
@@ -87,9 +86,9 @@ publish_empty_licenses(Config) ->
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
 			  repo_verify => false}),
-    State = State = rebar_state:new(),
+    State = rebar_state:new(),
     Exp = {error,{rebar3_hex_publish,[{no_license, <<"empty_licenses">>}]}},
-    Exp = rebar3_hex_publish:publish(App, Repo, State),
+    ?assertEqual(Exp, rebar3_hex_publish:publish(App, Repo, State)),
     ok.
 
 publish_empty_descrip(Config) ->
@@ -99,9 +98,9 @@ publish_empty_descrip(Config) ->
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
 			  repo_verify => false}),
-    State = State = rebar_state:new(),
+    State = rebar_state:new(),
     Exp = {error,{rebar3_hex_publish,[{no_description,<<"empty_descrip">>}]}},
-    Exp = rebar3_hex_publish:publish(App, Repo, State),
+    ?assertEqual(Exp, rebar3_hex_publish:publish(App, Repo, State)),
     ok.
 
 publish_multi_errors(Config) ->
@@ -111,15 +110,19 @@ publish_multi_errors(Config) ->
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
 			  repo_verify => false}),
-    State = State = rebar_state:new(),
+    State = rebar_state:new(),
     Exp = {error,
          {rebar3_hex_publish,
              [{invalid_semver,<<"multi_errors">>,"0.1b-prod"},
               {has_maintainers,<<"multi_errors">>},
               {no_description,<<"multi_errors">>},
               {no_license,<<"multi_errors">>}]}},
-    Exp = rebar3_hex_publish:publish(App, Repo, State),
+    ?assertEqual(Exp, rebar3_hex_publish:publish(App, Repo, State)),
     ok.
+
+%%%%%%%%%%%%%%%
+%%% Helpers %%%
+%%%%%%%%%%%%%%%
 
 mock_app(AppName, Config) ->
     Src = filename:join([?config(data_dir, Config), "test_apps/" ++ AppName]),

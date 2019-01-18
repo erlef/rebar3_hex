@@ -23,20 +23,8 @@ repo_opt(_Config) ->
       "Repository to use for this command."}, rebar3_hex_utils:repo_opt()).
 
 repo(_Config) ->
-    try rebar3_hex_utils:repo({}) of
-        _ ->
-            false
-    catch
-        error:function_clause ->
-            true
-    end,
-    try rebar3_hex_utils:repo(rebar_state:new()) of
-        _ ->
-            false
-    catch
-        error:{badmatch, {error, not_found}} ->
-            true
-    end,
+    ?assertError(function_clause, rebar3_hex_utils:repo({})),
+    ?assertError({badmatch, {error, not_found}}, rebar3_hex_utils:repo(rebar_state:new())),
     Agent = <<"(rebar3/3.7.5+build.4236.ref5ff24a8) (httpc)">>,
     PkgResConfig = #{
                         base_config => #{
@@ -73,37 +61,35 @@ repo(_Config) ->
     State3 = rebar_state:command_parsed_args(State2, {[{repo,"eh"}],[]}),
     _Resource1 = rebar_resource_v2:new(pkg, rebar_pkg_resource, PkgResConfig),
     State4 = rebar_state:add_resource(State3, {pkg, rebar_pkg_resource}),
-    true = try rebar3_hex_utils:repo(State4) of
-        _ ->
-            false
-    catch
-        throw:{error,{rebar_hex_repos,{repo_not_found,<<"eh">>}}} ->
-            true
-    end.
+    ?assertThrow({error, {rebar_hex_repos, {repo_not_found, <<"eh">>}}}, rebar3_hex_utils:repo(State4)).
 
 format_error_test(_Config) ->
     Exp = "No configuration for repository foo found.",
-    Exp = rebar3_hex_utils:format_error({not_valid_repo, foo}).
+    ?assertEqual(Exp, rebar3_hex_utils:format_error({not_valid_repo, foo})).
 
 binarify_test(_Config) ->
-    true = rebar3_hex_utils:binarify(true) =:= true,
-    <<"eh">> = rebar3_hex_utils:binarify(eh),
-    [] = rebar3_hex_utils:binarify([]),
-    [<<"eh">>, <<"foo">>] = rebar3_hex_utils:binarify(["eh", foo]),
-    #{<<"eh">> := <<"eh">>,<<"foo">> := <<"foo">>} =
-    rebar3_hex_utils:binarify(#{eh => "eh", foo => foo}),
-    2.3 = rebar3_hex_utils:binarify(2.3).
+    ?assertEqual(true, rebar3_hex_utils:binarify(true)),
+    ?assertEqual(<<"eh">>, rebar3_hex_utils:binarify(eh)),
+    ?assertEqual([], rebar3_hex_utils:binarify([])),
+    ?assertEqual([<<"eh">>, <<"foo">>], rebar3_hex_utils:binarify(["eh", foo])),
+    ?assertMatch(#{<<"eh">> := <<"eh">>,<<"foo">> := <<"foo">>},
+    rebar3_hex_utils:binarify(#{eh => "eh", foo => foo})),
+    ?assertEqual(2.3, rebar3_hex_utils:binarify(2.3)).
 
 expand_paths_test(_Config) ->
-    [] = rebar3_hex_utils:expand_paths(["/foo"], "src"),
+    ?assertEqual([], rebar3_hex_utils:expand_paths(["/foo"], "src")),
     {ok, Dir} = file:get_cwd(),
     Dir2 = string:join([Dir,  "foo"], "/"),
     ok = file:make_dir(Dir2),
     File = string:join([Dir2, "bar"], "/"),
     ok = file:write_file(File, ""),
-    [{"bar", File}] = rebar3_hex_utils:expand_paths(["bar"], "foo"),
+    ?assertEqual([{"bar", File}], rebar3_hex_utils:expand_paths(["bar"], "foo")),
     Exp = [{"foo/bar", File}],
     ?assertEqual(Exp, rebar3_hex_utils:expand_paths(["foo*"], Dir)).
+
+%%%%%%%%%%%%%%%
+%%% Helpers %%%
+%%%%%%%%%%%%%%%
 
 mock_app(AppName, Config) ->
     Src = filename:join([?config(data_dir, Config), "test_apps/" ++ AppName]),
