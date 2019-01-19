@@ -8,7 +8,7 @@
 
 -export([handle_call/3, handle_info/2, handle_cast/2, init/1]).
 
--export([terminate/2]).
+-export([terminate/2, code_change/3]).
 
 % Client
 start_link() ->
@@ -46,3 +46,6 @@ handle_info(_, State) ->
 
 terminate(_Reason, _State) ->
     ok.
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
