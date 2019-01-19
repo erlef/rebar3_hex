@@ -16,4 +16,4 @@ otp_release:
     - 21.0
     - 21.1
     - 21.2
-script: rebar3 ct
+script: RUNNING_ON_CI=true make test
