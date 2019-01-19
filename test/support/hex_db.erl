@@ -8,6 +8,8 @@
 
 -export([handle_call/3, handle_info/2, handle_cast/2, init/1]).
 
+-export([terminate/2]).
+
 % Client
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
@@ -41,3 +43,6 @@ handle_cast(_, State) ->
 
 handle_info(_, State) -> 
     {ok, State}. 
+
+terminate(_Reason, _State) ->
+    ok.
