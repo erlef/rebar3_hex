@@ -64,8 +64,8 @@ repo(_Config) ->
     ?assertThrow({error, {rebar_hex_repos, {repo_not_found, <<"eh">>}}}, rebar3_hex_utils:repo(State4)).
 
 format_error_test(_Config) ->
-    Exp = "No configuration for repository foo found.",
-    ?assertEqual(Exp, rebar3_hex_utils:format_error({not_valid_repo, foo})).
+    Exp = <<"No configuration for repository foo found.">>,
+    ?assertEqual(Exp, iolist_to_binary(rebar3_hex_utils:format_error({not_valid_repo, foo}))).
 
 binarify_test(_Config) ->
     ?assertEqual(true, rebar3_hex_utils:binarify(true)),
