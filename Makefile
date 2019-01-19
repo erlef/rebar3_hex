@@ -29,4 +29,4 @@ clean: $(REBAR3)
 	@$(REBAR3) clean
 
 test: $(REBAR3)
-	@$(REBAR3) as test ct
+	@$(REBAR3) ct
