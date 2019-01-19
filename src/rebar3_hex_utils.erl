@@ -25,7 +25,7 @@ pretty_print_errors(Errors) ->
         end,
     [],
   Errors),
-  binary:list_to_bin(lists:join(", ", L)).
+  binary:list_to_bin(join_lists(", ", L)).
     
 repo_opt() ->
     {repo, $r, "repo", string, "Repository to use for this command."}.
@@ -169,3 +169,12 @@ dir_files(Path) ->
         false ->
             [Path]
     end.
+
+-ifdef(POST_OTP_18).
+join_lists(Sep, List) -> lists:join(Sep, List).
+-else.
+join_lists(_Sep, []) -> [];
+join_lists(Sep, List) ->
+    [Last | AllButLast] = lists:reverse(List),
+    lists:foldl(fun (Elem,Acc) -> [Elem,Sep|Acc] end, [Last], AllButLast).
+-endif.
