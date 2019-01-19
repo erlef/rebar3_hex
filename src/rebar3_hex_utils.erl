@@ -62,10 +62,10 @@ get_password(Msg) ->
         {win32, nt} ->
             get_win32_password(Msg);
          _ ->
-            get_passwd(Msg)
+            get_tty_password(Msg)
     end.
 
-get_passwd(Msg) ->
+get_tty_password(Msg) ->
     case io:setopts([binary, {echo, false}]) of
         ok ->
             PwLine = io:get_line(Msg),
@@ -87,27 +87,44 @@ get_passwd(Msg) ->
             end
     end.
 
-get_win32_password(Msg) ->
-    F = fun() -> win32_password_loop(Msg) end,
-    Pid = spawn_link(F),
-    Ref = make_ref(),
-    Val = io:get_line(Msg),
-    Pid ! {done, self(), Ref},
+get_win32_password(Prompt) ->
+    ok = io:setopts([binary]),
+    Overwriter = fun() ->
+        prompt_win32_password(Prompt)
     receive
         {done, Pid, Ref}
-        -> ok
     end,
-    list_to_binary(Val).
+    Pid = spawn_link(Overwriter),
+    PwLine = try
+        io:get_line(Prompt)
+    after
+        Ref = make_ref(),
+        Pid ! {done, self(), Ref},
+        receive 
+            {done, Pid, Ref} ->
+                ok
+        after
+            timer:seconds(5) ->
+                throw(?PRV_ERROR(win32_prompt_timeout))
+        end
+    end,
+    [Pw | _] = binary:split(PwLine, <<"\n">>),
+    Pw.
 
-win32_password_loop(Prompt) ->
+prompt_win32_password(Prompt) ->
+    % This is spawned to continually overwrite the prompt the user is
+    % entering data on, in order to hide characters typed.
+    ClearLine = "\e[2K",
     receive
         {done, Parent, Ref} ->
-            Parent  ! {done, self(), Ref},
-            io:fwrite(standard_error, "\e[2K\r", [])
+            Parent ! {done, self(), Ref},
+            Spaces = lists:duplicate(size(Prompt) + 16, $ ),
+            io:fwrite(standard_error, "~ts\r~ts\r", [ClearLine, Spaces])
     after
         1 ->
-            io:fwrite(standard_error, "\e[2K\r~ts", [Prompt]),
-            win32_password_loop(Prompt)
+            Spaces = lists:duplicate(16, $ ),
+            io:fwrite(standard_error, "~ts\r~ts~ts\r~ts", [ClearLine, Prompt, Spaces, Prompt]),
+            prompt_win32_password(Prompt)
     end.
 
 update_app_src(App, Version) ->
