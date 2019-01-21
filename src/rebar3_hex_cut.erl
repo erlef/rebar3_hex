@@ -107,9 +107,7 @@ do_(Type, App, HexConfig, State) ->
 
                     case rebar3_hex_publish:publish(AppDir, Name, NewVersion, TopLevel,
                                                     Excluded, AppDetails, HexConfig, State) of
-                        stopped ->
-                            {ok, State};
-                        ok ->
+                        {ok, _State} ->
                             case ec_talk:ask_default("Push new tag to origin?", boolean, "Y") of
                                 true ->
                                     rebar_api:info("Pushing new tag v~s...", [NewVersion]),
@@ -118,7 +116,7 @@ do_(Type, App, HexConfig, State) ->
                                 false ->
                                     {ok, State}
                             end;
-                        Error ->
+                        {error, _} = Error ->
                             rebar_api:info("Deleting new tag v~s...", [NewVersion]),
                             rebar_utils:sh(io_lib:format("git tag -d v~s", [NewVersion]), []),
                             Error
