@@ -1,10 +1,75 @@
 version: 2.1
+
 orbs:
-  rebar3: tsloughter/rebar3@0.5.4
-workflows:
-  build-test:
+  rebar3_hex:
+    orbs:
+      rebar3: tsloughter/rebar3@0.5.5
+
     jobs:
-      - rebar3/compile
-      - rebar3/ct:
-          requires:
-            - rebar3/compile
+      build_and_test:
+        parameters:
+          version:
+            description: The Erlang/OTP docker image tag to use.
+            type: string
+          pkg_install_cmd:
+            type: string
+            default: apk add --no-cache
+          codecov_flag:
+            description: String the coverage reports are grouped by
+            type: string
+        executor:
+          name: rebar3/erlang
+          version: <<parameters.version>>
+        steps:
+          - rebar3/install_ca_certs:
+              pkg_install_cmd: <<parameters.pkg_install_cmd>>
+          - checkout
+          - rebar3/with_deps_cache:
+              cache_key_postfix: -<<parameters.version>>
+              steps:
+                - run: <<parameters.pkg_install_cmd>> git
+                - rebar3/compile
+                - rebar3/dialyzer
+                - run: rebar3 as test xref
+                - rebar3/ct
+
+                - store_test_results:
+                    path: ~/project/_build/test/logs/
+                - store_artifacts:
+                    path: ~/project/_build/test/logs
+                    destination: common_test
+
+                - rebar3/cover
+                - run: rebar3 as test covertool generate
+                - run:
+                    name: Install bash and curl
+                    command: <<parameters.pkg_install_cmd>> bash curl
+                - run:
+                    name: Upload coverage report
+                    shell: /bin/bash
+                    command: |
+                      bash <(curl -s https://codecov.io/bash) \
+                        -f  _build/test/covertool/rebar3_hex.covertool.xml \
+                        -F <<parameters.codecov_flag>>
+
+workflows:
+  build_and_test:
+    jobs:
+      - rebar3_hex/build_and_test:
+          name: "otp-21"
+          version: "21-alpine"
+          codecov_flag: "otp21"
+      - rebar3_hex/build_and_test:
+          name: "otp-20"
+          version: "20-alpine"
+          codecov_flag: "otp20"
+      - rebar3_hex/build_and_test:
+          name: "otp-19"
+          version: "19"
+          codecov_flag: "otp19"
+          pkg_install_cmd: "apt-get update && apt-get install"
+      - rebar3_hex/build_and_test:
+          name: "otp-18"
+          version: "18"
+          codecov_flag: "otp18"
+          pkg_install_cmd: "apt-get update && apt-get install"

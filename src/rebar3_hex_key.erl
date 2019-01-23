@@ -25,7 +25,9 @@ init(State) ->
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
--spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
+% TODO: Adjust the spec when this is implemented
+%-spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
+-spec do(rebar_state:t()) -> {'error',{'rebar3_hex_key','bad_command' | 'not_implemented'}}.
 do(State) ->
     case rebar_state:command_args(State) of
         ["remove", _KeyName] ->

@@ -174,9 +174,7 @@ pad(Binary) ->
         Size when Size =< 24 ->
             <<Binary/binary, 0:((24 - Size) * 8)>>;
         Size when Size =< 32 ->
-            <<Binary/binary, 0:((32 - Size) * 8)>>;
-        <<Bin:32/binary, _/binary>> ->
-            Bin
+            <<Binary/binary, 0:((32 - Size) * 8)>>
     end.
 
 generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
