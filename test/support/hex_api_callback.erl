@@ -1,4 +1,4 @@
-%%% @doc: A mock hex.pm API 
+%%% @doc: A mock hex.pm API
 %%%
 
 -module(hex_api_callback).
@@ -22,6 +22,15 @@
 handle(Req, _Args) ->
     handle(Req#req.method, elli_request:path(Req), Req).
 
+handle('POST', [<<"keys">>], Req) ->
+    Data     = body_to_terms(Req),
+    _Name = maps:get(<<"name">>, Data),
+    _Perms    = maps:get(<<"permissions">>, Data),
+    Res = #{
+      <<"secret">> => <<"repos_key">>
+    },
+    respond_with(201, Req, Res);
+
 handle('POST', [<<"users">>], Req) ->
     Data     = body_to_terms(Req),
     Username = maps:get(<<"username">>, Data),
@@ -36,21 +45,28 @@ handle('POST', [<<"users">>], Req) ->
       <<"url">> => <<?BASE_USER_URL/bitstring, Username/bitstring>>
     },
   case hex_db:add_user(Res) of
-      {ok, Username} -> 
+      {ok, Username} ->
         respond_with(201, Req, Res);
       {error, user_exists} ->
           ErrVal = <<"has already been taken">>,
-          respond_with(422, Req, #{<<"errors">> => #{<<"username">> => ErrVal}, 
-                                   <<"status">> => 422, 
+          respond_with(422, Req, #{<<"errors">> => #{<<"username">> => ErrVal},
+                                   <<"status">> => 422,
                                    <<"message">> => <<"validation failed">>});
      {error, email_exists} ->
           ErrVal = <<"already in use">>,
-          respond_with(422, Req, #{<<"errors">> => #{<<"email">> => ErrVal}, 
-                                   <<"status">> => 422, 
+          respond_with(422, Req, #{<<"errors">> => #{<<"email">> => ErrVal},
+                                   <<"status">> => 422,
                                    <<"message">> => <<"validation failed">>})
   end;
+
+handle('GET', [<<"users">>, <<"me">>], Req) ->
+    Res = #{
+      <<"username">> => <<"mr_pockets">>,
+      <<"email">> => <<"foo@bar.baz">>
+    },
+    respond_with(200, Req, Res);
 handle(_, _, Req) ->
-    respond_with(404, Req, #{}). 
+    respond_with(404, Req, #{}).
 
 handle_event(_Event, _Data, _Args) ->
     ok.

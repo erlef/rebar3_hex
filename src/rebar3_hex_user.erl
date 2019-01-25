@@ -202,7 +202,7 @@ generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
     ReposPermissions = [#{<<"domain">> => <<"repositories">>}],
     {ok, ReposKey} = generate_key(RepoConfig1, ReposKeyName, ReposPermissions),
 
-    rebar_hex_repos:update_auth_config(#{RepoName => #{username => Username,
+    rebar3_hex_utils:update_auth_config(#{RepoName => #{username => Username,
                                                        write_key => WriteKeyEncrypted,
                                                        read_key => ReadKey,
                                                        repos_key => ReposKey}}, State),
