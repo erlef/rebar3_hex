@@ -59,12 +59,35 @@ handle('POST', [<<"users">>], Req) ->
                                    <<"message">> => <<"validation failed">>})
   end;
 
+handle('POST', [<<"users">>, User, <<"reset">>], Req) ->
+    {Status, Res} = case User of
+                        <<"eh%3F">> ->
+                            {422, #{<<"message">> => <<"huh?">>}};
+                        <<"bad">> ->
+                            {500, #{<<"whoa">> => <<"mr.">>}};
+                        _Other ->
+                            Res0 = #{<<"username">> => <<"mr_pockets">>,
+                                     <<"email">> => <<"foo@bar.baz">>
+                                    },
+                            {201, Res0}
+                    end,
+    respond_with(Status, Req, Res);
+
 handle('GET', [<<"users">>, <<"me">>], Req) ->
-    Res = #{
-      <<"username">> => <<"mr_pockets">>,
-      <<"email">> => <<"foo@bar.baz">>
-    },
-    respond_with(200, Req, Res);
+    Key = elli_request:get_header(<<"Authorization">>, Req),
+    {Status, Res} = case Key of
+                        <<"eh?">> ->
+                            {422, #{<<"message">> => <<"huh?">>}};
+                        <<"bad">> ->
+                            {500, #{<<"whoa">> => <<"mr.">>}};
+                        _Other ->
+                            Res0 = #{<<"username">> => <<"mr_pockets">>,
+                                     <<"email">> => <<"foo@bar.baz">>
+                                    },
+                            {200, Res0}
+                    end,
+    respond_with(Status, Req, Res);
+
 handle(_, _, Req) ->
     respond_with(404, Req, #{}).
 
