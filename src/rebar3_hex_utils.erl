@@ -90,9 +90,11 @@ get_tty_password(Msg) ->
 get_win32_password(Prompt) ->
     ok = io:setopts([binary]),
     Overwriter = fun() ->
-        prompt_win32_password(Prompt)
-    receive
-        {done, Pid, Ref}
+        prompt_win32_password(Prompt),
+        receive
+            {done, _Pid, _Ref} ->
+                ok
+        end
     end,
     Pid = spawn_link(Overwriter),
     PwLine = try
@@ -100,7 +102,7 @@ get_win32_password(Prompt) ->
     after
         Ref = make_ref(),
         Pid ! {done, self(), Ref},
-        receive 
+        receive
             {done, Pid, Ref} ->
                 ok
         after
@@ -118,7 +120,7 @@ prompt_win32_password(Prompt) ->
     receive
         {done, Parent, Ref} ->
             Parent ! {done, self(), Ref},
-            Spaces = lists:duplicate(size(Prompt) + 24, $ ),
+            Spaces = lists:duplicate(length(Prompt) + 24, $ ),
             io:fwrite(standard_error, "~ts\r~ts\r", [ClearLine, Spaces])
     after
         1 ->
