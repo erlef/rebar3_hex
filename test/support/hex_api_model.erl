@@ -1,7 +1,7 @@
-%%% @doc: A mock hex.pm API
+%%% @doc: A hex.pm API model
 %%%
 
--module(hex_api_callback).
+-module(hex_api_model).
 -export([handle/2, handle_event/3]).
 
 -include_lib("elli/include/elli.hrl").
@@ -21,6 +21,39 @@
 
 handle(Req, _Args) ->
     handle(Req#req.method, elli_request:path(Req), Req).
+
+handle('POST', [<<"publish">>], Req) ->
+   case authenticate(Req) of
+       {ok, #{username := Username, email := Email}} ->
+           {ok, Meta, _Checksum}     = body_to_meta(Req),
+           App = maps:get(<<"app">>, Meta),
+
+           Res = #{
+             <<"version">> => maps:get(<<"version">>, Meta),
+             <<"has_docs">> => false,
+             <<"downloads">> => undefined,
+             <<"inserted_at">> => timestamp(),
+             <<"updated_at">> => timestamp(),
+             <<"retirement">> => undefined,
+             <<"package_url">> => <<?BASE_USER_URL/bitstring, App/bitstring>>,
+             <<"html_url">> => <<?BASE_USER_URL/bitstring, App/bitstring>>,
+             <<"docs_html_url">> => undefined,
+             <<"requirements">> => maps:get(<<"requirements">>, Meta),
+             <<"meta">> => #{
+                 <<"app">> => App,
+                 <<"build_tools">> => maps:get(<<"build_tools">>, Meta),
+                 <<"elixir">> => undefined
+                },
+             <<"publisher">> => #{
+                 <<"email">> => Email,
+                 <<"url">> => <<?BASE_USER_URL/bitstring, Username/bitstring>>,
+                 <<"username">> => Username
+                }
+            },
+           respond_with(201, Req, Res);
+       error ->
+           respond_with(401, Req, #{})
+   end;
 
 handle('POST', [<<"keys">>], Req) ->
     Data     = body_to_terms(Req),
@@ -113,6 +146,16 @@ body_to_terms(Req)  ->
     Body = elli_request:body(Req),
     from(client_accepts(Req), Body).
 
+
+body_to_meta(Req) ->
+    Body = elli_request:body(Req),
+    case hex_tarball:unpack(Body, memory) of
+        {ok, #{checksum := Checksum, metadata :=  Metadata}} ->
+            {ok, Metadata, Checksum};
+        {error, Reason} ->
+            {error, list_to_bitstring(hex_tarball:format_error(Reason))}
+    end.
+
 terms_to_body(Req, Data)  ->
     to(client_accepts(Req), Data).
 
@@ -125,3 +168,16 @@ to(erlang, Term) ->
     term_to_binary(Term);
 to(T, Term) when T =:= json andalso T =:= hex_json ->
      jsone:encode(Term).
+
+authenticate(Req) ->
+    case elli_request:get_header(<<"Authorization">>, Req) of
+        <<"key">> ->
+            {ok, #{username => <<"mr_pockets">>,
+                   email => <<"foo@bar.baz">>,
+                   organization => <<"hexpm">>,
+                   source => key,
+                   key => <<"key">>}};
+        _ ->
+            error
+    end.
+
