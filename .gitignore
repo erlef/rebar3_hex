@@ -17,3 +17,8 @@ _plugins
 _tdeps
 logs
 doc
+# Ignore all files in src that do not match src/rebar3_hex.*\.(erl|hrl|.app.src)
+src/*
+!src/rebar3_hex*.erl
+!src/rebar3_hex.app.src
+!src/rebar3_hex.hrl
