@@ -375,12 +375,3 @@ errors_to_string({Key, Value}) ->
     io_lib:format("~s: ~s", [Key, errors_to_string(Value)]);
 errors_to_string(Errors) when is_list(Errors) ->
     lists:flatten([io_lib:format("~s", [errors_to_string(Values)]) || Values <- Errors]).
-
--ifdef(TEST).
-
-error_test() ->
-    E = #{<<"inserted_at">> => <<"can only modify a release up to one hour after creation">>,
-          <<"requirements">> => #{nil => <<"Failed to use \"lager\" (version 3.0.2) because\n  rebar.config requires 3.0.2\n  rebar.config requires ~>3.2.0\n">>}},
-    ?assert(is_list(errors_to_string(E))).
-
--endif.

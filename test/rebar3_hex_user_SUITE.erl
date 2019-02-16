@@ -5,7 +5,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 all() ->
-    [init_test, encrypt_decrypt_write_key, format_error_test].
+    [init_test, encrypt_decrypt_write_key_test, format_error_test].
 
 init_test(_Config) ->
     {ok, State} = rebar3_hex_user:init(rebar_state:new()),
@@ -19,7 +19,7 @@ init_test(_Config) ->
     ?assertMatch(Exp, rebar_state:providers(State)),
     ?assertError(function_clause, rebar3_hex_user:init({})).
 
-encrypt_decrypt_write_key(_Config) ->
+encrypt_decrypt_write_key_test(_Config) ->
     WriteKey = <<"abc1234">>,
 
     Username = <<"user">>,
