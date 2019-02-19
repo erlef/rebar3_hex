@@ -180,7 +180,6 @@ pad(Binary) ->
 generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
     ec_talk:say("Generating all keys..."),
 
-    RepoName = maps:get(name, Repo),
     Auth = base64:encode_to_string(<<Username/binary, ":", Password/binary>>),
     RepoConfig0 = Repo#{api_key => list_to_binary("Basic " ++ Auth)},
 
@@ -202,10 +201,14 @@ generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
     ReposPermissions = [#{<<"domain">> => <<"repositories">>}],
     {ok, ReposKey} = generate_key(RepoConfig1, ReposKeyName, ReposPermissions),
 
-    rebar3_hex_utils:update_auth_config(#{RepoName => #{username => Username,
-                                                       write_key => WriteKeyEncrypted,
-                                                       read_key => ReadKey,
-                                                       repos_key => ReposKey}}, State),
+    % By default a repositories key is created which gives user access to all repositories
+    % that they are granted access to server side. For the time being we default
+    % to hexpm for user auth entries as there is currently no other use case.
+    rebar3_hex_utils:update_auth_config(#{?DEFAULT_HEX_REPO => #{
+                                             username => Username,
+                                             write_key => WriteKeyEncrypted,
+                                             read_key => ReadKey,
+                                             repo_key => ReposKey}}, State),
     {ok, State}.
 
 encrypt_write_key(Username, LocalPassword, WriteKey) ->
