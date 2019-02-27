@@ -60,7 +60,7 @@ handle('POST', [<<"keys">>], Req) ->
     _Name = maps:get(<<"name">>, Data),
     _Perms    = maps:get(<<"permissions">>, Data),
     Res = #{
-      <<"secret">> => <<"repos_key">>
+      <<"secret">> => <<"repo_key">>
     },
     respond_with(201, Req, Res);
 

@@ -43,7 +43,7 @@ repo(_Config) ->
                                     repo_public_key          => <<0>>,
                                     repo_url                 => <<"https://repo.hex.pm">>,
                                     repo_verify              => true,
-                                    repos_key                => <<"key">>,
+                                    repo_key                => <<"key">>,
                                     username                 => <<"starbelly">>,
                                     write_key               => {<<0>>,{<<0>>}}
                                 }

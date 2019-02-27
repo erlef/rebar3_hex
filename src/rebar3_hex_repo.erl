@@ -78,9 +78,16 @@ auth(Repo, Key, State) ->
 generate(Repo, State) ->
     {ok, RepoConfig} = rebar_hex_repos:get_repo_config(Repo, State),
 
+    RepoName = case binary:split(Repo, <<":">>) of
+                   [_Parent, Org] ->
+                       Org;
+                   Public ->
+                       Public
+               end,
+
     Permissions = [#{<<"domain">> => <<"repository">>,
-                     <<"resource">> => Repo}],
-    Name = <<Repo/binary, "-repository">>,
+                     <<"resource">> => RepoName}],
+    Name = <<RepoName/binary, "-repository">>,
 
     WriteKey = maps:get(write_key, RepoConfig),
     Username = maps:get(username, RepoConfig),

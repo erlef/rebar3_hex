@@ -10,7 +10,7 @@
                                   repo_verify => false,
                                   read_key                 => <<"123">>,
                                   repo_public_key          => <<0>>,
-                                  repos_key                => <<"repos_key">>,
+                                  repo_key                => <<"repo_key">>,
                                   username                 => <<"mr_pockets">>,
 
                                   write_key               => rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>,
@@ -26,7 +26,7 @@ mock_app(AppName, DataDir) ->
 mock_command(Command, Repo) ->
     mock_command(Command, Repo, rebar_state(Repo)).
 
-mock_command(Command, Repo, State0) ->
+mock_command(Command, _Repo, State0) ->
     State1 = rebar_state:add_resource(State0, {pkg, rebar_pkg_resource}),
     State2 = rebar_state:create_resources([{pkg, rebar_pkg_resource}], State1),
     rebar_state:command_args(State2, [Command]).

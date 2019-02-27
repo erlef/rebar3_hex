@@ -387,10 +387,10 @@ setup_mocks_for(first_auth, {Username, Email, Password, PasswordConfirm, Repo}) 
     ++ "However, Hex requires you to have a local password that applies "
     ++ "only to this machine for security purposes. Please enter it.",
     meck:expect(rebar3_hex_utils, update_auth_config, fun(Cfg, State) ->
-                                                              Rname = maps:get(name, Repo),
-                                                              Skey = maps:get(repos_key, Repo),
+                                                              Rname = maps:get(repo_name, Repo),
+                                                              Skey = maps:get(repo_key, Repo),
                                                               [Rname] = maps:keys(Cfg),
-                                                              #{repos_key := Skey, username := Username} = _ = maps:get(Rname, Cfg),
+                                                              #{repo_key := Skey, username := Username} = _ = maps:get(Rname, Cfg),
                                                               {ok, State} end),
     expect_local_password_prompt(Password, PasswordConfirm),
     meck:expect(ec_talk, say, fun(Arg) ->
@@ -435,12 +435,12 @@ setup_mocks_for(deauth, {_Username, _Email, _Password, _Repo}) ->
                                       end
                               end);
 
-setup_mocks_for(publish, {_Username, _Email, Password, Repo}) ->
+setup_mocks_for(publish, {Username, _Email, Password, Repo}) ->
     meck:expect(rebar3_hex_utils, update_auth_config, fun(Cfg, State) ->
                                                               Rname = maps:get(name, Repo),
-                                                              Skey = maps:get(repos_key, Repo),
+                                                              Skey = maps:get(repo_key, Repo),
                                                               [Rname] = maps:keys(Cfg),
-                                                              #{repos_key := Skey, username := Username} = _ = maps:get(Rname, Cfg),
+                                                              #{repo_key := Skey, username := Username} = _ = maps:get(Rname, Cfg),
                                                               {ok, State} end),
 
     meck:expect(rebar3_hex_utils, get_password, fun(_Arg) -> Password end),
@@ -452,7 +452,7 @@ setup_mocks_for(publish, {_Username, _Email, Password, Repo}) ->
                                                       true
                                                 end
                                     end),
-    Coc = "Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct",
+    CocStr = "Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct",
     meck:expect(ec_talk, say, fun(Templ, Args) ->
                                       case {Templ, Args} of
                                           {"Select application(s):",[]} ->
