@@ -32,21 +32,84 @@ do(State) ->
 
     {Args, _} = rebar_state:command_parsed_args(State),
     Term = proplists:get_value(term, Args, ""),
-    case hex_api_package:search(Repo, rebar_utils:to_binary(Term), []) of
+    ReadKey = maps:get(read_key, Repo, undefined),
+    case hex_api_package:search(Repo#{api_key => ReadKey}, rebar_utils:to_binary(Term), []) of
         {ok, {200, _Headers, []}} ->
-            io:format("No Results", []);
+            io:format("No Results~n"),
+            {ok, State};
         {ok, {200, _Headers, Packages}} ->
-            io:format("Results:~n~n", []),
-            Results = [[Name, ": ", Description, "\n"] ||
-                          #{<<"name">> := Name,
-                            <<"meta">> := #{<<"description">> := Description}} <- Packages],
-            io:format("~ts", [Results]),
+            Header = ["Name", "Version", "Description", "URL"],
+            Rows = lists:map(fun(Package) ->
+                                     #{<<"name">> := Name,
+                                       <<"meta">> := #{<<"description">> := Description},
+                                       <<"releases">> := Releases,
+                                       <<"html_url">> := Url
+                                      } = Package,
+
+                                     Descrip = truncate_description(Description),
+                                     [binary_to_list(Name),
+                                      latest_stable(Releases), Descrip, unicode:characters_to_list(Url)]
+
+                             end, sort_by_downloads(Packages)),
+            ok = rebar3_hex_utils:print_table([Header] ++ Rows),
             {ok, State};
         {ok, {Status, _Headers, _Body}} ->
             ?PRV_ERROR({status, Status});
         {error, Reason} ->
             ?PRV_ERROR({error, Reason})
     end.
+
+truncate_description(Description) ->
+    Descrip = string:sub_string(
+                string:strip(
+                  string:strip(
+                    unicode:characters_to_list(Description), both, $\n)
+                 ), 1, 50),
+    Blist = binary:split(unicode:characters_to_binary(Descrip), <<"\n">>, [global]),
+    Slist = lists:map(fun(B) -> unicode:characters_to_list(B) end, Blist),
+    Dstr = string:join(Slist, ""),
+    case size(Description) of
+        N when N >= 50 ->
+            Dstr ++ "...";
+        _ ->
+            Dstr
+    end.
+
+sort_by_downloads(Packages) ->
+    lists:sort(fun(#{<<"downloads">> := #{<<"all">> := A}},
+                   #{<<"downloads">> := #{<<"all">> := B}}) ->
+                       A > B
+               end,
+               Packages).
+
+latest_stable(Releases) ->
+    case gather_stable_releases(Releases) of
+        [] ->
+            "";
+        [Latest | _Rest] ->
+            binary_to_list(maps:get(<<"version">>, Latest))
+    end.
+
+gather_stable_releases(Releases) ->
+    version_sort(lists:filter(fun(#{<<"version">> := Ver}) ->
+                            {ok, V} = verl:parse(Ver),
+                            case V of
+                             #{pre := []} ->
+                                 true;
+                             _ ->
+                                 false
+                         end
+                 end,
+                 Releases
+                )).
+
+version_sort(Releases) ->
+    lists:sort(fun(#{<<"version">> := A}, #{<<"version">> := B}) ->
+                       At = list_to_tuple(binary:split(A, <<".">>, [global])),
+                       Bt = list_to_tuple(binary:split(B, <<".">>, [global])),
+                       At >= Bt
+               end,
+               Releases).
 
 -spec format_error(any()) -> iolist().
 format_error({status, Status}) ->

@@ -2,6 +2,7 @@
 
 -export([pretty_print_status/1,
          pretty_print_errors/1,
+         print_table/1,
          repo_opt/0,
          repo/1,
          format_error/1,
@@ -10,7 +11,8 @@
          binarify/1,
          expand_paths/2,
          get_password/1,
-         update_auth_config/2]).
+         update_auth_config/2,
+         str_split/2]).
 
 -include("rebar3_hex.hrl").
 
@@ -41,8 +43,12 @@ repo(State) ->
     #{repos := Repos} = rebar_resource_v2:find_resource_state(pkg, Resources),
     case proplists:get_value(repo, Args, undefined) of
         undefined ->
-            [Repo | _] = Repos,
-            Repo;
+                case rebar_hex_repos:get_repo_config(rebar_utils:to_binary(?DEFAULT_HEX_REPO), Repos) of
+                    {ok, Repo} ->
+                        Repo;
+                    _ ->
+                        throw(?PRV_ERROR(no_repo_in_state))
+                end;
         RepoName ->
             case rebar_hex_repos:get_repo_config(rebar_utils:to_binary(RepoName), Repos) of
                 {ok, Repo} ->
@@ -202,3 +208,61 @@ join_lists(Sep, List) ->
     [Last | AllButLast] = lists:reverse(List),
     lists:foldl(fun (Elem,Acc) -> [Elem,Sep|Acc] end, [Last], AllButLast).
 -endif.
+
+-ifdef(POST_OTP_19).
+str_split(Str, Pattern) ->
+    string:split(Str, Pattern).
+-else.
+str_split(Str, Pattern) ->
+    Bin = unicode:characters_to_binary(Str),
+    Bpat = unicode:characters_to_binary(Pattern),
+    Blist = binary:split(Bin, Bpat),
+    lists:map(fun(B) -> unicode:characters_to_list(B) end, Blist).
+-endif.
+
+underline_emphasis(Item) ->
+    io_lib:format("\e[1m\e[00m\e[4m~ts\e[24m", [Item]).
+
+print_table(Rows) ->
+    Table = table(Rows),
+    io:fwrite(Table),
+    ok.
+
+% Returns a str, expects first row to be a header
+table(Rows) ->
+    [Header | Body] = align_rows(Rows),
+    Table = [pretty_header(Header), ""] ++ Body,
+    lists:foldl(fun(Row, Acc) ->
+                        Acc ++ [io_lib:fwrite("~s~n", [lists:flatten(Row)])]
+                end,
+                [],
+                Table).
+
+pretty_header(Header) ->
+    lists:map(fun(W) ->
+                      [Value, Space] = str_split(W, " "),
+                      underline_emphasis(Value) ++ " "  ++ Space  end,
+              Header).
+
+align_rows(Rows) ->
+    WidestCells = widest_cells(Rows),
+    [align_cells(R, WidestCells) || R <- Rows].
+
+align_cells(Row, WidestCells) ->
+    Padded = rpad_row(Row, length(WidestCells), ""),
+    [ string:left(Cell, Length + 2, $\s)
+      || {Cell, Length} <- lists:zip(Padded, WidestCells)].
+
+widest_cells(Rows) ->
+    lists:foldl( fun(Row, Acc) ->
+                         CellLengths = [length(C) || C <- Row ],
+                         Widest = lists:max([length(Acc), length(CellLengths)]),
+                         Padded = rpad_row(CellLengths, Widest, 0),
+                         WidestPadded = rpad_row(Acc, Widest, 0),
+                         [ lists:max([A, B]) || {A, B} <- lists:zip(Padded, WidestPadded)]
+                 end,
+                 [],
+                 Rows).
+
+rpad_row(L, Length, Elem) ->
+    L ++ lists:duplicate(Length - length(L), Elem).

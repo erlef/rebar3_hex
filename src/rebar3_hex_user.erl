@@ -34,7 +34,7 @@ init(State) ->
                                  {example, "rebar3 hex user <command>"},
                                  {short_desc, "Hex user tasks"},
                                  {desc, ""},
-                                 {opts, [rebar3_hex_utils:repo_opt()]}]),
+                                 {opts, []}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
@@ -134,10 +134,10 @@ deauth(_Repo, _State) ->
 
 reset_password(Repo, State) ->
     User = ec_talk:ask_default("Username or Email:", string, ""),
-    case hex_api_user:reset_password(User, Repo) of
-        {ok, {201, _Headers, #{<<"email">> := Email}}} ->
-            ec_talk:say("Email with reset link sent to ~ts", [Email]),
-            {ok, State};
+    case hex_api_user:reset_password(list_to_binary(User), Repo) of
+        {ok, {204, _Headers, <<>>}} ->
+             ec_talk:say("Email with reset link sent", []),
+             {ok, State};
         {ok, {_Status, _Headers, #{<<"message">> := Message}}} ->
             ?PRV_ERROR({reset_failure, Message});
         {error, Reason} ->
