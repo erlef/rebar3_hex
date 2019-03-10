@@ -55,6 +55,39 @@ handle('POST', [<<"publish">>], Req) ->
            respond_with(401, Req, #{})
    end;
 
+handle('POST', [<<"repos">>, _Repo, <<"publish">>], Req) ->
+   case authenticate(Req) of
+       {ok, #{username := Username, email := Email}} ->
+           {ok, Meta, _Checksum}     = body_to_meta(Req),
+           App = maps:get(<<"app">>, Meta),
+
+           Res = #{
+             <<"version">> => maps:get(<<"version">>, Meta),
+             <<"has_docs">> => false,
+             <<"downloads">> => undefined,
+             <<"inserted_at">> => timestamp(),
+             <<"updated_at">> => timestamp(),
+             <<"retirement">> => undefined,
+             <<"package_url">> => <<?BASE_USER_URL/bitstring, App/bitstring>>,
+             <<"html_url">> => <<?BASE_USER_URL/bitstring, App/bitstring>>,
+             <<"docs_html_url">> => undefined,
+             <<"requirements">> => maps:get(<<"requirements">>, Meta),
+             <<"meta">> => #{
+                 <<"app">> => App,
+                 <<"build_tools">> => maps:get(<<"build_tools">>, Meta),
+                 <<"elixir">> => undefined
+                },
+             <<"publisher">> => #{
+                 <<"email">> => Email,
+                 <<"url">> => <<?BASE_USER_URL/bitstring, Username/bitstring>>,
+                 <<"username">> => Username
+                }
+            },
+           respond_with(201, Req, Res);
+       error ->
+           respond_with(401, Req, #{})
+   end;
+
 handle('POST', [<<"keys">>], Req) ->
     Data     = body_to_terms(Req),
     _Name = maps:get(<<"name">>, Data),
@@ -99,12 +132,14 @@ handle('POST', [<<"users">>, User, <<"reset">>], Req) ->
                         <<"bad">> ->
                             {500, #{<<"whoa">> => <<"mr.">>}};
                         _Other ->
-                            Res0 = #{<<"username">> => <<"mr_pockets">>,
-                                     <<"email">> => <<"foo@bar.baz">>
-                                    },
-                            {201, Res0}
+                            {204, <<>>}
                     end,
-    respond_with(Status, Req, Res);
+        case Status of
+            204 ->
+                {Status, [{<<"Foo">>, <<"Bar">>}], terms_to_body(Req, Res)};
+            _ ->
+                respond_with(Status, Req, Res)
+        end;
 
 handle('GET', [<<"users">>, <<"me">>], Req) ->
     Key = elli_request:get_header(<<"Authorization">>, Req),
@@ -145,7 +180,6 @@ send_as(Req) ->
 body_to_terms(Req)  ->
     Body = elli_request:body(Req),
     from(client_accepts(Req), Body).
-
 
 body_to_meta(Req) ->
     Body = elli_request:body(Req),

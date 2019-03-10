@@ -34,6 +34,8 @@ all() ->
      , whoami_unhandled_test
      , deauth_test
      , publish_test
+     , publish_org_test
+     , publish_org_error_test
      , publish_error_test].
 
 init_per_suite(Config) ->
@@ -301,7 +303,7 @@ whoami_not_authed_test(_Config) ->
 reset_password_test(_Config) ->
     begin
         Repo = test_utils:repo_config(),
-        setup_mocks_for(reset_password, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        setup_mocks_for(reset_password, {"mr_pockets", <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
         ResetState = test_utils:mock_command("reset_password", Repo),
         ?assertMatch({ok, ResetState}, rebar3_hex_user:do(ResetState))
     end.
@@ -310,7 +312,7 @@ reset_password_test(_Config) ->
 reset_password_api_error_test(_Config) ->
     begin
         Repo = test_utils:repo_config(),
-        setup_mocks_for(reset_password, {<<"eh?">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        setup_mocks_for(reset_password, {"eh?", <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
         ResetState = test_utils:mock_command("reset_password", test_utils:repo_config(#{username => <<"eh?">>})),
         ExpErr = {error,{rebar3_hex_user,{reset_failure,<<"huh?">>}}},
         ?assertMatch(ExpErr, rebar3_hex_user:do(ResetState))
@@ -319,7 +321,7 @@ reset_password_api_error_test(_Config) ->
 reset_password_unhandled_test(_Config) ->
     begin
         Repo = test_utils:repo_config(),
-        setup_mocks_for(reset_password, {<<"bad">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        setup_mocks_for(reset_password, {"bad", <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
         ResetState = test_utils:mock_command("reset_password", test_utils:repo_config(#{username => <<"bad">>})),
         % TODO: We should handle this case gracefully
         ?assertError({case_clause, {ok, {500, _, #{<<"whoa">> := <<"mr.">>}}}}, rebar3_hex_user:do(ResetState))
@@ -328,7 +330,7 @@ reset_password_unhandled_test(_Config) ->
 reset_password_error_test(_Config) ->
     begin
         Repo = test_utils:repo_config(),
-        setup_mocks_for(reset_password, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        setup_mocks_for(reset_password, {"mr_pockets", <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
         meck:expect(hex_api_user, reset_password
                     , fun(_,_) -> {error, meh} end),
         WhoamiState = test_utils:mock_command("reset_password", test_utils:repo_config()),
@@ -354,6 +356,39 @@ publish_test(Config) ->
         setup_mocks_for(publish, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
         PubState = test_utils:mock_command("publish", Repo, State),
         ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState))
+    end.
+
+
+% TODO: We need to test publishing when a repo is only in rebar.config
+% which is valid and works. Setting up the state is not clear though.
+% -- Bryan
+publish_org_test(Config) ->
+    begin
+        WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
+        Repo = test_utils:repo_config(#{ name => <<"hexpm:valid">>,
+                                        repo => <<"hexpm:valid">>,
+                                        write_key => WriteKey
+                                        }),
+        {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        setup_mocks_for(publish, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        PubState = test_utils:mock_command({[{hex, publish}, {repo, "hexpm:valid"}], []}, Repo, State),
+        ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState))
+    end.
+
+
+publish_org_error_test(Config) ->
+    begin
+        WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
+        Repo = test_utils:repo_config(#{
+                 repo => <<"hexpm:foo">>,
+                 write_key => WriteKey
+                }),
+        {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        setup_mocks_for(publish, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        PubState = test_utils:mock_command({[{hex, publish}, {repo, "hexpm:bar"}], []}, Repo, State),
+        ?assertThrow(
+           {error,
+            {rebar_hex_repos,{repo_not_found,<<"hexpm:bar">>}}}, rebar3_hex_publish:do(PubState))
     end.
 
 publish_error_test(_Config) ->
@@ -418,11 +453,11 @@ setup_mocks_for(whoami, {Username, Email, _Password, _Repo}) ->
                                       end
                               end);
 
-setup_mocks_for(reset_password, {Username, Email, _Password, _Repo}) ->
+setup_mocks_for(reset_password, {Username, _Email, _Password, _Repo}) ->
     meck:expect(ec_talk, ask_default, fun(_Prompt, string, "") -> Username end),
     meck:expect(ec_talk, say, fun(Templ, Args) ->
                                       case {Templ, Args} of
-                                          {"Email with reset link sent to ~ts", [Email]} ->
+                                          {"Email with reset link sent", []} ->
                                               ok
                                       end
                               end);
@@ -461,7 +496,7 @@ setup_mocks_for(publish, {Username, _Email, Password, Repo}) ->
                                               ok;
                                           {"A) All",[]} ->
                                               ok;
-                                          {"Publishing ~ts ~ts to ~ts",[<<"valid">>,"0.1.0",<<"foo">>]} ->
+                                          {"Publishing ~ts ~ts to ~ts",[<<"valid">>,"0.1.0",<<"hexpm:valid">>]} ->
                                               ok;
                                           {"Publishing ~ts ~ts to ~ts",[<<"valid">>,"0.1.0",<<"hexpm">>]} ->
                                               ok;
