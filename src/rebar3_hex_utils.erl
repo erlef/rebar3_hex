@@ -126,7 +126,7 @@ prompt_win32_password(Prompt) ->
     receive
         {done, Parent, Ref} ->
             Parent ! {done, self(), Ref},
-            Spaces = lists:duplicate(length(Prompt) + 24, $ ),
+            Spaces = lists:duplicate(size(Prompt) + 24, $ ),
             io:fwrite(standard_error, "~ts\r~ts\r", [ClearLine, Spaces])
     after
         1 ->
