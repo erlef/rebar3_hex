@@ -296,7 +296,8 @@ whoami_not_authed_test(_Config) ->
                                   end),
         catch ec_talk:say(Str),
         WhoamiState = test_utils:mock_command("whoami", Repo),
-        ?assertMatch(ok, rebar3_hex_user:do(WhoamiState)),
+        ExpErr = {error,"Not authenticated as any user currently for this repository"},
+        ?assertMatch(ExpErr, rebar3_hex_user:do(WhoamiState)),
         ?assert(meck:validate(ec_talk))
     end.
 
