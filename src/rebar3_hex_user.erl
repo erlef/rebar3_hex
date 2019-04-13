@@ -94,7 +94,7 @@ hex_register(Repo, State) ->
 whoami(Repo, State) ->
     case maps:get(read_key, Repo, undefined) of
         undefined ->
-            ec_talk:say("Not authenticated as any user currently for this repository");
+            {error, "Not authenticated as any user currently for this repository"};
         ReadKey ->
             case hex_api_user:me(Repo#{api_key => ReadKey}) of
                 {ok, {200, _Headers, #{<<"username">> := Username,
