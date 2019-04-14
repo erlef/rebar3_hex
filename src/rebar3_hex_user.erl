@@ -186,30 +186,34 @@ generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
     %% write key
     WriteKeyName = api_key_name(),
     WritePermissions = [#{<<"domain">> => <<"api">>}],
-    {ok, WriteKey} = generate_key(RepoConfig0, WriteKeyName, WritePermissions),
+    case generate_key(RepoConfig0, WriteKeyName, WritePermissions) of
+        {ok, WriteKey} ->
 
-    WriteKeyEncrypted = encrypt_write_key(Username, LocalPassword, WriteKey),
+            WriteKeyEncrypted = encrypt_write_key(Username, LocalPassword, WriteKey),
 
-    %% read key
-    RepoConfig1 = Repo#{api_key => WriteKey},
-    ReadKeyName = api_key_name("read"),
-    ReadPermissions = [#{<<"domain">> => <<"api">>, <<"resource">> => <<"read">>}],
-    {ok, ReadKey} = generate_key(RepoConfig1, ReadKeyName, ReadPermissions),
+            %% read key
+            RepoConfig1 = Repo#{api_key => WriteKey},
+            ReadKeyName = api_key_name("read"),
+            ReadPermissions = [#{<<"domain">> => <<"api">>, <<"resource">> => <<"read">>}],
+            {ok, ReadKey} = generate_key(RepoConfig1, ReadKeyName, ReadPermissions),
 
-    %% repo key
-    ReposKeyName = repos_key_name(),
-    ReposPermissions = [#{<<"domain">> => <<"repositories">>}],
-    {ok, ReposKey} = generate_key(RepoConfig1, ReposKeyName, ReposPermissions),
+            %% repo key
+            ReposKeyName = repos_key_name(),
+            ReposPermissions = [#{<<"domain">> => <<"repositories">>}],
+            {ok, ReposKey} = generate_key(RepoConfig1, ReposKeyName, ReposPermissions),
 
-    % By default a repositories key is created which gives user access to all repositories
-    % that they are granted access to server side. For the time being we default
-    % to hexpm for user auth entries as there is currently no other use case.
-    rebar3_hex_utils:update_auth_config(#{?DEFAULT_HEX_REPO => #{
-                                             username => Username,
-                                             write_key => WriteKeyEncrypted,
-                                             read_key => ReadKey,
-                                             repo_key => ReposKey}}, State),
-    {ok, State}.
+            % By default a repositories key is created which gives user access to all repositories
+            % that they are granted access to server side. For the time being we default
+            % to hexpm for user auth entries as there is currently no other use case.
+            rebar3_hex_utils:update_auth_config(#{?DEFAULT_HEX_REPO => #{
+                                                     username => Username,
+                                                     write_key => WriteKeyEncrypted,
+                                                     read_key => ReadKey,
+                                                     repo_key => ReposKey}}, State),
+            {ok, State};
+        {error, {rebar3_hex_user, _Msg}} = Error ->
+            Error
+    end.
 
 encrypt_write_key(Username, LocalPassword, WriteKey) ->
     AAD = Username,

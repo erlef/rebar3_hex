@@ -215,11 +215,8 @@ auth_unhandled_test(_Config) ->
         setup_mocks_for(first_auth, {<<"mr_pockets">>, <<"foo@bar.baz">>, Pass, Pass, Repo}),
         meck:expect(hex_api_key, add, fun(_,_,_) -> {ok, {500, #{}, #{<<"message">> => <<"eh?">>}}} end),
         AuthState = test_utils:mock_command("auth", Repo),
-        % TODO: This should not be the expected error, see generate_keys/5
-        ?assertError(
-           {badmatch,
-            {error,
-             {rebar3_hex_user,{generate_key,<<"eh?">>}}}}, rebar3_hex_user:do(AuthState))
+        ExpErr = {error,{rebar3_hex_user,{generate_key,<<"eh?">>}}},
+        ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState))
     end.
 
 auth_error_test(_Config) ->
@@ -229,9 +226,8 @@ auth_error_test(_Config) ->
         setup_mocks_for(first_auth, {<<"mr_pockets">>, <<"foo@bar.baz">>, Pass, Pass, Repo}),
         meck:expect(hex_api_key, add, fun(_,_,_) -> {error, meh} end),
         AuthState = test_utils:mock_command("auth", Repo),
-        % TODO: This should not be the expected error, see generate_keys/5
-        ExpErr = {badmatch,{error,{rebar3_hex_user,{generate_key,["meh"]}}}},
-        ?assertError(ExpErr, rebar3_hex_user:do(AuthState))
+        ExpErr = {error,{rebar3_hex_user,{generate_key,["meh"]}}},
+        ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState))
     end.
 
 whoami_test(_Config) ->
