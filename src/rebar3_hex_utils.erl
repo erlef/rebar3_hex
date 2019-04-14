@@ -28,7 +28,12 @@ update_auth_config(Config, State) ->
 
 pretty_print_errors(Errors) ->
   L =  maps:fold(fun(K,V,Acc) ->
-                Acc ++ [<<K/binary, " ", V/binary>>]
+            case is_map(V) of
+                true ->
+                   Acc ++ [pretty_print_errors(V)];
+                false ->
+                    Acc ++ [<<K/binary, " ", V/binary>>]
+            end
         end,
     [],
   Errors),

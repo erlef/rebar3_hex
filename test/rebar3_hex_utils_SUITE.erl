@@ -6,7 +6,12 @@
 
 all() ->
     [pretty_print_status,
+     pretty_print_errors,
     repo_opt, repo, format_error_test, binarify_test, expand_paths_test].
+
+pretty_print_errors(_Config) ->
+    Errors = #{<<"emails">>=>#{<<"email">>=><<"already in use">>}},
+    ?assertEqual(<<"email already in use">>, rebar3_hex_utils:pretty_print_errors(Errors)).
 
 pretty_print_status(_Config) ->
     ?assertEqual("Authentication failed (401)", rebar3_hex_utils:pretty_print_status(401)),
