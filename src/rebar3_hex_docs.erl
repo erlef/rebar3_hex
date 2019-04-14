@@ -26,9 +26,10 @@ init(State) ->
                                 {example, "rebar3 hex docs"},
                                 {short_desc, "Publish documentation for the current project and version"},
                                 {desc, ""},
+
                                 {opts, [{revert, undefined, "revert", string, "Revert given version."},
-                                        rebar3_hex_utils:repo_opt()]}
-                                ]),
+                                        rebar3_hex_utils:repo_opt()]},
+                                {profiles, [docs]}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
