@@ -42,18 +42,28 @@ pretty_print_errors(Errors) ->
 repo_opt() ->
     {repo, $r, "repo", string, "Repository to use for this command."}.
 
+get_first_repo_org_or_default(Repos) ->
+   case get_first_repo_org(Repos) of
+       [Repo] ->
+           {ok, Repo};
+       [] ->
+           {ok, rebar_utils:to_binary(?DEFAULT_HEX_REPO)}
+   end.
+
+get_first_repo_org(Repos) ->
+   lists:filter(fun(X) ->
+                         Name = maps:get(name, X, undefined),
+                         Name  =/= <<"hexpm">> andalso Name  =/= undefined
+                 end, Repos).
+
 repo(State) ->
     {Args, _} = rebar_state:command_parsed_args(State),
     Resources = rebar_state:resources(State),
     #{repos := Repos} = rebar_resource_v2:find_resource_state(pkg, Resources),
+
     case proplists:get_value(repo, Args, undefined) of
         undefined ->
-                case rebar_hex_repos:get_repo_config(rebar_utils:to_binary(?DEFAULT_HEX_REPO), Repos) of
-                    {ok, Repo} ->
-                        Repo;
-                    _ ->
-                        throw(?PRV_ERROR(no_repo_in_state))
-                end;
+            {ok, Repo} = get_first_repo_org_or_default(Repos);
         RepoName ->
             case rebar_hex_repos:get_repo_config(rebar_utils:to_binary(RepoName), Repos) of
                 {ok, Repo} ->
