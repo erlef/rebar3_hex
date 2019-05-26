@@ -26,7 +26,6 @@ init(State) ->
                                 {example, "rebar3 hex docs"},
                                 {short_desc, "Publish documentation for the current project and version"},
                                 {desc, ""},
-
                                 {opts, [{revert, undefined, "revert", string, "Revert given version."},
                                         rebar3_hex_utils:repo_opt()]},
                                 {profiles, [docs]}]),
@@ -35,15 +34,24 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
+    case rebar3_hex_utils:repo(State) of
+        {ok, Repo} ->
+            handle_command(State, Repo),
+            {ok, State};
+        {error, Reason} ->
+            ?PRV_ERROR(Reason)
+    end.
+
+handle_command(State, Repo) ->
     Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
-    Repo = rebar3_hex_utils:repo(State),
     case maps:get(write_key, Repo, undefined) of
         undefined ->
             ?PRV_ERROR(no_write_key);
         _ ->
             lists:foldl(fun(App, {ok, StateAcc}) ->
                                 do_(App, StateAcc)
-                        end, {ok, State}, Apps)
+                        end, {ok, State}, Apps),
+            {ok, State}
     end.
 
 -spec format_error(any()) -> iolist().
@@ -67,7 +75,7 @@ do_(App, State) ->
     {Args, _} = rebar_state:command_parsed_args(State),
     Revert = proplists:get_value(revert, Args, undefined),
 
-    Repo = rebar3_hex_utils:repo(State),
+    {ok, Repo} = rebar3_hex_utils:repo(State),
 
     case Revert of
         undefined ->
@@ -91,7 +99,7 @@ do_(App, State) ->
             case hex_api_delete_docs(Repo, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn)) of
                 {ok, {204, _Headers, _Body}} ->
                     rebar_api:info("Successfully deleted docs for ~ts ~ts", [Name, Vsn]),
-                    ok;
+                    {ok, State};
                 {ok, {Status, _Headers, _Body}} ->
                     ?PRV_ERROR({revert, Status, PkgName, Vsn});
                 {error, Reason} ->

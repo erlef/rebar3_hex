@@ -46,17 +46,23 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
-    Repo = rebar3_hex_utils:repo(State),
+    case rebar3_hex_utils:repo(State) of
+        {ok, Repo} ->
+            handle_command(State, Repo);
+        {error, Reason} ->
+            ?PRV_ERROR(Reason)
+    end.
+
+handle_command(State, Repo) ->
     case maps:get(write_key, Repo, undefined) of
         undefined ->
             ?PRV_ERROR(no_write_key);
         _ ->
+            Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
             lists:foldl(fun(App, {ok, StateAcc}) ->
                                 publish(App, Repo, StateAcc)
                         end, {ok, State}, Apps)
     end.
-
 
 -spec format_error(any()) -> iolist().
 format_error(ErrList) when is_list(ErrList) ->
@@ -66,6 +72,10 @@ format_error(ErrList) when is_list(ErrList) ->
       end,
   More = "\n     Please see https://hex.pm/docs/rebar3_publish for more info.\n",
   lists:foldl(F, "Validator Errors:\n", ErrList) ++ More;
+format_error({required, repo}) ->
+    "publish requires a repo name argument to identify the repo to publish to";
+format_error({not_valid_repo, RepoName}) ->
+    io_lib:format("No configuration for repository ~ts found.", [RepoName]);
 format_error({invalid_semver, AppName, Version}) ->
     Err = "~ts.app.src : non-semantic version number \"~ts\" found",
     io_lib:format(Err, [AppName, Version]);

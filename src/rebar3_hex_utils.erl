@@ -1,18 +1,19 @@
 -module(rebar3_hex_utils).
 
--export([pretty_print_status/1,
+-export([parent_repos/1,
+         pretty_print_status/1,
          pretty_print_errors/1,
-         print_table/1,
+         format_error/1,
          repo_opt/0,
          repo/1,
-         format_error/1,
          update_app_src/2,
          select_apps/1,
          binarify/1,
          expand_paths/2,
          get_password/1,
          update_auth_config/2,
-         str_split/2]).
+         str_split/2,
+         get_required/2]).
 
 -include("rebar3_hex.hrl").
 
@@ -27,17 +28,25 @@ update_auth_config(Config, State) ->
     rebar_hex_repos:update_auth_config(Config, State).
 
 pretty_print_errors(Errors) ->
-  L =  maps:fold(fun(K,V,Acc) ->
-            case is_map(V) of
-                true ->
-                   Acc ++ [pretty_print_errors(V)];
-                false ->
-                    Acc ++ [<<K/binary, " ", V/binary>>]
-            end
-        end,
-    [],
-  Errors),
-  binary:list_to_bin(join_lists(", ", L)).
+    L =  maps:fold(fun(K,V,Acc) ->
+                           case is_map(V) of
+                               true ->
+                                   Acc ++ [pretty_print_errors(V)];
+                               false ->
+                                   Acc ++ [<<K/binary, " ", V/binary>>]
+                           end
+                   end,
+                   [],
+                   Errors),
+    binary:list_to_bin(join_lists(", ", L)).
+
+get_required(Key, Args) ->
+    case proplists:get_value(Key, Args) of
+        undefined ->
+            {error, {required, Key}};
+        Value ->
+            Value
+    end.
 
 repo_opt() ->
     {repo, $r, "repo", string, "Repository to use for this command."}.
@@ -48,19 +57,60 @@ repo(State) ->
     #{repos := Repos} = rebar_resource_v2:find_resource_state(pkg, Resources),
     case proplists:get_value(repo, Args, undefined) of
         undefined ->
-                case rebar_hex_repos:get_repo_config(rebar_utils:to_binary(?DEFAULT_HEX_REPO), Repos) of
-                    {ok, Repo} ->
-                        Repo;
-                    _ ->
-                        throw(?PRV_ERROR(no_repo_in_state))
-                end;
+            DefaultBinName = rebar_utils:to_binary(?DEFAULT_HEX_REPO),
+            Res = lists:filter(fun(R) -> maps:get(name, R) =/= DefaultBinName end,
+                               Repos),
+            case Res of
+                [] ->
+                    case rebar_hex_repos:get_repo_config(rebar_utils:to_binary(?DEFAULT_HEX_REPO), Repos) of
+                        {ok, Repo} ->
+                            {ok, Repo};
+                        _ ->
+                            {error, no_repo_in_state}
+                    end;
+                [_Repo|_Rest] ->
+                    {error, {required, repo}}
+            end;
         RepoName ->
-            case rebar_hex_repos:get_repo_config(rebar_utils:to_binary(RepoName), Repos) of
-                {ok, Repo} ->
-                    Repo;
-                _ ->
-                    throw(?PRV_ERROR({not_valid_repo, RepoName}))
-            end
+            repo(State, RepoName)
+    end.
+
+repo(State, RepoName) ->
+    Resources = rebar_state:resources(State),
+    #{repos := Repos} = rebar_resource_v2:find_resource_state(pkg, Resources),
+    BinName = rebar_utils:to_binary(RepoName),
+    MaybeFound1 = get_repo(BinName, Repos),
+    MaybeParentRepo = <<"hexpm:">>,
+    MaybeFound2 =  get_repo(<<MaybeParentRepo/binary, BinName/binary>>, Repos),
+    case {MaybeFound1, MaybeFound2} of
+        {{ok, Repo1}, undefined} ->
+            {ok, Repo1};
+        {undefined, {ok, Repo2}} ->
+            {ok, Repo2};
+        {undefined, undefined} ->
+            {error, {not_valid_repo, RepoName}}
+    end.
+
+parent_repos(State) ->
+    Resources = rebar_state:resources(State),
+    #{repos := Repos} = rebar_resource_v2:find_resource_state(pkg, Resources),
+    Fun = fun(#{name := Name} = Repo, Acc) ->
+                  [Parent|_] = str_split(Name, <<":">>),
+                  case maps:is_key(Parent, Acc) of
+                    true ->
+                        Acc;
+                    false ->
+                        maps:put(name, Repo, Acc)
+                  end
+          end,
+    Map = lists:foldl(Fun, #{}, Repos),
+    {ok, maps:values(Map)}.
+
+get_repo(BinaryName, Repos) ->
+    try rebar_hex_repos:get_repo_config(BinaryName, Repos) of
+        Name -> Name
+    catch
+        {error,{rebar_hex_repos,{repo_not_found,BinaryName}}} -> undefined
     end.
 
 format_error({not_valid_repo, RepoName}) ->
@@ -72,7 +122,7 @@ get_password(Msg) ->
     case os:type() of
         {win32, nt} ->
             get_win32_password(Msg);
-         _ ->
+        _ ->
             get_tty_password(Msg)
     end.
 
@@ -200,7 +250,7 @@ filter_regular(Files) ->
 dir_files(Path) ->
     case filelib:is_dir(Path) of
         true ->
-             filelib:wildcard(filename:join(Path, "**"));
+            filelib:wildcard(filename:join(Path, "**"));
         false ->
             [Path]
     end.
@@ -225,49 +275,3 @@ str_split(Str, Pattern) ->
     lists:map(fun(B) -> unicode:characters_to_list(B) end, Blist).
 -endif.
 
-underline_emphasis(Item) ->
-    io_lib:format("\e[1m\e[00m\e[4m~ts\e[24m", [Item]).
-
-print_table(Rows) ->
-    Table = table(Rows),
-    io:fwrite(Table),
-    ok.
-
-% Returns a str, expects first row to be a header
-table(Rows) ->
-    [Header | Body] = align_rows(Rows),
-    Table = [pretty_header(Header), ""] ++ Body,
-    lists:foldl(fun(Row, Acc) ->
-                        Acc ++ [io_lib:fwrite("~s~n", [lists:flatten(Row)])]
-                end,
-                [],
-                Table).
-
-pretty_header(Header) ->
-    lists:map(fun(W) ->
-                      [Value, Space] = str_split(W, " "),
-                      underline_emphasis(Value) ++ " "  ++ Space  end,
-              Header).
-
-align_rows(Rows) ->
-    WidestCells = widest_cells(Rows),
-    [align_cells(R, WidestCells) || R <- Rows].
-
-align_cells(Row, WidestCells) ->
-    Padded = rpad_row(Row, length(WidestCells), ""),
-    [ string:left(Cell, Length + 2, $\s)
-      || {Cell, Length} <- lists:zip(Padded, WidestCells)].
-
-widest_cells(Rows) ->
-    lists:foldl( fun(Row, Acc) ->
-                         CellLengths = [length(C) || C <- Row ],
-                         Widest = lists:max([length(Acc), length(CellLengths)]),
-                         Padded = rpad_row(CellLengths, Widest, 0),
-                         WidestPadded = rpad_row(Acc, Widest, 0),
-                         [ lists:max([A, B]) || {A, B} <- lists:zip(Padded, WidestPadded)]
-                 end,
-                 [],
-                 Rows).
-
-rpad_row(L, Length, Elem) ->
-    L ++ lists:duplicate(Length - length(L), Elem).

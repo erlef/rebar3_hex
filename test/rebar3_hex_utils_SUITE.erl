@@ -54,11 +54,11 @@ repo(_Config) ->
                                 }
                     ]
                 },
+    _Resource = rebar_resource_v2:new(pkg, rebar_pkg_resource, PkgResConfig),
     State0 = rebar_state:new([{resources, []},
                              {command_parsed_args, []}]),
-    _Resource = rebar_resource_v2:new(pkg, rebar_pkg_resource, PkgResConfig),
     State1 = rebar_state:add_resource(State0, {pkg, rebar_pkg_resource}),
-    Repo = rebar3_hex_utils:repo(State1),
+    {ok, Repo} = rebar3_hex_utils:repo(State1),
     true = is_map(Repo),
     State2 = rebar_state:new([{resources, []},
                              {command_parsed_args, {[{repo,"eh"}],[]}}
@@ -66,7 +66,7 @@ repo(_Config) ->
     State3 = rebar_state:command_parsed_args(State2, {[{repo,"eh"}],[]}),
     _Resource1 = rebar_resource_v2:new(pkg, rebar_pkg_resource, PkgResConfig),
     State4 = rebar_state:add_resource(State3, {pkg, rebar_pkg_resource}),
-    ?assertThrow({error, {rebar_hex_repos, {repo_not_found, <<"eh">>}}}, rebar3_hex_utils:repo(State4)).
+    ?assertMatch({error,{not_valid_repo,"eh"}}, rebar3_hex_utils:repo(State4)).
 
 format_error_test(_Config) ->
     Exp = <<"No configuration for repository foo found.">>,

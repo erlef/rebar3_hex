@@ -28,10 +28,13 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    Repo = rebar3_hex_utils:repo(State),
-
     {Args, _} = rebar_state:command_parsed_args(State),
     Term = proplists:get_value(term, Args, ""),
+    {ok, Parents} = rebar3_hex_utils:parent_repos(State),
+    lists:foreach(fun(Repo) -> search(State, Repo, Term) end, Parents),
+    {ok, State}.
+
+search(State, Repo, Term) ->
     ReadKey = maps:get(read_key, Repo, undefined),
     case hex_api_package:search(Repo#{api_key => ReadKey}, rebar_utils:to_binary(Term), []) of
         {ok, {200, _Headers, []}} ->
@@ -51,13 +54,14 @@ do(State) ->
                                       latest_stable(Releases), Descrip, unicode:characters_to_list(Url)]
 
                              end, sort_by_downloads(Packages)),
-            ok = rebar3_hex_utils:print_table([Header] ++ Rows),
+            ok = print_table([Header] ++ Rows),
             {ok, State};
         {ok, {Status, _Headers, _Body}} ->
             ?PRV_ERROR({status, Status});
         {error, Reason} ->
             ?PRV_ERROR({error, Reason})
     end.
+
 
 truncate_description(Description) ->
     Descrip = string:sub_string(
@@ -120,3 +124,50 @@ format_error({error, Reason}) ->
     io_lib:format("Error searching for packages: ~p", [Reason]);
 format_error(Reason) ->
     io_lib:format("~p", [Reason]).
+
+print_table(Rows) ->
+    Table = table(Rows),
+    io:fwrite(Table),
+    ok.
+
+underline_emphasis(Item) ->
+    io_lib:format("\e[1m\e[00m\e[4m~ts\e[24m", [Item]).
+
+% Returns a str, expects first row to be a header
+table(Rows) ->
+    [Header | Body] = align_rows(Rows),
+    Table = [pretty_header(Header), ""] ++ Body,
+    lists:foldl(fun(Row, Acc) ->
+                        Acc ++ [io_lib:fwrite("~s~n", [lists:flatten(Row)])]
+                end,
+                [],
+                Table).
+
+pretty_header(Header) ->
+    lists:map(fun(W) ->
+                      [Value, Space] = rebar3_hex_utils:str_split(W, " "),
+                      underline_emphasis(Value) ++ " "  ++ Space  end,
+              Header).
+
+align_rows(Rows) ->
+    WidestCells = widest_cells(Rows),
+    [align_cells(R, WidestCells) || R <- Rows].
+
+align_cells(Row, WidestCells) ->
+    Padded = rpad_row(Row, length(WidestCells), ""),
+    [ string:left(Cell, Length + 2, $\s)
+      || {Cell, Length} <- lists:zip(Padded, WidestCells)].
+
+widest_cells(Rows) ->
+    lists:foldl( fun(Row, Acc) ->
+                         CellLengths = [length(C) || C <- Row ],
+                         Widest = lists:max([length(Acc), length(CellLengths)]),
+                         Padded = rpad_row(CellLengths, Widest, 0),
+                         WidestPadded = rpad_row(Acc, Widest, 0),
+                         [ lists:max([A, B]) || {A, B} <- lists:zip(Padded, WidestPadded)]
+                 end,
+                 [],
+                 Rows).
+
+rpad_row(L, Length, Elem) ->
+    L ++ lists:duplicate(Length - length(L), Elem).

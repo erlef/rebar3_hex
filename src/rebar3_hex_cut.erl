@@ -35,7 +35,14 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    Repo = rebar3_hex_utils:repo(State),
+    case rebar3_hex_utils:repo(State) of
+        {ok, Repo} ->
+            handle_command(State, Repo);
+        {error, Reason} ->
+            ?PRV_ERROR(Reason)
+    end.
+
+handle_command(State, Repo) ->
     case maps:get(write_key, Repo, undefined) of
         undefined ->
             ?PRV_ERROR({no_write_key, maps:get(name, Repo)});

@@ -36,8 +36,14 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    Repo = rebar3_hex_utils:repo(State),
+    case rebar3_hex_utils:repo(State) of
+        {ok, Repo} ->
+            handle_command(State, Repo);
+        {error, Reason} ->
+            ?PRV_ERROR(Reason)
+    end.
 
+handle_command(State, Repo) ->
     {Args, _} = rebar_state:command_parsed_args(State),
     case proplists:get_value(pkg, Args, undefined) of
         undefined ->
