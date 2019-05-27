@@ -76,11 +76,12 @@ truncate_description(Description) ->
     end.
 
 sort_by_downloads(Packages) ->
+    {Unused, Popular} = lists:partition(fun(P) -> maps:get(<<"downloads">>, P) == #{} end, Packages),
     lists:sort(fun(#{<<"downloads">> := #{<<"all">> := A}},
                    #{<<"downloads">> := #{<<"all">> := B}}) ->
                        A > B
                end,
-               Packages).
+               Popular) ++ Unused.
 
 latest_stable(Releases) ->
     case gather_stable_releases(Releases) of
