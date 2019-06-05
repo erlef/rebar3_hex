@@ -36,6 +36,7 @@ all() ->
      , publish_test
      , publish_org_test
      , publish_org_error_test
+     , publish_org_requires_repo_arg_test
      , publish_error_test].
 
 init_per_suite(Config) ->
@@ -346,12 +347,14 @@ deauth_test(_Config) ->
 publish_test(Config) ->
     begin
         WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
-        {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config)),
-        Repo = test_utils:repo_config(#{repo => <<"valid">>,
+
+        Repo = test_utils:repo_config(#{repo => <<"hexpm:valid">>,
+                                        name => <<"hexpm:valid">>,
                                         write_key => WriteKey
                                         }),
+       {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
         setup_mocks_for(publish, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
-        PubState = test_utils:mock_command("publish", Repo, State),
+        PubState = test_utils:mock_command({[{hex, publish}, {repo, "hexpm:valid"}], []}, Repo, State),
         ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState))
     end.
 
@@ -372,7 +375,6 @@ publish_org_test(Config) ->
         ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState))
     end.
 
-
 publish_org_error_test(Config) ->
     begin
         WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
@@ -383,16 +385,29 @@ publish_org_error_test(Config) ->
         {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
         setup_mocks_for(publish, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
         PubState = test_utils:mock_command({[{hex, publish}, {repo, "hexpm:bar"}], []}, Repo, State),
-        ?assertThrow(
-           {error,
-            {rebar_hex_repos,{repo_not_found,<<"hexpm:bar">>}}}, rebar3_hex_publish:do(PubState))
+        ?assertMatch(
+           {error,{rebar3_hex_publish,{not_valid_repo,"hexpm:bar"}}}, rebar3_hex_publish:do(PubState))
+    end.
+
+publish_org_requires_repo_arg_test(Config) ->
+    begin
+        WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
+        Repo = test_utils:repo_config(#{ name => <<"hexpm:valid">>,
+                                        repo => <<"hexpm:valid">>,
+                                        write_key => WriteKey,
+                                        parent => <<"hexpm">>
+                                        }),
+        {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        setup_mocks_for(publish, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        PubState = test_utils:mock_command({[{hex, publish}], []}, Repo, State),
+        ?assertMatch({error,{rebar3_hex_publish,{required,repo}}}, rebar3_hex_publish:do(PubState))
     end.
 
 publish_error_test(_Config) ->
     begin
-        Repo = test_utils:repo_config(#{write_key => undefined}),
+        Repo = test_utils:repo_config(#{write_key => undefined, name => <<"hexpm:eh">>, repo => <<"hexpm:eh">>}),
         setup_mocks_for(publish, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
-        PubState = test_utils:mock_command("publish", Repo),
+        PubState = test_utils:mock_command({[{hex, publish}, {repo, "hexpm:eh"}], []}, Repo),
         ?assertMatch({error,{rebar3_hex_publish,no_write_key}}, rebar3_hex_publish:do(PubState))
     end.
 
@@ -442,10 +457,10 @@ setup_mocks_for(first_auth, {Username, Email, Password, PasswordConfirm, Repo}) 
                                               end
                                       end);
 
-setup_mocks_for(whoami, {Username, Email, _Password, _Repo}) ->
+setup_mocks_for(whoami, {Username, Email, _Password, #{name := Name} = _Repo}) ->
     meck:expect(ec_talk, say, fun(Str, Args) ->
                                       case {Str, Args} of
-                                          {"~ts (~ts)", [<<Username/binary>>, <<Email/binary>>]} ->
+                                          {"~ts : ~ts (~ts)", [<<Name/binary>>, <<Username/binary>>, <<Email/binary>>]} ->
                                               ok
                                       end
                               end);

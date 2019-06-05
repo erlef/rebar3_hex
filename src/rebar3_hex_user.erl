@@ -40,21 +40,42 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    Repo = rebar3_hex_utils:repo(State),
     case rebar_state:command_args(State) of
         ["register" | _] ->
+            {ok, Repo} = rebar3_hex_utils:repo(State),
             hex_register(Repo, State);
         ["whoami" | _] ->
-            whoami(Repo, State);
+            try handle(whoami, State) of
+                _ -> {ok, State}
+            catch
+                {error, _} = Err ->
+                    Err
+            end;
         ["auth" | _] ->
+            {ok, Repo} = rebar3_hex_utils:repo(State),
             auth(Repo, State);
         ["deauth" | _] ->
+            {ok, Repo} = rebar3_hex_utils:repo(State),
             deauth(Repo, State);
         ["reset_password" | _] ->
+            {ok, Repo} = rebar3_hex_utils:repo(State),
             reset_password(Repo, State);
         _ ->
             throw(?PRV_ERROR(bad_command))
     end.
+
+
+
+handle(whoami, State) ->
+    {ok, Parents} = rebar3_hex_utils:parent_repos(State),
+    lists:foreach(fun(R) -> case whoami(R, State) of
+                                {ok, _Res} -> ok;
+                                {error, _} = Err ->
+                                    throw(Err)
+                            end
+                  end,
+                  Parents).
+
 
 -spec format_error(any()) -> iolist().
 format_error({whoami_failure, Reason}) ->
@@ -91,7 +112,7 @@ hex_register(Repo, State) ->
             end
     end.
 
-whoami(Repo, State) ->
+whoami(#{name := Name} = Repo, State) ->
     case maps:get(read_key, Repo, undefined) of
         undefined ->
             {error, "Not authenticated as any user currently for this repository"};
@@ -99,7 +120,7 @@ whoami(Repo, State) ->
             case hex_api_user:me(Repo#{api_key => ReadKey}) of
                 {ok, {200, _Headers, #{<<"username">> := Username,
                                        <<"email">> := Email}}} ->
-                    ec_talk:say("~ts (~ts)", [Username, Email]),
+                    ec_talk:say("~ts : ~ts (~ts)", [Name, Username, Email]),
                     {ok, State};
                 {ok, {_Status, _Headers, #{<<"message">> := Message}}} ->
                     ?PRV_ERROR({whoami_failure, Message});
