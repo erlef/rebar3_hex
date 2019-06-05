@@ -178,7 +178,7 @@ publish(AppDir, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
     ec_talk:say("Publishing ~ts ~ts to ~ts", [PkgName, Version, maps:get(name, HexConfig)]),
     ec_talk:say("  Description: ~ts", [Description]),
     ec_talk:say("  Dependencies:~n    ~ts", [format_deps(Deps1)]),
-    ec_talk:say("  Included files:~n    ~ts", [string:join([F || {_, F} <- tl(PackageFiles)], "\n    ")]),
+    ec_talk:say("  Included files:~n    ~ts", [string:join([F || {F, _} <- PackageFiles], "\n    ")]),
     ec_talk:say("  Licenses: ~ts", [format_licenses(Licenses)]),
     ec_talk:say("  Links:~n    ~ts", [format_links(Links)]),
     ec_talk:say("  Build tools: ~ts", [format_build_tools(BuildTools)]),
@@ -274,7 +274,7 @@ include_files(Name, AppDir, AppDetails) ->
 
     AppFileSrc = filename:join("src", ec_cnv:to_list(Name)++".app.src"),
     AppSrcBinary = ec_cnv:to_binary(lists:flatten(io_lib:format("~tp.\n", [AppSrc]))),
-    [{AppFileSrc, AppSrcBinary} | lists:keydelete(AppFileSrc, 1, WithIncludes)].
+    lists:keyreplace(AppFileSrc, 1, WithIncludes, {AppFileSrc, AppSrcBinary}).
 
 
 is_valid_app({_App, _Name, _Version, _AppDetails} = A) ->
