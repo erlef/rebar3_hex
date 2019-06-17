@@ -34,13 +34,11 @@ mock_command(Command, Repo, State0) when is_tuple(Command) ->
     State1 = rebar_state:add_resource(State0, {pkg, rebar_pkg_resource}),
     State2 = rebar_state:create_resources([{pkg, rebar_pkg_resource}], State1),
     State3 = rebar_state:set(State2, hex, {repos,[Repo]}),
-    Resources = rebar_state:resources(State3),
-    #{repos := Repos} = rebar_resource_v2:find_resource_state(pkg, Resources),
     rebar_state:command_parsed_args(State3, Command);
-mock_command(Command, Repo, State0) when is_list(Command) ->
+mock_command(Command, _Repo, State0) when is_list(Command) ->
     State1 = rebar_state:add_resource(State0, {pkg, rebar_pkg_resource}),
     State2 = rebar_state:create_resources([{pkg, rebar_pkg_resource}], State1),
-    rebar_state:command_args(State2, [Command]).
+    rebar_state:command_args(State2, Command).
 
 rebar_state(Repo) ->
     rebar_state:new([{command_parsed_args, []}, {resources, []}, {hex, [{repos, [Repo]}]}]).

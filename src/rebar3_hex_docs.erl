@@ -107,10 +107,8 @@ do_(App, State) ->
             end
     end.
 
-hex_api_publish_docs(Config0, Name, Version, Tarball) ->
-    Username = maps:get(username, Config0),
-    WriteKey = maps:get(write_key, Config0),
-    Config = Config0#{api_key => rebar3_hex_user:decrypt_write_key(Username, WriteKey)},
+hex_api_publish_docs(Repo, Name, Version, Tarball) ->
+    {ok, Config} = rebar3_hex_utils:hex_config_write(Repo),
 
     TarballContentType = "application/octet-stream",
 

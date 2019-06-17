@@ -37,19 +37,41 @@ do(State) ->
     end.
 
 handle_command(State, Repo) ->
-    case rebar_state:command_args(State) of
-        ["add", Package, UsernameOrEmail] ->
-            add(Repo, Package, UsernameOrEmail, State),
+    case command_args(State) of
+        {"add", Package, UsernameOrEmail} ->
+            {ok, Config} = rebar3_hex_utils:hex_config_write(Repo),
+            add(Config, Package, UsernameOrEmail, State),
             {ok, State};
-        ["remove", Package, UsernameOrEmail] ->
-            remove(Repo, Package, UsernameOrEmail, State),
+        {"remove", Package, UsernameOrEmail} ->
+            {ok, Config} = rebar3_hex_utils:hex_config_write(Repo),
+            remove(Config, Package, UsernameOrEmail, State),
             {ok, State};
-        ["list", Package] ->
-            list(Repo, Package, State),
+        {"list", Package} ->
+            {ok, Config} = rebar3_hex_utils:hex_config_read(Repo),
+            list(Config, Package, State),
             {ok, State};
         _Command ->
             ?PRV_ERROR(bad_command)
     end.
+
+command_args(State) ->
+    case get_args(rebar_state:command_args(State)) of
+        {"list", Package} ->
+            {"list", rebar_utils:to_binary(Package)};
+        {Command, Package, UserOrEmail} ->
+            {Command, rebar_utils:to_binary(Package), rebar_utils:to_binary(UserOrEmail)};
+        BadCommand ->
+          BadCommand
+     end.
+
+get_args(["list", Package]) ->
+    {"list", Package};
+get_args([Task, Package, UserName]) when Task =:= "add" orelse Task =:= "remove" ->
+    {Task, Package, UserName};
+get_args([Task, Package, UserName, "-r", _]) ->
+    {Task, Package, UserName};
+get_args(BadCommand) ->
+    BadCommand.
 
 -spec format_error(any()) -> iolist().
 format_error(bad_command) ->

@@ -185,9 +185,7 @@ publish(AppDir, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
     maybe_say_coc(HexConfig),
     case ec_talk:ask_default("Proceed?", boolean, "Y") of
         true ->
-            Username = maps:get(username, HexConfig),
-            WriteKey = maps:get(write_key, HexConfig),
-            HexConfig1 = HexConfig#{api_key => rebar3_hex_user:decrypt_write_key(Username, WriteKey)},
+            {ok, HexConfig1} = rebar3_hex_utils:hex_config_write(HexConfig),
             case create_and_publish(Metadata, PackageFiles, HexConfig1) of
                 ok ->
                     rebar_api:info("Published ~s ~s", [Name, Version]),
