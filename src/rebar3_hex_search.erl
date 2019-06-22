@@ -35,8 +35,8 @@ do(State) ->
     {ok, State}.
 
 search(State, Repo, Term) ->
-    ReadKey = maps:get(read_key, Repo, undefined),
-    case hex_api_package:search(Repo#{api_key => ReadKey}, rebar_utils:to_binary(Term), []) of
+    HexConfig = rebar3_hex_utils:hex_config_read(Repo),
+    case hex_api_package:search(HexConfig, rebar_utils:to_binary(Term), []) of
         {ok, {200, _Headers, []}} ->
             io:format("No Results~n"),
             {ok, State};

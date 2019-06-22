@@ -79,12 +79,11 @@ format_error({required, message}) ->
 %%
 
 retire(PkgName, Version, Repo, Reason, Message, State) ->
-    case maps:get(write_key, Repo, undefined) of
-        undefined ->
-            {error, no_write_key};
-        WriteKey ->
-            Username = maps:get(username, Repo),
-            HexConfig = Repo#{api_key => rebar3_hex_user:decrypt_write_key(Username, WriteKey)},
+    case rebar3_hex_utils:hex_config_write(Repo) of
+        {error, no_write_key} ->
+            ?PRV_ERROR({no_write_key, maps:get(name, Repo)});
+
+        {ok, HexConfig} ->
 
             Body = #{<<"reason">> => Reason,
                      <<"message">> => Message},

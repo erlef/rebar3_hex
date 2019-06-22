@@ -4,6 +4,8 @@
          pretty_print_status/1,
          pretty_print_errors/1,
          format_error/1,
+         hex_config_write/1,
+         hex_config_read/1,
          repo_opt/0,
          repo/1,
          update_app_src/2,
@@ -112,6 +114,17 @@ get_repo(BinaryName, Repos) ->
     catch
         {error,{rebar_hex_repos,{repo_not_found,BinaryName}}} -> undefined
     end.
+
+hex_config_write(#{write_key := WriteKey, username := Username} = HexConfig) ->
+    DecryptedWriteKey = rebar3_hex_user:decrypt_write_key(Username, WriteKey),
+    {ok, HexConfig#{api_key => DecryptedWriteKey}};
+hex_config_write(_Config) ->
+    {error, no_write_key}.
+
+hex_config_read(#{read_key := ReadKey} = HexConfig) ->
+    {ok, HexConfig#{api_key => ReadKey}};
+hex_config_read(_Config) ->
+    {error, no_read_key}.
 
 format_error({not_valid_repo, RepoName}) ->
     io_lib:format("No configuration for repository ~ts found.", [RepoName]).

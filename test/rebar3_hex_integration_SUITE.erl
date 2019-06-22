@@ -37,7 +37,10 @@ all() ->
      , publish_org_test
      , publish_org_error_test
      , publish_org_requires_repo_arg_test
-     , publish_error_test].
+     , publish_error_test
+     , owner_add_test
+     , owner_list_test
+     , owner_remove_test].
 
 init_per_suite(Config) ->
     meck:new([ec_talk, hex_api_user, hex_api_key, rebar3_hex_utils], [passthrough, no_link, unstick]),
@@ -102,7 +105,7 @@ register_user_test(_config) ->
         Repo = test_utils:repo_config(),
         Passwd = <<"special_shoes">>,
         setup_mocks_for(register, {<<"mr_pockets">>, <<"foo24@bar.baz">>, Passwd, Passwd, Repo}),
-        State = test_utils:mock_command("register", Repo),
+        State = test_utils:mock_command(["register"], Repo),
         ?assertMatch({ok, State}, rebar3_hex_user:do(State))
     end.
 
@@ -116,7 +119,7 @@ register_existing_user_test(_Config) ->
         setup_mocks_for(register_existing, {<<"mr_pockets1">>, Email, Pass, Repo}),
         ExpReason1 = <<"email already in use">>,
         ExpErr1 = {error, {rebar3_hex_user, {registration_failure, ExpReason1}}},
-        State = test_utils:mock_command("register", Repo),
+        State = test_utils:mock_command(["register"], Repo),
         ?assertMatch(ExpErr1, rebar3_hex_user:do(State))
     end.
 
@@ -128,7 +131,7 @@ register_empty_password_test(_Config) ->
         Repo = test_utils:repo_config(),
         create_user(User, Pass, Email, Repo),
         setup_mocks_for(register, {User, Email, <<>>, <<>>, Repo}),
-        AuthState = test_utils:mock_command("register", Repo),
+        AuthState = test_utils:mock_command(["register"], Repo),
         % Should we be throwing in the function?
         ?assertMatch(error, rebar3_hex_user:do(AuthState))
     end.
@@ -143,7 +146,7 @@ register_error_test(_Config) ->
         create_user(User, Pass, Email, Repo),
         setup_mocks_for(register, {User, Email, Pass, Pass, Repo}),
         meck:expect(hex_api_user, create, fun(_,_,_,_) -> {error, meh} end),
-        AuthState = test_utils:mock_command("register", Repo),
+        AuthState = test_utils:mock_command(["register"], Repo),
         % Should we be throwing in the function?
         ExpErr = {error,{rebar3_hex_user,{registration_failure,["meh"]}}},
         ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState))
@@ -156,7 +159,7 @@ register_password_mismatch_test(_Config) ->
         Repo = test_utils:repo_config(),
         create_user(User, Pass, Email, Repo),
         setup_mocks_for(register, {User, Email, Pass, <<"special_shoes0">>, Repo}),
-        AuthState = test_utils:mock_command("register", Repo),
+        AuthState = test_utils:mock_command(["register"], Repo),
         ExpErr = {error,{rebar3_hex_user,{error,"passwords do not match"}}},
         ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState))
     end.
@@ -169,7 +172,7 @@ auth_test(_Config) ->
         Repo = test_utils:repo_config(),
         create_user(User, Pass, Email, Repo),
         setup_mocks_for(first_auth, {User, Email, Pass, Pass, Repo}),
-        AuthState = test_utils:mock_command("auth", Repo),
+        AuthState = test_utils:mock_command(["auth"], Repo),
         ?assertMatch({ok, AuthState}, rebar3_hex_user:do(AuthState))
     end.
 
@@ -181,7 +184,7 @@ auth_bad_local_password_test(_Config) ->
         Repo = test_utils:repo_config(),
         create_user(User, Pass, Email, Repo),
         setup_mocks_for(first_auth, {User, Email, Pass, <<"oops">>, Repo}),
-        AuthState = test_utils:mock_command("auth", Repo),
+        AuthState = test_utils:mock_command(["auth"], Repo),
         ?assertThrow({error,{rebar3_hex_user,no_match_local_password}}, rebar3_hex_user:do(AuthState))
     end.
 
@@ -193,7 +196,7 @@ auth_password_24_char_test(_Config) ->
         Repo = test_utils:repo_config(),
         create_user(User, Pass, Email, Repo),
         setup_mocks_for(first_auth, {User, Email, Pass, Pass, Repo}),
-        AuthState = test_utils:mock_command("auth", Repo),
+        AuthState = test_utils:mock_command(["auth"], Repo),
         ?assertMatch({ok, AuthState}, rebar3_hex_user:do(AuthState))
     end.
 
@@ -205,7 +208,7 @@ auth_password_32_char_test(_Config) ->
         Repo = test_utils:repo_config(),
         create_user(User, Pass, Email, Repo),
         setup_mocks_for(first_auth, {User, Email, Pass, Pass, Repo}),
-        AuthState = test_utils:mock_command("auth", Repo),
+        AuthState = test_utils:mock_command(["auth"], Repo),
         ?assertMatch({ok, AuthState}, rebar3_hex_user:do(AuthState))
     end.
 
@@ -215,7 +218,7 @@ auth_unhandled_test(_Config) ->
         Pass = <<"special_shoes">>,
         setup_mocks_for(first_auth, {<<"mr_pockets">>, <<"foo@bar.baz">>, Pass, Pass, Repo}),
         meck:expect(hex_api_key, add, fun(_,_,_) -> {ok, {500, #{}, #{<<"message">> => <<"eh?">>}}} end),
-        AuthState = test_utils:mock_command("auth", Repo),
+        AuthState = test_utils:mock_command(["auth"], Repo),
         ExpErr = {error,{rebar3_hex_user,{generate_key,<<"eh?">>}}},
         ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState))
     end.
@@ -226,7 +229,7 @@ auth_error_test(_Config) ->
         Pass = <<"special_shoes">>,
         setup_mocks_for(first_auth, {<<"mr_pockets">>, <<"foo@bar.baz">>, Pass, Pass, Repo}),
         meck:expect(hex_api_key, add, fun(_,_,_) -> {error, meh} end),
-        AuthState = test_utils:mock_command("auth", Repo),
+        AuthState = test_utils:mock_command(["auth"], Repo),
         ExpErr = {error,{rebar3_hex_user,{generate_key,["meh"]}}},
         ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState))
     end.
@@ -235,7 +238,7 @@ whoami_test(_Config) ->
     begin
         Repo = test_utils:repo_config(),
         setup_mocks_for(whoami, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
-        WhoamiState = test_utils:mock_command("whoami", Repo),
+        WhoamiState = test_utils:mock_command(["whoami"], Repo),
         ?assertMatch({ok, WhoamiState}, rebar3_hex_user:do(WhoamiState))
     end.
 
@@ -243,7 +246,7 @@ whoami_unknown_test(_Config) ->
     begin
         Repo = test_utils:repo_config(),
         setup_mocks_for(whoami, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
-        WhoamiState = test_utils:mock_command("whoami", test_utils:repo_config(#{read_key => <<"eh?">>}) ),
+        WhoamiState = test_utils:mock_command(["whoami"], test_utils:repo_config(#{read_key => <<"eh?">>}) ),
         ExpErr = {error,{rebar3_hex_user,{whoami_failure,<<"huh?">>}}},
         ?assertMatch(ExpErr, rebar3_hex_user:do(WhoamiState))
     end.
@@ -253,7 +256,7 @@ whoami_unhandled_test(_Config) ->
     begin
         Repo = test_utils:repo_config(),
         setup_mocks_for(whoami, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
-        WhoamiState = test_utils:mock_command("whoami", test_utils:repo_config(#{read_key => <<"bad">>}) ),
+        WhoamiState = test_utils:mock_command(["whoami"], test_utils:repo_config(#{read_key => <<"bad">>}) ),
         % TODO: We should handle this case gracefully, whoami/2
         ?assertError({case_clause, {ok, {500, _, #{<<"whoa">> := <<"mr.">>}}}}, rebar3_hex_user:do(WhoamiState))
     end.
@@ -263,7 +266,7 @@ whoami_api_error_test(_Config) ->
         Repo = test_utils:repo_config(),
         setup_mocks_for(whoami, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
         meck:expect(hex_api_user, me, fun(_) -> {error, meh} end),
-        WhoamiState = test_utils:mock_command("whoami", test_utils:repo_config(#{read_key => <<"!">>})),
+        WhoamiState = test_utils:mock_command(["whoami"], test_utils:repo_config(#{read_key => <<"!">>})),
         ExpErr = {error,{rebar3_hex_user,{whoami_failure,["meh"]}}},
         ?assertMatch(ExpErr, rebar3_hex_user:do(WhoamiState))
     end.
@@ -273,7 +276,7 @@ whoami_error_test(_Config) ->
         Repo = test_utils:repo_config(),
         setup_mocks_for(whoami, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
         meck:expect(hex_api_user, me, fun(_) -> {error, meh} end),
-        WhoamiState = test_utils:mock_command("whoami", test_utils:repo_config(#{read_key => <<"key">>})),
+        WhoamiState = test_utils:mock_command(["whoami"], test_utils:repo_config(#{read_key => <<"key">>})),
         ExpErr = {error,{rebar3_hex_user,{whoami_failure,["meh"]}}},
         ?assertMatch(ExpErr, rebar3_hex_user:do(WhoamiState))
     end.
@@ -292,7 +295,7 @@ whoami_not_authed_test(_Config) ->
                                           end
                                   end),
         catch ec_talk:say(Str),
-        WhoamiState = test_utils:mock_command("whoami", Repo),
+        WhoamiState = test_utils:mock_command(["whoami"], Repo),
         ExpErr = {error,"Not authenticated as any user currently for this repository"},
         ?assertMatch(ExpErr, rebar3_hex_user:do(WhoamiState)),
         ?assert(meck:validate(ec_talk))
@@ -302,7 +305,7 @@ reset_password_test(_Config) ->
     begin
         Repo = test_utils:repo_config(),
         setup_mocks_for(reset_password, {"mr_pockets", <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
-        ResetState = test_utils:mock_command("reset_password", Repo),
+        ResetState = test_utils:mock_command(["reset_password"], Repo),
         ?assertMatch({ok, ResetState}, rebar3_hex_user:do(ResetState))
     end.
 
@@ -311,7 +314,7 @@ reset_password_api_error_test(_Config) ->
     begin
         Repo = test_utils:repo_config(),
         setup_mocks_for(reset_password, {"eh?", <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
-        ResetState = test_utils:mock_command("reset_password", test_utils:repo_config(#{username => <<"eh?">>})),
+        ResetState = test_utils:mock_command(["reset_password"], test_utils:repo_config(#{username => <<"eh?">>})),
         ExpErr = {error,{rebar3_hex_user,{reset_failure,<<"huh?">>}}},
         ?assertMatch(ExpErr, rebar3_hex_user:do(ResetState))
     end.
@@ -320,7 +323,7 @@ reset_password_unhandled_test(_Config) ->
     begin
         Repo = test_utils:repo_config(),
         setup_mocks_for(reset_password, {"bad", <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
-        ResetState = test_utils:mock_command("reset_password", test_utils:repo_config(#{username => <<"bad">>})),
+        ResetState = test_utils:mock_command(["reset_password"], test_utils:repo_config(#{username => <<"bad">>})),
         % TODO: We should handle this case gracefully
         ?assertError({case_clause, {ok, {500, _, #{<<"whoa">> := <<"mr.">>}}}}, rebar3_hex_user:do(ResetState))
     end.
@@ -331,7 +334,7 @@ reset_password_error_test(_Config) ->
         setup_mocks_for(reset_password, {"mr_pockets", <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
         meck:expect(hex_api_user, reset_password
                     , fun(_,_) -> {error, meh} end),
-        WhoamiState = test_utils:mock_command("reset_password", test_utils:repo_config()),
+        WhoamiState = test_utils:mock_command(["reset_password"], test_utils:repo_config()),
         ExpErr = {error,{rebar3_hex_user,{reset_failure,["meh"]}}},
         ?assertMatch(ExpErr, rebar3_hex_user:do(WhoamiState))
     end.
@@ -340,7 +343,7 @@ deauth_test(_Config) ->
     begin
         Repo = test_utils:repo_config(),
         setup_mocks_for(deauth, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
-        DeauthState = test_utils:mock_command("deauth", Repo),
+        DeauthState = test_utils:mock_command(["deauth"], Repo),
         ?assertMatch(ok, rebar3_hex_user:do(DeauthState))
     end.
 
@@ -411,11 +414,47 @@ publish_error_test(_Config) ->
         ?assertMatch({error,{rebar3_hex_publish,no_write_key}}, rebar3_hex_publish:do(PubState))
     end.
 
+owner_add_test(Config) ->
+    begin
+        WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
+        Repo = test_utils:repo_config(#{repo => <<"hexpm">>,
+                                        name => <<"hexpm">>,
+                                        write_key => WriteKey
+                                        }),
+       {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        setup_mocks_for(publish, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        AddState = test_utils:mock_command(["add", "truecoat", "wade@foo.bar"], Repo, State),
+        ?assertMatch({ok, AddState}, rebar3_hex_owner:do(AddState))
+    end.
+
+owner_remove_test(Config) ->
+    begin
+        WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
+        Repo = test_utils:repo_config(#{repo => <<"hexpm">>,
+                                        name => <<"hexpm">>,
+                                        write_key => WriteKey
+                                        }),
+       {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        setup_mocks_for(publish, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        RemoveState = test_utils:mock_command(["remove", "truecoat", "wade@foo.bar"], Repo, State),
+        ?assertMatch({ok, RemoveState}, rebar3_hex_owner:do(RemoveState))
+    end.
+
+owner_list_test(Config) ->
+    begin
+        Repo = test_utils:repo_config(#{repo => <<"hexpm">>,
+                                        name => <<"hexpm">>}),
+       {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        setup_mocks_for(publish, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        ListState = test_utils:mock_command(["list", "truecoat"], Repo, State),
+        ?assertMatch({ok, ListState}, rebar3_hex_owner:do(ListState))
+    end.
+
 bad_command_test(_Config) ->
     begin
         Repo = test_utils:repo_config(),
         setup_mocks_for(deauth, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
-        BadcommandState = test_utils:mock_command("bad_command", Repo),
+        BadcommandState = test_utils:mock_command(["bad_command"], Repo),
         ?assertThrow({error,{rebar3_hex_user,bad_command}}, rebar3_hex_user:do(BadcommandState))
     end.
 

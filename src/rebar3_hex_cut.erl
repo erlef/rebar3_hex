@@ -43,11 +43,10 @@ do(State) ->
     end.
 
 handle_command(State, Repo) ->
-    case maps:get(write_key, Repo, undefined) of
-        undefined ->
+    case rebar3_hex_utils:hex_config_write(Repo) of
+        {error, no_write_key} ->
             ?PRV_ERROR({no_write_key, maps:get(name, Repo)});
-        WriteKey ->
-            HexConfig = Repo#{api_key => WriteKey},
+        {ok, HexConfig} ->
             {Args, _} = rebar_state:command_parsed_args(State),
             case proplists:get_value(increment, Args, undefined) of
                 undefined ->

@@ -73,13 +73,10 @@ format_error(version_required) ->
 %%
 
 revert(PkgName, Version, Repo, _State) ->
-    case maps:get(write_key, Repo, undefined) of
-        undefined ->
-            {error, no_write_key};
-        WriteKey ->
-            Username = maps:get(username, Repo),
-            HexConfig = Repo#{api_key => rebar3_hex_user:decrypt_write_key(Username, WriteKey)},
-
+    case  rebar3_hex_utils:hex_config_write(Repo) of
+        {error, no_write_key} ->
+            ?PRV_ERROR({no_write_key, maps:get(name, Repo)});
+        {ok, HexConfig} ->
             case hex_api_release:delete(HexConfig, PkgName, Version) of
                 {ok, {Code, _Headers, _Body}} when Code =:= 200 ;
                                                    Code =:= 204 ->

@@ -75,10 +75,10 @@ auth(Repo, Key, State) ->
     RepoConfig1 = RepoConfig#{auth_key => Key},
     rebar_hex_repos:update_auth_config(#{Repo => RepoConfig1}, State).
 
-generate(Repo, State) ->
-    {ok, RepoConfig} = rebar_hex_repos:get_repo_config(Repo, State),
+generate(RepoName, State) ->
+    {ok, RepoConfig} = rebar_hex_repos:get_repo_config(RepoName, State),
 
-    RepoName = case binary:split(Repo, <<":">>) of
+    RepoName1 = case binary:split(RepoName, <<":">>) of
                    [_Parent, Org] ->
                        Org;
                    Public ->
@@ -87,12 +87,10 @@ generate(Repo, State) ->
 
     Permissions = [#{<<"domain">> => <<"repository">>,
                      <<"resource">> => RepoName}],
-    Name = <<RepoName/binary, "-repository">>,
+    Name = <<RepoName1/binary, "-repository">>,
 
-    WriteKey = maps:get(write_key, RepoConfig),
-    Username = maps:get(username, RepoConfig),
-    DecryptedWriteKey = rebar3_hex_user:decrypt_write_key(Username, WriteKey),
-    case hex_api_key:add(RepoConfig#{api_key => DecryptedWriteKey}, Name, Permissions) of
+    {ok, HexConfig} = rebar3_hex_utils:hex_config_write(RepoConfig),
+    case hex_api_key:add(HexConfig, Name, Permissions) of
         {ok, {201, _Headers, #{<<"secret">> := Secret}}} ->
             ec_talk:say("Generated key: ~ts", [Secret]),
             {ok, State};
