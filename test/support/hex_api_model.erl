@@ -156,6 +156,62 @@ handle('GET', [<<"users">>, <<"me">>], Req) ->
                     end,
     respond_with(Status, Req, Res);
 
+handle('GET', [<<"keys">>], Req) ->
+    Key = elli_request:get_header(<<"Authorization">>, Req),
+    {Status, Res} = case Key of
+                        <<"eh?">> ->
+                            {422, #{<<"message">> => <<"huh?">>}};
+                        <<"bad">> ->
+                            {500, #{<<"whoa">> => <<"mr.">>}};
+                        _Other ->
+                            Res0 = [
+                                    #{<<"name">> => <<"key1">>,
+                                     <<"inserted_at">> => <<"2019-05-27T20:49:35Z">>
+                                    },
+                                    #{<<"name">> => <<"key2">>,
+                                     <<"inserted_at">> => <<"2019-06-27T20:49:35Z">>
+                                    }
+                                   ],
+                            {200, Res0}
+                    end,
+    respond_with(Status, Req, Res);
+
+handle('GET', [<<"keys">>, <<"key">>], Req) ->
+    Res = #{
+            <<"authing_key">> => false,
+            <<"inserted_at">> => <<"2019-03-23T17:47:35Z">>,
+            <<"last_use">>=> #{
+                                <<"ip">> => <<"173.166.199.194">>,
+                                <<"used_at">> => <<"2019-04-16T03:11:05Z">>,
+                                <<"user_agent">> => <<"hex_core/0.5.0 (rebar3/3.9.1+build.4339.refd29728e) (httpc) (OTP/21) (erts/10.2.5)">>
+                                },
+            <<"name">>=><<"mr_pockets_house">>,
+            <<"permissions">>=>[
+                                #{
+                                    <<"domain">>=><<"api">>,
+                                    <<"resource">>=>nil
+                                }
+                               ],
+            <<"revoked_at">>=>nil,
+            <<"secret">>=>nil,
+            <<"updated_at">>=><<"2019-04-16T03:11:05Z">>,
+            <<"url">>=><<"https://hex.pm/api/keys/mr_pockets_house">>
+     },
+    respond_with(200, Req, Res);
+
+handle('PUT', [<<"keys">>], Req) ->
+    Res = #{},
+    respond_with(201, Req, Res);
+
+
+handle('DELETE', [<<"keys">>], Req) ->
+    Res = #{},
+    respond_with(200, Req, Res);
+
+handle('DELETE', [<<"keys">>, <<"key">>], Req) ->
+    Res = #{<<"secret">> => <<"repo_key">>},
+    respond_with(200, Req, Res);
+
 handle(_, _, Req) ->
     respond_with(404, Req, #{}).
 

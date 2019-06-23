@@ -15,9 +15,14 @@
          get_password/1,
          update_auth_config/2,
          str_split/2,
-         get_required/2]).
+         get_required/2,
+         task_args/1]).
 
 -include("rebar3_hex.hrl").
+
+task_args(State) ->
+    {[{task, Task} | Args], _} = rebar_state:command_parsed_args(State),
+    {Task, Args}.
 
 pretty_print_status(401) -> "Authentication failed (401)";
 pretty_print_status(403) -> "Forbidden (403)";
