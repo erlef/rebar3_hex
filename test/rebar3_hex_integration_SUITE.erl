@@ -339,12 +339,13 @@ reset_password_error_test(_Config) ->
         ?assertMatch(ExpErr, rebar3_hex_user:do(WhoamiState))
     end.
 
-deauth_test(_Config) ->
+deauth_test(Config) ->
     begin
         Repo = test_utils:repo_config(),
+        {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
         setup_mocks_for(deauth, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
-        DeauthState = test_utils:mock_command(["deauth"], Repo),
-        ?assertMatch(ok, rebar3_hex_user:do(DeauthState))
+        DeauthState = test_utils:mock_command(["deauth"], Repo, State),
+        ?assertMatch({ok, DeauthState}, rebar3_hex_user:do(DeauthState))
     end.
 
 publish_test(Config) ->
@@ -513,10 +514,15 @@ setup_mocks_for(reset_password, {Username, _Email, _Password, _Repo}) ->
                                       end
                               end);
 
-setup_mocks_for(deauth, {_Username, _Email, _Password, _Repo}) ->
-    meck:expect(ec_talk, say, fun(Arg) ->
-                                      case Arg of
-                                          "Currently not implemented." ->
+setup_mocks_for(deauth, {Username, _Email, _Password, #{name := RepoName} = _Repo}) ->
+    meck:expect(rebar3_hex_utils, update_auth_config, fun(#{RepoName := #{}}, State) ->
+                                                              {ok, State} end),
+    Templ1 = "User `~s` removed from the local machine. To authenticate again, run `rebar3 hex ",
+    Templ2 = "user auth` or create a new user with `rebar3 hex user register`",
+    ExpTempl = string:concat(Templ1, Templ2),
+    meck:expect(ec_talk, say, fun(Templ, Args) ->
+                                      case {Templ, Args} of
+                                           {ExpTempl, [Username]} ->
                                               ok
                                       end
                               end);
