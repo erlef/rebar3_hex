@@ -43,27 +43,22 @@ do(State) ->
     end.
 
 handle_command(State, Repo) ->
-    case rebar3_hex_utils:hex_config_write(Repo) of
-        {error, no_write_key} ->
-            ?PRV_ERROR({no_write_key, maps:get(name, Repo)});
-        {ok, HexConfig} ->
-            {Args, _} = rebar_state:command_parsed_args(State),
-            case proplists:get_value(increment, Args, undefined) of
-                undefined ->
+    {Args, _} = rebar_state:command_parsed_args(State),
+    case proplists:get_value(increment, Args, undefined) of
+        undefined ->
+            Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
+            lists:foldl(fun(App, {ok, StateAcc}) ->
+                                do_(App, Repo, StateAcc)
+                        end, {ok, State}, Apps);
+        Type ->
+            case string_to_bump(Type) of
+                error ->
+                    {error, {?MODULE, {bad_increment, Type}}};
+                Bump ->
                     Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
                     lists:foldl(fun(App, {ok, StateAcc}) ->
-                                        do_(App, HexConfig, StateAcc)
-                                end, {ok, State}, Apps);
-                Type ->
-                    case string_to_bump(Type) of
-                        error ->
-                            {error, {?MODULE, {bad_increment, Type}}};
-                        Bump ->
-                            Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
-                            lists:foldl(fun(App, {ok, StateAcc}) ->
-                                                do_(Bump, App, HexConfig, StateAcc)
-                                        end, {ok, State}, Apps)
-                    end
+                                        do_(Bump, App, Repo, StateAcc)
+                                end, {ok, State}, Apps)
             end
     end.
 
