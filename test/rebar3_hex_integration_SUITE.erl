@@ -38,16 +38,21 @@ all() ->
      , publish_org_error_test
      , publish_org_requires_repo_arg_test
      , publish_error_test
+     , key_list_test
+     , key_get_test
+     , key_add_test
+     , key_delete_test
+     , key_delete_all_test
      , owner_add_test
      , owner_list_test
      , owner_remove_test].
 
 init_per_suite(Config) ->
-    meck:new([ec_talk, hex_api_user, hex_api_key, rebar3_hex_utils], [passthrough, no_link, unstick]),
+    meck:new([ec_talk, hex_api_user, rebar3_hex_utils], [passthrough, no_link, unstick]),
     Config.
 
 end_per_suite(Config) ->
-    meck:unload([ec_talk, rebar3_hex_utils, hex_api_user, hex_api_key]),
+    meck:unload([ec_talk, rebar3_hex_utils, hex_api_user]),
     Config.
 
 init_per_testcase(_Tc, Cfg) ->
@@ -217,10 +222,13 @@ auth_unhandled_test(_Config) ->
         Repo = test_utils:repo_config(),
         Pass = <<"special_shoes">>,
         setup_mocks_for(first_auth, {<<"mr_pockets">>, <<"foo@bar.baz">>, Pass, Pass, Repo}),
+        %% TODO: Revise hex_api_model and hex_db so that we don't need to meck this
+        meck:new([hex_api_key]),
         meck:expect(hex_api_key, add, fun(_,_,_) -> {ok, {500, #{}, #{<<"message">> => <<"eh?">>}}} end),
         AuthState = test_utils:mock_command(["auth"], Repo),
         ExpErr = {error,{rebar3_hex_user,{generate_key,<<"eh?">>}}},
-        ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState))
+        ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState)),
+        meck:unload([hex_api_key])
     end.
 
 auth_error_test(_Config) ->
@@ -228,10 +236,13 @@ auth_error_test(_Config) ->
         Repo = test_utils:repo_config(),
         Pass = <<"special_shoes">>,
         setup_mocks_for(first_auth, {<<"mr_pockets">>, <<"foo@bar.baz">>, Pass, Pass, Repo}),
+        %% TODO: Revise hex_api_model and hex_db so that we don't need to meck this
+        meck:new([hex_api_key]),
         meck:expect(hex_api_key, add, fun(_,_,_) -> {error, meh} end),
         AuthState = test_utils:mock_command(["auth"], Repo),
         ExpErr = {error,{rebar3_hex_user,{generate_key,["meh"]}}},
-        ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState))
+        ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState)),
+        meck:unload([hex_api_key])
     end.
 
 whoami_test(_Config) ->
@@ -415,6 +426,72 @@ publish_error_test(_Config) ->
         ?assertMatch({error,{rebar3_hex_publish,no_write_key}}, rebar3_hex_publish:do(PubState))
     end.
 
+key_list_test(Config) ->
+    begin
+        WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
+        Repo = test_utils:repo_config(#{repo => <<"hexpm">>,
+                                        name => <<"hexpm">>,
+                                        write_key => WriteKey
+                                        }),
+       {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        ListState = test_utils:mock_command(["list"], Repo, State),
+        ?assertMatch({ok, ListState}, rebar3_hex_key:do(ListState))
+    end.
+
+key_get_test(Config) ->
+    begin
+        WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
+        Repo = test_utils:repo_config(#{repo => <<"hexpm">>,
+                                        name => <<"hexpm">>,
+                                        write_key => WriteKey
+                                        }),
+       {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        GetState = test_utils:mock_command(["fetch", "key"], Repo, State),
+        ?assertMatch({ok, GetState}, rebar3_hex_key:do(GetState))
+    end.
+
+key_add_test(Config) ->
+    begin
+        %meck:unload([hex_api_key]),
+        WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
+        Repo = test_utils:repo_config(#{repo => <<"hexpm">>,
+                                        name => <<"hexpm">>,
+                                        write_key => WriteKey
+                                        }),
+       {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        setup_mocks_for(key_mutation, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        {ok, AddState} = test_utils:new_mock_command(rebar3_hex_key, ["generate", "foo"], Repo, State),
+        ?assertMatch({ok, AddState}, rebar3_hex_key:do(AddState))
+    end.
+
+key_delete_test(Config) ->
+    begin
+        %meck:unload([hex_api_key]),
+        WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
+        Repo = test_utils:repo_config(#{repo => <<"hexpm">>,
+                                        name => <<"hexpm">>,
+                                        write_key => WriteKey
+                                        }),
+       {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        setup_mocks_for(key_mutation, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        {ok, AddState} = test_utils:new_mock_command(rebar3_hex_key, ["revoke", "key"], Repo, State),
+        ?assertMatch({ok, AddState}, rebar3_hex_key:do(AddState))
+    end.
+
+key_delete_all_test(Config) ->
+    begin
+        %meck:unload([hex_api_key]),
+        WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
+        Repo = test_utils:repo_config(#{repo => <<"hexpm">>,
+                                        name => <<"hexpm">>,
+                                        write_key => WriteKey
+                                        }),
+       {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        setup_mocks_for(key_mutation, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        {ok, AddState} = test_utils:new_mock_command(rebar3_hex_key, ["revoke", "--all"], Repo, State),
+        ?assertMatch({ok, AddState}, rebar3_hex_key:do(AddState))
+    end.
+
 owner_add_test(Config) ->
     begin
         WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
@@ -526,6 +603,10 @@ setup_mocks_for(deauth, {Username, _Email, _Password, #{name := RepoName} = _Rep
                                               ok
                                       end
                               end);
+
+setup_mocks_for(key_mutation, {_Username, _Email, Password, #{name := _RepoName} = _Repo}) ->
+        meck:expect(rebar3_hex_utils, get_password, fun(_Arg) -> Password end),
+    ok;
 
 setup_mocks_for(publish, {Username, _Email, Password, Repo}) ->
     meck:expect(rebar3_hex_utils, update_auth_config, fun(Cfg, State) ->
