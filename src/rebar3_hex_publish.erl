@@ -136,7 +136,7 @@ publish(App, HexConfig, State) ->
                      {<<"requirement">>, V}]} || {A,{pkg,N,V,_},0} <- Deps],
     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
 
-    case is_valid_app({App, Name, Version, AppDetails}) of
+    case is_valid_app({App, Name, ResolvedVersion, AppDetails}) of
         ok ->
             publish(AppDir, Name, ResolvedVersion, TopLevel,
                     Excluded, AppDetails, HexConfig, State);
