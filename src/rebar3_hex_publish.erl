@@ -126,9 +126,7 @@ publish(App, HexConfig, State) ->
     Name = rebar_app_info:name(App),
 
     Version = rebar_app_info:original_vsn(App),
-    ResolvedVersion = rebar_utils:vcs_vsn(Version,
-                                          rebar_app_info:dir(App),
-                                          rebar_state:resources(State)),
+    ResolvedVersion = rebar_utils:vcs_vsn(App, Version, State),
     {application, _, AppDetails} = rebar3_hex_utils:update_app_src(App, ResolvedVersion),
 
 
