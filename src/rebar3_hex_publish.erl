@@ -272,7 +272,7 @@ include_files(Name, AppDir, AppDetails) ->
 
     AppFileSrc = filename:join("src", ec_cnv:to_list(Name)++".app.src"),
     AppSrcBinary = ec_cnv:to_binary(lists:flatten(io_lib:format("~tp.\n", [AppSrc]))),
-    lists:keyreplace(AppFileSrc, 1, WithIncludes, {AppFileSrc, AppSrcBinary}).
+    lists:keystore(AppFileSrc, 1, WithIncludes, {AppFileSrc, AppSrcBinary}).
 
 
 is_valid_app({_App, _Name, _Version, _AppDetails} = A) ->
