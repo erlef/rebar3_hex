@@ -136,40 +136,10 @@ format_error({not_valid_repo, RepoName}) ->
 
 -define(OP_PUTC, 0).
 
-get_password(Msg) ->
-    case os:type() of
-        {win32, nt} ->
-            get_win32_password(Msg);
-        _ ->
-            get_tty_password(Msg)
-    end.
-
-get_tty_password(Msg) ->
-    case io:setopts([binary, {echo, false}]) of
-        ok ->
-            PwLine = io:get_line(Msg),
-            ok = io:setopts([binary, {echo, true}]),
-            io:format("\n"),
-            [Pw | _] = binary:split(PwLine, <<"\n">>),
-            Pw;
-        _ ->
-            error_logger:tty(false),
-            Port = open_port({spawn, "tty_sl -e"}, [binary, eof]),
-            port_command(Port, <<?OP_PUTC, Msg/binary>>),
-            receive
-                {Port, {data, PwLine}} ->
-                    [Pw | _] = binary:split(PwLine, <<"\n">>),
-                    port_command(Port, <<?OP_PUTC, $\n>>),
-                    port_close(Port),
-                    error_logger:tty(true),
-                    Pw
-            end
-    end.
-
-get_win32_password(Prompt) ->
+get_password(Prompt) ->
     ok = io:setopts([binary]),
     Overwriter = fun() ->
-        prompt_win32_password(Prompt),
+        prompt_password(Prompt),
         receive
             {done, _Pid, _Ref} ->
                 ok
@@ -192,7 +162,7 @@ get_win32_password(Prompt) ->
     [Pw | _] = binary:split(PwLine, <<"\n">>),
     Pw.
 
-prompt_win32_password(Prompt) ->
+prompt_password(Prompt) ->
     % This is spawned to continually overwrite the prompt the user is
     % entering data on, in order to hide characters typed.
     ClearLine = "\e[2K",
@@ -205,7 +175,7 @@ prompt_win32_password(Prompt) ->
         1 ->
             Spaces = lists:duplicate(24, $ ),
             io:fwrite(standard_error, "~ts\r~ts~ts\r~ts", [ClearLine, Prompt, Spaces, Prompt]),
-            prompt_win32_password(Prompt)
+            prompt_password(Prompt)
     end.
 
 update_app_src(App, Version) ->
