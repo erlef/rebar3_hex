@@ -54,7 +54,7 @@ do(State) ->
     end.
 
 handle_command(State, Repo) ->
-    case maps:get(write_key, Repo, undefined) of
+    case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
         undefined ->
             ?PRV_ERROR(no_write_key);
         _ ->

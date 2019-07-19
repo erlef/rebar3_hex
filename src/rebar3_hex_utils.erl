@@ -120,6 +120,8 @@ get_repo(BinaryName, Repos) ->
         {error,{rebar_hex_repos,{repo_not_found,BinaryName}}} -> undefined
     end.
 
+hex_config_write(#{api_key := ApiKey} = HexConfig) when is_binary(ApiKey) ->
+    {ok, HexConfig};
 hex_config_write(#{write_key := WriteKey, username := Username} = HexConfig) ->
     DecryptedWriteKey = rebar3_hex_user:decrypt_write_key(Username, WriteKey),
     {ok, HexConfig#{api_key => DecryptedWriteKey}};
