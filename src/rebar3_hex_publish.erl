@@ -126,9 +126,7 @@ publish(App, HexConfig, State) ->
     Name = rebar_app_info:name(App),
 
     Version = rebar_app_info:original_vsn(App),
-    ResolvedVersion = rebar_utils:vcs_vsn(Version,
-                                          rebar_app_info:dir(App),
-                                          rebar_state:resources(State)),
+    ResolvedVersion = rebar_utils:vcs_vsn(App, Version, State),
     {application, _, AppDetails} = rebar3_hex_utils:update_app_src(App, ResolvedVersion),
 
 
@@ -138,7 +136,7 @@ publish(App, HexConfig, State) ->
                      {<<"requirement">>, V}]} || {A,{pkg,N,V,_},0} <- Deps],
     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
 
-    case is_valid_app({App, Name, Version, AppDetails}) of
+    case is_valid_app({App, Name, ResolvedVersion, AppDetails}) of
         ok ->
             publish(AppDir, Name, ResolvedVersion, TopLevel,
                     Excluded, AppDetails, HexConfig, State);
