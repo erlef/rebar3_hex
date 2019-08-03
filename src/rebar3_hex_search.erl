@@ -21,7 +21,7 @@ init(State) ->
                                 {short_desc, "Display packages matching the given search query"},
                                 {desc, ""},
                                 {opts, [{term, undefined, undefined, string, "Search term."},
-                                        rebar3_hex_utils:repo_opt()]}
+                                        rebar3_hex:repo_opt()]}
                                 ]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
@@ -30,12 +30,12 @@ init(State) ->
 do(State) ->
     {Args, _} = rebar_state:command_parsed_args(State),
     Term = proplists:get_value(term, Args, ""),
-    {ok, Parents} = rebar3_hex_utils:parent_repos(State),
+    {ok, Parents} = rebar3_hex_config:parent_repos(State),
     lists:foreach(fun(Repo) -> search(State, Repo, Term) end, Parents),
     {ok, State}.
 
 search(State, Repo, Term) ->
-    HexConfig = rebar3_hex_utils:hex_config_read(Repo),
+    HexConfig = rebar3_hex_config:hex_config_read(Repo),
     case hex_api_package:search(HexConfig, rebar_utils:to_binary(Term), []) of
         {ok, {200, _Headers, []}} ->
             io:format("No Results~n"),
@@ -119,8 +119,8 @@ version_sort(Releases) ->
 -spec format_error(any()) -> iolist().
 format_error({status, Status}) ->
     io_lib:format("Error searching for packages: ~ts",
-                  [rebar3_hex_utils:pretty_print_status(Status)]);
+                  [rebar3_hex_client:pretty_print_status(Status)]);
 format_error({error, Reason}) ->
     io_lib:format("Error searching for packages: ~p", [Reason]);
 format_error(Reason) ->
-    io_lib:format("~p", [Reason]).
+    rebar3_hex_error:format_error(Reason).

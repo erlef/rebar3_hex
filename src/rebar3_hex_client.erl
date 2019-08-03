@@ -1,6 +1,12 @@
 -module(rebar3_hex_client).
 
--export([key_add/3, key_get/2, key_delete/2, key_delete_all/1, key_list/1]).
+-export([key_add/3
+         , key_get/2
+         , key_delete/2
+         , key_delete_all/1
+         , key_list/1
+         , pretty_print_status/1
+         , pretty_print_errors/1]).
 
 -include("rebar3_hex.hrl").
 
@@ -46,6 +52,36 @@ response({ok, {422, _Headers, Res}}) ->
     {unprocessable, Res};
 response({_, _} = Unknown) ->
     Unknown.
+
+pretty_print_status(401) -> "Authentication failed (401)";
+pretty_print_status(403) -> "Forbidden (403)";
+pretty_print_status(404) -> "Entity not found (404)";
+pretty_print_status(422) -> "Validation failed (422)";
+pretty_print_status(Code) -> io_lib:format("HTTP status code: ~p", [Code]).
+
+pretty_print_errors(Errors) ->
+    L =  maps:fold(fun(K,V,Acc) ->
+                           case is_map(V) of
+                               true ->
+                                   Acc ++ [pretty_print_errors(V)];
+                               false ->
+                                   Acc ++ [<<K/binary, " ", V/binary>>]
+                           end
+                   end,
+                   [],
+                   Errors),
+    binary:list_to_bin(join_lists(", ", L)).
+
+
+-ifdef(POST_OTP_18).
+join_lists(Sep, List) -> lists:join(Sep, List).
+-else.
+join_lists(_Sep, []) -> [];
+join_lists(Sep, List) ->
+    [Last | AllButLast] = lists:reverse(List),
+    lists:foldl(fun (Elem,Acc) -> [Elem,Sep|Acc] end, [Last], AllButLast).
+-endif.
+
 
 to_binary(Subject) ->
     rebar_utils:to_binary(Subject).

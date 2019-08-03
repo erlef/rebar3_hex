@@ -27,14 +27,14 @@ init(State) ->
                                 {short_desc, "Publish documentation for the current project and version"},
                                 {desc, ""},
                                 {opts, [{revert, undefined, "revert", string, "Revert given version."},
-                                        rebar3_hex_utils:repo_opt()]},
+                                        rebar3_hex:repo_opt()]},
                                 {profiles, [docs]}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    case rebar3_hex_utils:repo(State) of
+    case rebar3_hex_config:repo(State) of
         {ok, Repo} ->
             handle_command(State, Repo),
             {ok, State};
@@ -43,7 +43,7 @@ do(State) ->
     end.
 
 handle_command(State, Repo) ->
-    Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
+    Apps = rebar3_hex_io:select_apps(rebar_state:project_apps(State)),
     case maps:get(write_key, Repo, undefined) of
         undefined ->
             ?PRV_ERROR(no_write_key);
@@ -57,25 +57,27 @@ handle_command(State, Repo) ->
 -spec format_error(any()) -> iolist().
 format_error({publish, Status, Package, Version}) when is_integer(Status) ->
     io_lib:format("Error publishing docs for package ~ts ~ts: ~ts",
-                  [Package, Version, rebar3_hex_utils:pretty_print_status(Status)]);
+                  [Package, Version, rebar3_hex_client:pretty_print_status(Status)]);
 format_error({publish, Package, Version, Reason}) ->
     io_lib:format("Error publishing docs for package ~ts ~ts: ~p", [Package, Version, Reason]);
 format_error({revert, Status, Package, Version}) when is_integer(Status) ->
     io_lib:format("Error deleting docs for package ~ts ~ts: ~ts",
-                  [Package, Version, rebar3_hex_utils:pretty_print_status(Status)]);
+                  [Package, Version, rebar3_hex_client:pretty_print_status(Status)]);
 format_error({revert, Package, Version, Reason}) ->
-    io_lib:format("Error deleting docs for package ~ts ~ts: ~p", [Package, Version, Reason]).
+    io_lib:format("Error deleting docs for package ~ts ~ts: ~p", [Package, Version, Reason]);
+format_error(Reason) ->
+    rebar3_hex_error:format_error(Reason).
 
 do_(App, State) ->
     AppDir = rebar_app_info:dir(App),
-    Files = rebar3_hex_utils:expand_paths(["doc"], AppDir),
+    Files = rebar3_hex_file:expand_paths(["doc"], AppDir),
     AppDetails = rebar_app_info:app_details(App),
     Name = binary_to_list(rebar_app_info:name(App)),
-    PkgName = ec_cnv:to_list(proplists:get_value(pkg_name, AppDetails, Name)),
+    PkgName = rebar_utils:to_list(proplists:get_value(pkg_name, AppDetails, Name)),
     {Args, _} = rebar_state:command_parsed_args(State),
     Revert = proplists:get_value(revert, Args, undefined),
 
-    {ok, Repo} = rebar3_hex_utils:repo(State),
+    {ok, Repo} = rebar3_hex_config:repo(State),
 
     case Revert of
         undefined ->
@@ -108,7 +110,7 @@ do_(App, State) ->
     end.
 
 hex_api_publish_docs(Repo, Name, Version, Tarball) ->
-    {ok, Config} = rebar3_hex_utils:hex_config_write(Repo),
+    {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
 
     TarballContentType = "application/octet-stream",
 

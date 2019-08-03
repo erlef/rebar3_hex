@@ -40,13 +40,13 @@ init(State) ->
                                  {example, "rebar3 hex publish"},
                                  {short_desc, "Publish a new version of your package and update the package"},
                                  {desc, ""},
-                                 {opts, [rebar3_hex_utils:repo_opt()]}]),
+                                 {opts, [rebar3_hex:repo_opt()]}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    case rebar3_hex_utils:repo(State) of
+    case rebar3_hex_config:repo(State) of
         {ok, Repo} ->
             handle_command(State, Repo);
         {error, Reason} ->
@@ -58,7 +58,7 @@ handle_command(State, Repo) ->
         undefined ->
             ?PRV_ERROR(no_write_key);
         _ ->
-            Apps = rebar3_hex_utils:select_apps(rebar_state:project_apps(State)),
+            Apps = rebar3_hex_io:select_apps(rebar_state:project_apps(State)),
             lists:foldl(fun(App, {ok, StateAcc}) ->
                                 publish(App, Repo, StateAcc)
                         end, {ok, State}, Apps)
@@ -106,16 +106,17 @@ format_error({non_hex_deps, Excluded}) ->
 format_error(undefined_server_error) ->
     "Unknown server error";
 format_error({status, Status}) ->
-    rebar3_hex_utils:pretty_print_status(Status);
+    rebar3_hex_client:pretty_print_status(Status);
 format_error({status, Status, undefined_server_error}) ->
-    "Unknown server error: " ++ rebar3_hex_utils:pretty_print_status(Status);
+    "Unknown server error: " ++ rebar3_hex_client:pretty_print_status(Status);
 format_error({status, Status, Error}) ->
   Message = maps:get(<<"message">>, Error, ""),
   Errors = maps:get(<<"errors">>, Error, ""),
   ErrorString = errors_to_string(Errors),
-
-  io_lib:format("Status Code: ~s~nHex Error: ~s~n\t~s", [rebar3_hex_utils:pretty_print_status(Status),
-                                                         Message, ErrorString]).
+  Data =  [rebar3_hex_client:pretty_print_status(Status), Message, ErrorString],
+  io_lib:format("Status Code: ~s~nHex Error: ~s~n\t~s", Data);
+format_error(Reason) ->
+    rebar3_hex_error:format_error(Reason).
 
 %% ===================================================================
 %% Public API
@@ -127,7 +128,7 @@ publish(App, HexConfig, State) ->
 
     Version = rebar_app_info:original_vsn(App),
     ResolvedVersion = rebar_utils:vcs_vsn(App, Version, State),
-    {application, _, AppDetails} = rebar3_hex_utils:update_app_src(App, ResolvedVersion),
+    {application, _, AppDetails} = rebar3_hex_file:update_app_src(App, ResolvedVersion),
 
 
     Deps = rebar_state:get(State, {locks, default}, []),
@@ -160,30 +161,30 @@ publish(AppDir, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
     %% We check the app file for the 'pkg' key wich allows us to select
     %% a package name other then the app name, if it is not set we default
     %% back to the app name.
-    PkgName = ec_cnv:to_binary(proplists:get_value(pkg_name, AppDetails, Name)),
+    PkgName = rebar_utils:to_binary(proplists:get_value(pkg_name, AppDetails, Name)),
 
     Optional = [{<<"app">>, Name},
                 {<<"parameters">>, []},
-                {<<"description">>, unicode:characters_to_binary(Description)},
-                {<<"files">>, [rebar3_hex_utils:binarify(File) || {File, _} <- PackageFiles]},
-                {<<"licenses">>, rebar3_hex_utils:binarify(Licenses)},
-                {<<"links">>, to_map(rebar3_hex_utils:binarify(Links))},
-                {<<"build_tools">>, rebar3_hex_utils:binarify(BuildTools)}],
+                {<<"description">>, rebar_utils:to_binary(Description)},
+                {<<"files">>, [binarify(File) || {File, _} <- PackageFiles]},
+                {<<"licenses">>, binarify(Licenses)},
+                {<<"links">>, to_map(binarify(Links))},
+                {<<"build_tools">>, binarify(BuildTools)}],
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
-    Metadata = maps:from_list([{<<"name">>, PkgName}, {<<"version">>, rebar3_hex_utils:binarify(Version)},
+    Metadata = maps:from_list([{<<"name">>, PkgName}, {<<"version">>, binarify(Version)},
                                {<<"requirements">>, maps:from_list(Deps1)} | OptionalFiltered]),
 
-    ec_talk:say("Publishing ~ts ~ts to ~ts", [PkgName, Version, maps:get(name, HexConfig)]),
-    ec_talk:say("  Description: ~ts", [Description]),
-    ec_talk:say("  Dependencies:~n    ~ts", [format_deps(Deps1)]),
-    ec_talk:say("  Included files:~n    ~ts", [string:join([F || {F, _} <- PackageFiles], "\n    ")]),
-    ec_talk:say("  Licenses: ~ts", [format_licenses(Licenses)]),
-    ec_talk:say("  Links:~n    ~ts", [format_links(Links)]),
-    ec_talk:say("  Build tools: ~ts", [format_build_tools(BuildTools)]),
+    rebar3_hex_io:say("Publishing ~ts ~ts to ~ts", [PkgName, Version, maps:get(name, HexConfig)]),
+    rebar3_hex_io:say("  Description: ~ts", [Description]),
+    rebar3_hex_io:say("  Dependencies:~n    ~ts", [format_deps(Deps1)]),
+    rebar3_hex_io:say("  Included files:~n    ~ts", [string:join([F || {F, _} <- PackageFiles], "\n    ")]),
+    rebar3_hex_io:say("  Licenses: ~ts", [format_licenses(Licenses)]),
+    rebar3_hex_io:say("  Links:~n    ~ts", [format_links(Links)]),
+    rebar3_hex_io:say("  Build tools: ~ts", [format_build_tools(BuildTools)]),
     maybe_say_coc(HexConfig),
-    case ec_talk:ask_default("Proceed?", boolean, "Y") of
+    case rebar3_hex_io:ask("Proceed?", boolean, "Y") of
         true ->
-            {ok, HexConfig1} = rebar3_hex_utils:hex_config_write(HexConfig),
+            {ok, HexConfig1} = rebar3_hex_config:hex_config_write(HexConfig),
             case create_and_publish(Metadata, PackageFiles, HexConfig1) of
                 ok ->
                     rebar_api:info("Published ~s ~s", [Name, Version]),
@@ -192,7 +193,7 @@ publish(AppDir, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
                     Error
             end;
         _ ->
-            ec_talk:say("Goodbye..."),
+            rebar3_hex_io:say("Goodbye..."),
             {ok, State}
     end;
 publish(_AppDir, _Name, _Version, _Deps, Excluded, _AppDetails, _, _) ->
@@ -202,10 +203,10 @@ publish(_AppDir, _Name, _Version, _Deps, Excluded, _AppDetails, _, _) ->
 
 %% if publishing to the public repo or to a private organization link to the code of conduct
 maybe_say_coc(#{parent := <<"hexpm">>}) ->
-    ec_talk:say("Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct", []);
+    rebar3_hex_io:say("Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct", []);
 maybe_say_coc(#{name := <<"hexpm">>}) ->
-    ec_talk:say("Be aware, you are publishing to the public Hexpm repository.", []),
-    ec_talk:say("Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct", []);
+    rebar3_hex_io:say("Be aware, you are publishing to the public Hexpm repository.", []),
+    rebar3_hex_io:say("Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct", []);
 maybe_say_coc(_) ->
     ok.
 
@@ -251,15 +252,15 @@ to_map(List) when is_list(List) ->
     maps:from_list(List).
 
 include_files(Name, AppDir, AppDetails) ->
-    AppSrc = {application, ec_cnv:to_atom(Name), AppDetails},
+    AppSrc = {application, to_atom(Name), AppDetails},
     FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
     IncludeFilePaths = proplists:get_value(include_files, AppDetails, []),
     ExcludeFilePaths = proplists:get_value(exclude_files, AppDetails, []),
     ExcludeRes = proplists:get_value(exclude_regexps, AppDetails, []),
 
-    AllFiles = lists:ukeysort(2, rebar3_hex_utils:expand_paths(FilePaths, AppDir)),
-    IncludeFiles = lists:ukeysort(2, rebar3_hex_utils:expand_paths(IncludeFilePaths, AppDir)),
-    ExcludeFiles = lists:ukeysort(2, rebar3_hex_utils:expand_paths(ExcludeFilePaths, AppDir)),
+    AllFiles = lists:ukeysort(2, rebar3_hex_file:expand_paths(FilePaths, AppDir)),
+    IncludeFiles = lists:ukeysort(2, rebar3_hex_file:expand_paths(IncludeFilePaths, AppDir)),
+    ExcludeFiles = lists:ukeysort(2, rebar3_hex_file:expand_paths(ExcludeFilePaths, AppDir)),
 
     %% We filter first and then include, that way glob excludes can be
     %% overwritten be explict includes
@@ -268,8 +269,8 @@ include_files(Name, AppDir, AppDetails) ->
                                   end, AllFiles),
     WithIncludes = lists:ukeymerge(2, FilterExcluded, IncludeFiles),
 
-    AppFileSrc = filename:join("src", ec_cnv:to_list(Name)++".app.src"),
-    AppSrcBinary = ec_cnv:to_binary(lists:flatten(io_lib:format("~tp.\n", [AppSrc]))),
+    AppFileSrc = filename:join("src", to_list(Name)++".app.src"),
+    AppSrcBinary = rebar_utils:to_binary(lists:flatten(io_lib:format("~tp.\n", [AppSrc]))),
     lists:keystore(AppFileSrc, 1, WithIncludes, {AppFileSrc, AppSrcBinary}).
 
 
@@ -290,8 +291,8 @@ is_valid_app({_App, _Name, _Version, _AppDetails} = A) ->
     end.
 
 validate_app(has_semver, {_, Name, Ver, _}) ->
-    case ec_semver_parser:parse(Ver) of
-        {fail, _} ->
+    case verl:parse(rebar_utils:to_binary(Ver)) of
+        {error, invalid_version} ->
             {error, {invalid_semver, Name, Ver}};
         _ ->
          ok
@@ -381,3 +382,56 @@ errors_to_string({Key, Value}) ->
     io_lib:format("~s: ~s", [Key, errors_to_string(Value)]);
 errors_to_string(Errors) when is_list(Errors) ->
     lists:flatten([io_lib:format("~s", [errors_to_string(Values)]) || Values <- Errors]).
+
+
+binarify(Term) when is_boolean(Term) ->
+    Term;
+binarify(Term) when is_atom(Term) ->
+    atom_to_binary(Term, utf8);
+binarify([]) ->
+    [];
+binarify(Map) when is_map(Map) ->
+    maps:from_list(binarify(maps:to_list(Map)));
+binarify(Term) when is_list(Term) ->
+    case io_lib:printable_unicode_list(Term) of
+        true ->
+            rebar_utils:to_binary(Term);
+        false ->
+            [binarify(X) || X <- Term]
+    end;
+binarify({Key, Value}) ->
+    {binarify(Key), binarify(Value)};
+binarify(Term) ->
+    Term.
+
+
+%% via ec_cnv
+-spec to_atom(atom() | list() | binary() | integer() | float()) ->
+                     atom().
+to_atom(X)
+  when erlang:is_atom(X) ->
+    X;
+to_atom(X)
+  when erlang:is_list(X) ->
+    erlang:list_to_existing_atom(X);
+to_atom(X) ->
+    to_atom(to_list(X)).
+
+
+-spec to_list(atom() | list() | binary() | integer() | float()) ->
+                     list().
+to_list(X)
+  when erlang:is_float(X) ->
+    erlang:float_to_list(X);
+to_list(X)
+  when erlang:is_integer(X) ->
+    erlang:integer_to_list(X);
+to_list(X)
+  when erlang:is_binary(X) ->
+    erlang:binary_to_list(X);
+to_list(X)
+  when erlang:is_atom(X) ->
+    erlang:atom_to_list(X);
+to_list(X)
+  when erlang:is_list(X) ->
+    X.

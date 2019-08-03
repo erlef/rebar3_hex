@@ -25,7 +25,7 @@ init(State) ->
                                          {all, $a, "all", boolean, "all."},
                                          {keyname, $k, "key-name", string, "key-name"},
                                          {permission, $p, "permission", list, "perms."},
-                                         rebar3_hex_utils:repo_opt()
+                                         rebar3_hex:repo_opt()
                                         ]
                                  }]),
     State1 = rebar_state:add_provider(State, Provider),
@@ -35,7 +35,7 @@ init(State) ->
 %-spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 -spec do(rebar_state:t()) -> {'error',{'rebar3_hex_key','bad_command' | 'not_implemented'}}.
 do(State) ->
-    case rebar3_hex_utils:repo(State) of
+    case rebar3_hex_config:repo(State) of
         {ok, Repo} ->
             handle_command(State, Repo);
         {error, Reason} ->
@@ -45,20 +45,20 @@ do(State) ->
 handle_command(State, Repo) ->
     case rebar_state:command_args(State) of
         ["generate"| _ ] ->
-             {ok, Config} = rebar3_hex_utils:hex_config_write(Repo),
-             {"generate", Params} = rebar3_hex_utils:task_args(State),
+             {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
+             {"generate", Params} = rebar3_hex:task_args(State),
             generate(State, Config, Params);
         ["fetch", KeyName] ->
-             {ok, Config} = rebar3_hex_utils:hex_config_read(Repo),
+             {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
             fetch(State, Config, KeyName);
         ["revoke", "--all"] ->
-            {ok, Config} = rebar3_hex_utils:hex_config_write(Repo),
+            {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
             revoke_all(State, Config);
         ["revoke", KeyName] ->
-             {ok, Config} = rebar3_hex_utils:hex_config_write(Repo),
+             {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
             revoke(State, Config, KeyName);
         ["list"] ->
-			 {ok, Config} = rebar3_hex_utils:hex_config_read(Repo),
+			 {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
             list(State, Config);
         _ ->
             ?PRV_ERROR(bad_command)
@@ -69,7 +69,7 @@ generate(State, HexConfig, Params) ->
     KeyName =  proplists:get_value(keyname, Params, undefined),
     case rebar3_hex_client:key_add(HexConfig, KeyName, Perms) of
         {created, _Res} ->
-            ec_talk:say("Key successfully created", []),
+            rebar3_hex_io:say("Key successfully created", []),
             {ok, State};
         Error ->
             ?PRV_ERROR({generate, Error})
@@ -87,7 +87,7 @@ fetch(State, HexConfig, KeyName) ->
 revoke(State, HexConfig, KeyName) ->
     case rebar3_hex_client:key_delete(HexConfig, KeyName) of
         {success, _Res} ->
-             ec_talk:say("Key successfully revoked", []),
+             rebar3_hex_io:say("Key successfully revoked", []),
             {ok, State};
         Error ->
             ?PRV_ERROR({revoke, Error})
@@ -96,7 +96,7 @@ revoke(State, HexConfig, KeyName) ->
 revoke_all(State, HexConfig) ->
     case rebar3_hex_client:key_delete_all(HexConfig) of
         {success, _Res} ->
-            ec_talk:say("All keys successfully revoked", []),
+            rebar3_hex_io:say("All keys successfully revoked", []),
             {ok, State};
         Error ->
             ?PRV_ERROR({revoke_all, Error})
@@ -154,4 +154,7 @@ format_error({generate, {validation_errors, #{<<"errors">> := Errors, <<"message
     ErrorString = rebar3_hex_results:errors_to_string(Errors),
     io_lib:format("~ts~n\t~ts", [Message, ErrorString]);
 format_error(bad_command) ->
-    "Unknown command. Command must be fetch, generate, list, or revoke".
+    "Unknown command. Command must be fetch, generate, list, or revoke";
+format_error(Reason) ->
+    rebar3_hex_error:format_error(Reason).
+
