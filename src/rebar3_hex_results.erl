@@ -38,7 +38,7 @@ table(Rows) ->
 
 pretty_header(Header) ->
     lists:map(fun(W) ->
-                      [Value, Space] = rebar3_hex_utils:str_split(W, " "),
+                      [Value, Space] = rebar3_hex_io:str_split(W, " "),
                       underline_emphasis(Value) ++ " "  ++ Space  end,
               Header).
 

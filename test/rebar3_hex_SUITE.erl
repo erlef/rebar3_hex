@@ -5,7 +5,11 @@
 -include_lib("eunit/include/eunit.hrl").
 
 all() ->
-    [init_test].
+    [init_test, repo_opt].
+
+repo_opt(_Config) ->
+    ?assertEqual({repo,114,"repo",string,
+      "Repository to use for this command."}, rebar3_hex:repo_opt()).
 
 init_test(_Config) ->
     {ok, State} = rebar3_hex:init(rebar_state:new()),

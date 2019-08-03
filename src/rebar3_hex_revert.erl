@@ -30,13 +30,13 @@ init(State) ->
                                  {desc, ""},
                                  {opts, [{pkg, undefined, undefined, string, "Name of the package to delete."},
                                          {vsn, undefined, undefined, string, "Version of the package to delete."},
-                                         rebar3_hex_utils:repo_opt()]}]),
+                                         rebar3_hex:repo_opt()]}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    case rebar3_hex_utils:repo(State) of
+    case rebar3_hex_config:repo(State) of
         {ok, Repo} ->
             handle_command(State, Repo);
         {error, Reason} ->
@@ -68,12 +68,14 @@ format_error({api_error, PkgName, Version, Reason}) ->
 format_error(package_name_required) ->
     "revert requires a package name argument to identify the package to delete";
 format_error(version_required) ->
-    "revert requires a version number argument to identify the package to delete".
+    "revert requires a version number argument to identify the package to delete";
+format_error(Arg) ->
+    rebar3_hex_error:format_error(Arg).
 
 %%
 
 revert(PkgName, Version, Repo, _State) ->
-    case  rebar3_hex_utils:hex_config_write(Repo) of
+    case  rebar3_hex_config:hex_config_write(Repo) of
         {error, no_write_key} ->
             ?PRV_ERROR({no_write_key, maps:get(name, Repo)});
         {ok, HexConfig} ->
@@ -81,14 +83,14 @@ revert(PkgName, Version, Repo, _State) ->
                 {ok, {Code, _Headers, _Body}} when Code =:= 200 ;
                                                    Code =:= 204 ->
                     rebar_api:info("Successfully deleted package ~ts ~ts", [PkgName, Version]),
-                    case ec_talk:ask_default(io_lib:format("Also delete tag v~s?", [Version]), boolean, "N") of
+                    case rebar3_hex_io:ask(io_lib:format("Also delete tag v~s?", [Version]), boolean, "N") of
                         true ->
                             rebar_utils:sh(io_lib:format("git tag -d v~s", [Version]), []);
                         _ ->
                             ok
                     end;
                 {ok, {Code, _Headers, _Body}} ->
-                    ?PRV_ERROR({api_error, PkgName, Version, rebar3_hex_utils:pretty_print_status(Code)});
+                    ?PRV_ERROR({api_error, PkgName, Version, rebar3_hex_client:pretty_print_status(Code)});
                 {error, Reason} ->
                     ?PRV_ERROR({api_error, PkgName, Version, io_lib:format("~p", [Reason])})
             end

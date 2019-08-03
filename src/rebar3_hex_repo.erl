@@ -66,8 +66,8 @@ format_error(auth_no_key) ->
     "Repo authenticate command requires key";
 format_error({bad_command, Command}) ->
     io_lib:format("Unknown repo command ~ts", [Command]);
-format_error(Error) ->
-    io_lib:format("~p", [Error]).
+format_error(Reason) ->
+    rebar3_hex_error:format_error(Reason).
 
 auth(Repo, Key, State) ->
     Config = rebar_hex_repos:auth_config(State),
@@ -89,10 +89,10 @@ generate(RepoName, State) ->
                      <<"resource">> => RepoName}],
     Name = <<RepoName1/binary, "-repository">>,
 
-    {ok, HexConfig} = rebar3_hex_utils:hex_config_write(RepoConfig),
+    {ok, HexConfig} = rebar3_hex_config:hex_config_write(RepoConfig),
     case hex_api_key:add(HexConfig, Name, Permissions) of
         {ok, {201, _Headers, #{<<"secret">> := Secret}}} ->
-            ec_talk:say("Generated key: ~ts", [Secret]),
+            rebar3_hex_io:say("Generated key: ~ts", [Secret]),
             {ok, State};
         {ok, {Status, _Headers, #{<<"message">> := Message}}} ->
             ?PRV_ERROR({error, Status, Message});

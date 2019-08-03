@@ -23,13 +23,13 @@ init(State) ->
                                  {example, "rebar3 hex owner"},
                                  {short_desc, "Add, remove or list package owners"},
                                  {desc, ""},
-                                 {opts, [rebar3_hex_utils:repo_opt()]}]),
+                                 {opts, [rebar3_hex:repo_opt()]}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    case rebar3_hex_utils:repo(State) of
+    case rebar3_hex_config:repo(State) of
         {ok, Repo} ->
             handle_command(State, Repo);
         {error, Reason} ->
@@ -39,15 +39,15 @@ do(State) ->
 handle_command(State, Repo) ->
     case command_args(State) of
         {"add", Package, UsernameOrEmail} ->
-            {ok, Config} = rebar3_hex_utils:hex_config_write(Repo),
+            {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
             add(Config, Package, UsernameOrEmail, State),
             {ok, State};
         {"remove", Package, UsernameOrEmail} ->
-            {ok, Config} = rebar3_hex_utils:hex_config_write(Repo),
+            {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
             remove(Config, Package, UsernameOrEmail, State),
             {ok, State};
         {"list", Package} ->
-            {ok, Config} = rebar3_hex_utils:hex_config_read(Repo),
+            {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
             list(Config, Package, State),
             {ok, State};
         _Command ->
@@ -80,17 +80,19 @@ format_error({error, Package, Reason}) ->
     io_lib:format("Error listing owners of package ~ts: ~p", [Package, Reason]);
 format_error({status, Status, Package}) ->
     io_lib:format("Error listing owners of package ~ts: ~ts",
-                  [Package, rebar3_hex_utils:pretty_print_status(Status)]);
+                  [Package, rebar3_hex_client:pretty_print_status(Status)]);
 format_error({error, Package, UsernameOrEmail, Reason}) ->
     io_lib:format("Error adding ~ts as owner of package ~ts: ~p", [UsernameOrEmail, Package, Reason]);
 format_error({status, Status, Package, UsernameOrEmail}) ->
     io_lib:format("Error adding ~ts as owner of package ~ts: ~ts",
-                  [UsernameOrEmail, Package, rebar3_hex_utils:pretty_print_status(Status)]).
+                  [UsernameOrEmail, Package, rebar3_hex_client:pretty_print_status(Status)]);
+format_error(Reason) ->
+    rebar3_hex_error:format_error(Reason).
 
 add(HexConfig, Package, UsernameOrEmail, State) ->
     case hex_api_package_owner:add(HexConfig, Package, UsernameOrEmail) of
         {ok, {204, _Headers, _Body}} ->
-            ec_talk:say("Added ~ts to ~ts", [UsernameOrEmail, Package]),
+            rebar3_hex_io:say("Added ~ts to ~ts", [UsernameOrEmail, Package]),
             {ok, State};
         {ok, {Status, _Headers, _Body}} ->
             ?PRV_ERROR({Status, Package, UsernameOrEmail});
@@ -101,7 +103,7 @@ add(HexConfig, Package, UsernameOrEmail, State) ->
 remove(HexConfig, Package, UsernameOrEmail, State) ->
     case hex_api_package_owner:delete(HexConfig, Package, UsernameOrEmail) of
         {ok, {204, _Headers, _Body}} ->
-            ec_talk:say("Removed ~ts from ~ts", [UsernameOrEmail, Package]),
+            rebar3_hex_io:say("Removed ~ts from ~ts", [UsernameOrEmail, Package]),
             {ok, State};
         {ok, {Status, _Headers, _Body}} ->
             ?PRV_ERROR({status, Status, Package, UsernameOrEmail});
@@ -114,7 +116,7 @@ list(HexConfig, Package, State) ->
         {ok, {200, _Headers, List}} ->
             Owners = [binary_to_list(maps:get(<<"email">>, Owner, <<"">>)) || Owner <- List],
             OwnersString = rebar_string:join(Owners, "\n"),
-            ec_talk:say("~s", [OwnersString]),
+            rebar3_hex_io:say("~s", [OwnersString]),
             {ok, State};
         {ok, {Status, _Headers, _Body}} ->
             ?PRV_ERROR({status, Status, Package});

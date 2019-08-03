@@ -34,7 +34,7 @@ init(State) ->
                                  {example, "rebar3 hex user <command>"},
                                  {short_desc, "Hex user tasks"},
                                  {desc, ""},
-                                 {opts, []}]),
+                                 {opts, [rebar3_hex:repo_opt()]}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
@@ -42,7 +42,7 @@ init(State) ->
 do(State) ->
     case rebar_state:command_args(State) of
         ["register" | _] ->
-            {ok, Repo} = rebar3_hex_utils:repo(State),
+            {ok, Repo} = rebar3_hex_config:repo(State),
             hex_register(Repo, State);
         ["whoami" | _] ->
             try handle(whoami, State) of
@@ -52,13 +52,13 @@ do(State) ->
                     Err
             end;
         ["auth" | _] ->
-            {ok, Repo} = rebar3_hex_utils:repo(State),
+            {ok, Repo} = rebar3_hex_config:repo(State),
             auth(Repo, State);
         ["deauth" | _] ->
-            {ok, Repo} = rebar3_hex_utils:repo(State),
+            {ok, Repo} = rebar3_hex_config:repo(State),
             deauth(Repo, State);
         ["reset_password" | _] ->
-            {ok, Repo} = rebar3_hex_utils:repo(State),
+            {ok, Repo} = rebar3_hex_config:repo(State),
             reset_password(Repo, State);
         _ ->
             throw(?PRV_ERROR(bad_command))
@@ -67,7 +67,7 @@ do(State) ->
 
 
 handle(whoami, State) ->
-    {ok, Parents} = rebar3_hex_utils:parent_repos(State),
+    {ok, Parents} = rebar3_hex_config:parent_repos(State),
     lists:foreach(fun(R) -> case whoami(R, State) of
                                 {ok, _Res} -> ok;
                                 {error, _} = Err ->
@@ -91,13 +91,13 @@ format_error(no_match_local_password) ->
 format_error(bad_command) ->
     "Command must be one of register, whoami, auth, deauth or reset_password";
 format_error(Reason) ->
-    io_lib:format("~p", [Reason]).
+    rebar3_hex_error:format_error(Reason).
 
 hex_register(Repo, State) ->
-    ec_talk:say("By registering an account on Hex.pm you accept all our "
+    rebar3_hex_io:say("By registering an account on Hex.pm you accept all our "
                 "policies and terms of service found at https://hex.pm/policies\n"),
-    Username = list_to_binary(ec_talk:ask_default("Username:", string, "")),
-    Email = list_to_binary(ec_talk:ask_default("Email:", string, "")),
+    Username = list_to_binary(rebar3_hex_io:ask("Username:", string, "")),
+    Email = list_to_binary(rebar3_hex_io:ask("Email:", string, "")),
     case get_account_password() of
         <<"">> ->
             error;
@@ -105,7 +105,7 @@ hex_register(Repo, State) ->
             PasswordConfirm = get_account_password(confirm),
             case Password =:= PasswordConfirm of
                 true ->
-                    ec_talk:say("Registering..."),
+                    rebar3_hex_io:say("Registering..."),
                     create_user(Username, Email, Password, Repo, State);
                 false ->
                     ?PRV_ERROR({error, "passwords do not match"})
@@ -120,7 +120,7 @@ whoami(#{name := Name} = Repo, State) ->
             case hex_api_user:me(Repo#{api_key => ReadKey}) of
                 {ok, {200, _Headers, #{<<"username">> := Username,
                                        <<"email">> := Email}}} ->
-                    ec_talk:say("~ts : ~ts (~ts)", [Name, Username, Email]),
+                    rebar3_hex_io:say("~ts : ~ts (~ts)", [Name, Username, Email]),
                     {ok, State};
                 {ok, {_Status, _Headers, #{<<"message">> := Message}}} ->
                     ?PRV_ERROR({whoami_failure, Message});
@@ -130,15 +130,15 @@ whoami(#{name := Name} = Repo, State) ->
     end.
 
 auth(Repo, State) ->
-    Username = list_to_binary(ec_talk:ask_default("Username:", string, "")),
+    Username = list_to_binary(rebar3_hex_io:ask("Username:", string, "")),
     Password = get_account_password(),
 
-    ec_talk:say("You have authenticated on Hex using your account password. However, "
+    rebar3_hex_io:say("You have authenticated on Hex using your account password. However, "
                 "Hex requires you to have a local password that applies only to this machine for security "
                 "purposes. Please enter it."),
 
-    LocalPassword = rebar3_hex_utils:get_password(<<"Local Password: ">>),
-    ConfirmLocalPassword = rebar3_hex_utils:get_password(<<"Local Password (confirm): ">>),
+    LocalPassword = rebar3_hex_io:get_password(<<"Local Password: ">>),
+    ConfirmLocalPassword = rebar3_hex_io:get_password(<<"Local Password (confirm): ">>),
 
     case LocalPassword =:= ConfirmLocalPassword of
         true ->
@@ -148,20 +148,20 @@ auth(Repo, State) ->
     end.
 
 deauth(#{username := Username, name := RepoName}, State) ->
-    rebar3_hex_utils:update_auth_config(#{RepoName => #{}}, State),
-    ec_talk:say("User `~s` removed from the local machine. "
+    rebar3_hex_config:update_auth_config(#{RepoName => #{}}, State),
+    rebar3_hex_io:say("User `~s` removed from the local machine. "
                  "To authenticate again, run `rebar3 hex user auth` "
                  "or create a new user with `rebar3 hex user register`", [Username]),
     {ok, State};
 deauth(_Repo, State) ->
-    ec_talk:say("Not authenticated as any user currently for this repository"),
+    rebar3_hex_io:say("Not authenticated as any user currently for this repository"),
     {ok, State}.
 
 reset_password(Repo, State) ->
-    User = ec_talk:ask_default("Username or Email:", string, ""),
+    User = rebar3_hex_io:ask("Username or Email:", string, ""),
     case hex_api_user:reset_password(list_to_binary(User), Repo) of
         {ok, {204, _Headers, <<>>}} ->
-             ec_talk:say("Email with reset link sent", []),
+             rebar3_hex_io:say("Email with reset link sent", []),
              {ok, State};
         {ok, {_Status, _Headers, #{<<"message">> := Message}}} ->
             ?PRV_ERROR({reset_failure, Message});
@@ -172,22 +172,22 @@ reset_password(Repo, State) ->
 %% Internal functions
 
 get_account_password() ->
-    rebar3_hex_utils:get_password(<<"Account Password: ">>).
+    rebar3_hex_io:get_password(<<"Account Password: ">>).
 
 get_account_password(confirm) ->
-    rebar3_hex_utils:get_password(<<"Account Password (confirm): ">>).
+    rebar3_hex_io:get_password(<<"Account Password (confirm): ">>).
 
 create_user(Username, Email, Password, Repo, State) ->
     case hex_api_user:create(Repo, Username, Password, Email) of
         {ok, {201, _Headers, _Body}} ->
-            ec_talk:say("You are required to confirm your email to access your account, "
+            rebar3_hex_io:say("You are required to confirm your email to access your account, "
                         "a confirmation email has been sent to ~s", [Email]),
-            ec_talk:say("Then run `rebar3 hex auth -r ~ts` to create and configure api tokens locally.",
+            rebar3_hex_io:say("Then run `rebar3 hex auth -r ~ts` to create and configure api tokens locally.",
                         [maps:get(name, Repo)]),
             {ok, State};
         {ok, {_Status, _Headers, #{<<"errors">> := Errors}}} ->
             ?PRV_ERROR({registration_failure,
-                        rebar3_hex_utils:pretty_print_errors(Errors)});
+                        rebar3_hex_client:pretty_print_errors(Errors)});
         {error, Reason} ->
             ?PRV_ERROR({registration_failure, io_lib:format("~p", [Reason])})
     end.
@@ -203,7 +203,7 @@ pad(Binary) ->
     end.
 
 generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
-    ec_talk:say("Generating all keys..."),
+    rebar3_hex_io:say("Generating all keys..."),
 
     Auth = base64:encode_to_string(<<Username/binary, ":", Password/binary>>),
     RepoConfig0 = Repo#{api_key => list_to_binary("Basic " ++ Auth)},
@@ -230,7 +230,7 @@ generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
             % By default a repositories key is created which gives user access to all repositories
             % that they are granted access to server side. For the time being we default
             % to hexpm for user auth entries as there is currently no other use case.
-            rebar3_hex_utils:update_auth_config(#{?DEFAULT_HEX_REPO => #{
+            rebar3_hex_config:update_auth_config(#{?DEFAULT_HEX_REPO => #{
                                                      username => Username,
                                                      write_key => WriteKeyEncrypted,
                                                      read_key => ReadKey,
@@ -245,8 +245,11 @@ encrypt_write_key(Username, LocalPassword, WriteKey) ->
     IV = crypto:strong_rand_bytes(16),
     {IV, crypto:block_encrypt(aes_gcm, pad(LocalPassword), IV, {AAD, WriteKey})}.
 
+
+decrypt_write_key(_Username, undefined) ->
+    {error, no_write_key};
 decrypt_write_key(Username, {IV, {CipherText, CipherTag}}) ->
-    LocalPassword = rebar3_hex_utils:get_password(<<"Local Password: ">>),
+    LocalPassword = rebar3_hex_io:get_password(<<"Local Password: ">>),
     decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}).
 
 decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}) ->
