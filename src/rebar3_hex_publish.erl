@@ -299,14 +299,16 @@ validate_app(has_semver, {_, Name, Ver, _}) ->
 validate_app(has_contributors, {_, Name, _, AppDetails}) ->
     case proplists:is_defined(contributors, AppDetails) of
         true ->
-            {error, {has_contributors, Name}};
+            rebar_log:log(warn, format_error({has_contributors, Name}), []),
+            ok;
         false ->
             ok
     end;
 validate_app(has_maintainers, {_, Name, _, AppDetails}) ->
     case proplists:is_defined(maintainers, AppDetails) of
         true ->
-            {error, {has_maintainers, Name}};
+            rebar_log:log(warn, format_error({has_maintainers, Name}), []),
+            ok;
         false ->
             ok
     end;
