@@ -6,14 +6,12 @@
 
 all() ->
     [  publish_invalid_semver_test
-     , publish_no_descrip_test
-     , publish_empty_descrip_test
-     , publish_has_contributors_test
-     , publish_has_maintainers_test
-     , publish_no_licenses_test
-     , publish_empty_licenses_test
-     , publish_multi_errors_test
-     , format_error_test
+      , publish_no_descrip_test
+      , publish_empty_descrip_test
+      , publish_no_licenses_test
+      , publish_empty_licenses_test
+      , publish_multi_errors_test
+      , format_error_test
     ].
 
 publish_invalid_semver_test(Config) ->
@@ -26,30 +24,6 @@ publish_invalid_semver_test(Config) ->
     Exp = {error,
             {rebar3_hex_publish,
              [{invalid_semver,<<"bad_ver">>,"0.a.1b..0.-foo"}]}},
-    ?assertEqual(Exp, rebar3_hex_publish:publish(App, Repo, State)),
-    ok.
-
-publish_has_contributors_test(Config) ->
-    {ok, App, State} = test_utils:mock_app("has_contributors", ?config(data_dir, Config)),
-    Repo = maps:merge(hex_core:default_config(),
-			#{name => <<"foo">>, repo => <<"foo">>,
-			  api_url => <<"http://127.0.0.1:3000">>,
-			  repo_url => <<"http://127.0.0.1:3000">>,
-			  repo_verify => false}),
-    Exp =  {error,
-                {rebar3_hex_publish,
-                    [{has_contributors,<<"has_contributors">>}]}},
-    ?assertEqual(Exp, rebar3_hex_publish:publish(App, Repo, State)),
-    ok.
-
-publish_has_maintainers_test(Config) ->
-    {ok, App, State} = test_utils:mock_app("has_maintainers", ?config(data_dir, Config)),
-    Repo = maps:merge(hex_core:default_config(),
-			#{name => <<"foo">>, repo => <<"foo">>,
-			  api_url => <<"http://127.0.0.1:3000">>,
-			  repo_url => <<"http://127.0.0.1:3000">>,
-			  repo_verify => false}),
-    Exp = {error,{rebar3_hex_publish,[{has_maintainers,<<"has_maintainers">>}]}},
     ?assertEqual(Exp, rebar3_hex_publish:publish(App, Repo, State)),
     ok.
 
@@ -104,12 +78,12 @@ publish_multi_errors_test(Config) ->
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
 			  repo_verify => false}),
-    Exp = {error,
-         {rebar3_hex_publish,
-             [{invalid_semver,<<"multi_errors">>,"0.1b-prod"},
-              {has_maintainers,<<"multi_errors">>},
-              {no_description,<<"multi_errors">>},
-              {no_license,<<"multi_errors">>}]}},
+
+    Exp =  {error,
+                {rebar3_hex_publish,
+                    [{invalid_semver,<<"multi_errors">>,"0.1b-prod"},
+                     {no_description,<<"multi_errors">>},
+                     {no_license,<<"multi_errors">>}]}},
     ?assertEqual(Exp, rebar3_hex_publish:publish(App, Repo, State)),
     ok.
 
