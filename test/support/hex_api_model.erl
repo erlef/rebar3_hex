@@ -22,6 +22,23 @@
 handle(Req, _Args) ->
     handle(Req#req.method, elli_request:path(Req), Req).
 
+handle('POST', [<<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], Req) ->
+    case authenticate(Req) of
+       {ok, #{username := _Username, email := _Email}} ->
+           respond_with(201, Req, <<>>);
+       error ->
+           respond_with(401, Req, #{})
+   end;
+
+
+handle('DELETE', [<<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], Req) ->
+    case authenticate(Req) of
+       {ok, #{username := _Username, email := _Email}} ->
+           {204, [{<<"Foo">>, <<"Bar">>}], terms_to_body(Req, <<"">>)};
+       error ->
+           respond_with(401, Req, #{})
+   end;
+
 handle('POST', [<<"publish">>], Req) ->
    case authenticate(Req) of
        {ok, #{username := Username, email := Email}} ->
@@ -212,7 +229,7 @@ handle('DELETE', [<<"keys">>, <<"key">>], Req) ->
     Res = #{<<"secret">> => <<"repo_key">>},
     respond_with(200, Req, Res);
 
-handle(_, _, Req) ->
+handle(_, _Path, Req) ->
     respond_with(404, Req, #{}).
 
 handle_event(_Event, _Data, _Args) ->
@@ -270,4 +287,3 @@ authenticate(Req) ->
         _ ->
             error
     end.
-

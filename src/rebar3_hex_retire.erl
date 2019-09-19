@@ -32,13 +32,13 @@ init(State) ->
                                          {vsn, undefined, undefined, string, "Version of the package to retire."},
                                          {reason, undefined, undefined, string, "Reason to retire package."},
                                          {message, undefined, undefined, string, "Clarifying message for retirement"},
-                                         rebar3_hex_utils:repo_opt()]}]),
+                                         rebar3_hex:repo_opt()]}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    case rebar3_hex_utils:repo(State) of
+    case rebar3_hex_config:repo(State) of
         {ok, Repo} ->
             handle_command(State, Repo);
         {error, Reason} ->
@@ -47,23 +47,15 @@ do(State) ->
 
 handle_command(State, Repo) ->
     {Args, _} = rebar_state:command_parsed_args(State),
-    Name = get_required(pkg, Args),
+    Name = rebar3_hex:get_required(pkg, Args),
     PkgName = rebar_utils:to_binary(Name),
-    Version = get_required(vsn, Args),
-    Reason = get_required(reason, Args),
-    Message = get_required(message, Args),
+    Version = rebar3_hex:get_required(vsn, Args),
+    Reason = rebar3_hex:get_required(reason, Args),
+    Message = rebar3_hex:get_required(message, Args),
     retire(PkgName, rebar_utils:to_binary(Version), Repo,
            rebar_utils:to_binary(Reason),
            rebar_utils:to_binary(Message),
            State).
-
-get_required(Key, Args) ->
-    case proplists:get_value(Key, Args) of
-        undefined ->
-            throw(?PRV_ERROR({required, Key}));
-        Value ->
-            Value
-    end.
 
 format_error({api_error, PkgName, Version, Reason}) ->
     io_lib:format("Unable to delete package ~ts ~ts: ~ts", [PkgName, Version, Reason]);
@@ -74,12 +66,12 @@ format_error({required, vsn}) ->
 format_error({required, reason}) ->
     "retire requires a reason with value of either other, invalid, security, deprecated or renamed";
 format_error({required, message}) ->
-    "retire requires a message to clarify the reason for the retirement of the package".
-
-%%
+    "retire requires a message to clarify the reason for the retirement of the package";
+format_error(Reason) ->
+    rebar3_hex_error:format_error(Reason).
 
 retire(PkgName, Version, Repo, Reason, Message, State) ->
-    case rebar3_hex_utils:hex_config_write(Repo) of
+    case rebar3_hex_config:hex_config_write(Repo) of
         {error, no_write_key} ->
             ?PRV_ERROR({no_write_key, maps:get(name, Repo)});
 
@@ -93,7 +85,7 @@ retire(PkgName, Version, Repo, Reason, Message, State) ->
                     rebar_api:info("Successfully retired package ~ts ~ts", [PkgName, Version]),
                     {ok, State};
                 {ok, {Code, _Headers, _Body}} ->
-                    ?PRV_ERROR({api_error, PkgName, Version, rebar3_hex_utils:pretty_print_status(Code)});
+                    ?PRV_ERROR({api_error, PkgName, Version, rebar3_hex_client:pretty_print_status(Code)});
                 {error, Reason} ->
                     ?PRV_ERROR({api_error, PkgName, Version, io_lib:format("~p", [Reason])})
             end

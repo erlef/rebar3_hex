@@ -10,11 +10,14 @@ all() ->
 init_test(_Config) ->
     {ok, State} = rebar3_hex_user:init(rebar_state:new()),
     Exp = [{provider,user,rebar3_hex_user,
-                      {[],[]},
-                      true,[],[],"Hex user tasks","rebar3 hex user <command>",
-                      [],
-                      [default],
-                      hex}],
+                       {[],[]},
+                       true,[],[],"Hex user tasks",
+                       "rebar3 hex user <command>",
+                       [{repo,114,"repo",string,
+                              "Repository to use for this command."}],
+                       [default],
+                       hex}],
+
     ?assertMatch(Exp, rebar_state:providers(State)),
     ?assertError(function_clause, rebar3_hex_user:init({})).
 
