@@ -30,6 +30,30 @@ handle('POST', [<<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], Re
            respond_with(401, Req, #{})
    end;
 
+handle('GET', [<<"packages">>, _Name, <<"owners">>], Req) ->
+    case authenticate(Req) of
+       {ok, #{username := _Username, email := _Email}} ->
+            respond_with(200, Req, [#{}]);
+       error ->
+           respond_with(401, Req, #{})
+   end;
+
+handle('DELETE', [<<"packages">>, _Name, <<"owners">>, _UserOrOrg], Req) ->
+    case authenticate(Req) of
+       {ok, #{username := _Username, email := _Email}} ->
+        {204, [{<<"Foo">>, <<"Bar">>}], terms_to_body(Req, <<"">>)};
+       error ->
+           respond_with(401, Req, #{})
+   end;
+
+handle('PUT', [<<"packages">>, _Name, <<"owners">>, _UserOrOrg], Req) ->
+    case authenticate(Req) of
+       {ok, #{username := _Username, email := _Email}} ->
+           respond_with(201, Req, <<>>);
+       error ->
+           respond_with(401, Req, #{})
+   end;
+
 
 handle('DELETE', [<<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], Req) ->
     case authenticate(Req) of
@@ -40,7 +64,7 @@ handle('DELETE', [<<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], 
    end;
 
 handle('POST', [<<"publish">>], Req) ->
-   case authenticate(Req) of
+    case authenticate(Req) of
        {ok, #{username := Username, email := Email}} ->
            {ok, Meta, _Checksum}     = body_to_meta(Req),
            App = maps:get(<<"app">>, Meta),
@@ -73,10 +97,10 @@ handle('POST', [<<"publish">>], Req) ->
    end;
 
 handle('POST', [<<"repos">>, _Repo, <<"publish">>], Req) ->
-   case authenticate(Req) of
+    case authenticate(Req) of
        {ok, #{username := Username, email := Email}} ->
-           {ok, Meta, _Checksum}     = body_to_meta(Req),
-           App = maps:get(<<"app">>, Meta),
+            {ok, Meta, _Checksum}     = body_to_meta(Req),
+            App = maps:get(<<"app">>, Meta),
 
            Res = #{
              <<"version">> => maps:get(<<"version">>, Meta),
@@ -257,7 +281,7 @@ body_to_terms(Req)  ->
 body_to_meta(Req) ->
     Body = elli_request:body(Req),
     case hex_tarball:unpack(Body, memory) of
-        {ok, #{checksum := Checksum, metadata :=  Metadata}} ->
+        {ok, #{inner_checksum := Checksum, metadata :=  Metadata}} ->
             {ok, Metadata, Checksum};
         {error, Reason} ->
             {error, list_to_bitstring(hex_tarball:format_error(Reason))}
@@ -278,7 +302,7 @@ to(T, Term) when T =:= json andalso T =:= hex_json ->
 
 authenticate(Req) ->
     case elli_request:get_header(<<"Authorization">>, Req) of
-        <<"key">> ->
+        Key when Key =:= <<"key">> orelse Key =:= <<"123">> ->
             {ok, #{username => <<"mr_pockets">>,
                    email => <<"foo@bar.baz">>,
                    organization => <<"hexpm">>,

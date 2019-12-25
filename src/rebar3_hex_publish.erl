@@ -217,7 +217,7 @@ maybe_say_coc(_) ->
     ok.
 
 create_and_publish(Metadata, PackageFiles, HexConfig) ->
-    {ok, {Tarball, _Checksum}} = hex_tarball:create(Metadata, PackageFiles),
+    {ok, #{tarball := Tarball, inner_checksum := _Checksum}} = hex_tarball:create(Metadata, PackageFiles),
     case hex_api_release:publish(HexConfig, Tarball) of
         {ok, {400, _Headers, #{<<"message">> := Message}}} ->
             ?PRV_ERROR({publish_failed, Message});
@@ -227,10 +227,11 @@ create_and_publish(Metadata, PackageFiles, HexConfig) ->
                                <<"message">> := Message}}} ->
             ?PRV_ERROR({validation_errors, Errors, Message});
         {ok, {201, _Headers, _Body}} ->
-
             ok;
         {ok, {200, _Headers, _Body}} ->
             ok;
+        {ok, {500, _Headers, _Body}} ->
+            ?PRV_ERROR({error, "Internal Server Error"});
         {error, Reason} ->
             ?PRV_ERROR({error, Reason})
     end.

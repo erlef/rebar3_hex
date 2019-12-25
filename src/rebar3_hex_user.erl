@@ -159,8 +159,8 @@ deauth(_Repo, State) ->
 
 reset_password(Repo, State) ->
     User = rebar3_hex_io:ask("Username or Email:", string, ""),
-    case hex_api_user:reset_password(list_to_binary(User), Repo) of
-        {ok, {204, _Headers, <<>>}} ->
+    case hex_api_user:reset_password(Repo, list_to_binary(User)) of
+        {ok, {204, _Headers, _Content}} ->
              rebar3_hex_io:say("Email with reset link sent", []),
              {ok, State};
         {ok, {_Status, _Headers, #{<<"message">> := Message}}} ->
