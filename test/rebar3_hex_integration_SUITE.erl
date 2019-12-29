@@ -50,6 +50,7 @@ all() ->
      , key_delete_test
      , key_delete_all_test
      , owner_add_test
+     , owner_transfer_test
      , owner_list_test
      , owner_remove_test].
 
@@ -597,18 +598,22 @@ key_delete_all_test(Config) ->
 
 owner_add_test(Config) ->
     begin
+        User = <<"mr_pockets">>,
+        Pass = <<"special_shoes">>,
+        Email = <<"foo@bar.baz">>,
         WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
         Repo = test_utils:repo_config(#{repo => <<"hexpm">>,
                                         name => <<"hexpm">>,
                                         write_key => WriteKey
                                         }),
-       {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
-        setup_mocks_for(publish, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        create_user(User, Pass, Email, Repo),
+        {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        setup_mocks_for(owner, {User, Email, Pass, Repo}),
         AddState = test_utils:mock_command(["add", "truecoat", "wade@foo.bar"], Repo, State),
         ?assertMatch({ok, AddState}, rebar3_hex_owner:do(AddState))
     end.
 
-owner_remove_test(Config) ->
+owner_transfer_test(Config) ->
     begin
         WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"key">>),
         Repo = test_utils:repo_config(#{repo => <<"hexpm">>,
@@ -616,17 +621,38 @@ owner_remove_test(Config) ->
                                         write_key => WriteKey
                                         }),
        {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
-        setup_mocks_for(publish, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        setup_mocks_for(owner, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        AddState = test_utils:mock_command(["transfer", "truecoat", "gustafson_motors", "-r", "hexpm"], Repo, State),
+        ?assertMatch({ok, AddState}, rebar3_hex_owner:do(AddState))
+    end.
+
+owner_remove_test(Config) ->
+    begin
+        User = <<"mr_pockets">>,
+        Pass = <<"special_shoes">>,
+        Email = <<"foo@bar.baz">>,
+        WriteKey = rebar3_hex_user:encrypt_write_key(User, Pass, <<"key">>),
+        Repo = test_utils:repo_config(#{repo => <<"hexpm">>,
+                                        name => <<"hexpm">>,
+                                        write_key => WriteKey
+                                        }),
+        create_user(User, Pass, Email, Repo),
+        {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        setup_mocks_for(owner, {User, Email, Pass, Repo}),
         RemoveState = test_utils:mock_command(["remove", "truecoat", "wade@foo.bar"], Repo, State),
         ?assertMatch({ok, RemoveState}, rebar3_hex_owner:do(RemoveState))
     end.
 
 owner_list_test(Config) ->
     begin
+        User = <<"mr_pockets">>,
+        Pass = <<"special_shoes">>,
+        Email = <<"foo@bar.baz">>,
         Repo = test_utils:repo_config(#{repo => <<"hexpm">>,
                                         name => <<"hexpm">>}),
-       {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
-        setup_mocks_for(publish, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
+        create_user(User, Pass, Email, Repo),
+        {ok, _App, State} = test_utils:mock_app("valid", ?config(data_dir, Config), Repo),
+        setup_mocks_for(owner, {User, Email, Pass, Repo}),
         ListState = test_utils:mock_command(["list", "truecoat"], Repo, State),
         ?assertMatch({ok, ListState}, rebar3_hex_owner:do(ListState))
     end.
@@ -809,6 +835,19 @@ setup_mocks_for(publish, {Username, _Email, Password, Repo}) ->
                                             ok
                                       end
                               end);
+
+
+setup_mocks_for(owner, {_Username, _Email, Password, _Repo}) ->
+    meck:expect(rebar3_hex_io, get_password, fun(_Arg) -> Password end),
+    meck:expect(rebar3_hex_io, say, fun(Templ, Args) ->
+                                      case {Templ, Args} of
+                                          {_, [_UserOrOrg, _Package]} -> %% add/remove
+                                            ok;
+                                          {"~s",[[]]} ->  %% list
+                                            ok
+                                      end
+                              end);
+
 setup_mocks_for(register, {Username, Email, Password, PasswordConfirm, Repo}) ->
     ExpectedInfo = "By registering an account on Hex.pm you accept all our"
     ++ " policies and terms of service found at https://hex.pm/policies\n",
