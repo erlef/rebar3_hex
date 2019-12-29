@@ -41,6 +41,8 @@ init(State) ->
                                  {short_desc, "Publish a new version of your package and update the package"},
                                  {desc, ""},
                                  {opts, [rebar3_hex:repo_opt(),
+                                         {"yes", $y, "yes", {boolean, false}, "Publishes the package without any confirmation
+                                         prompts"},
                                          {"--revert", undefined, "--revert", string, "Revert given version."}]}]),
 
     State1 = rebar_state:add_provider(State, Provider),
@@ -186,24 +188,33 @@ publish(App, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
     rebar3_hex_io:say("  Links:~n    ~ts", [format_links(Links)]),
     rebar3_hex_io:say("  Build tools: ~ts", [format_build_tools(BuildTools)]),
     maybe_say_coc(HexConfig),
-    case rebar3_hex_io:ask("Proceed?", boolean, "Y") of
+    {Args, _} = rebar_state:command_parsed_args(State),
+    case proplists:get_bool("yes", Args) of
         true ->
-            %% hex_config_write should mutate and return state as well
-            {ok, HexConfig1} = rebar3_hex_config:hex_config_write(HexConfig),
-            case create_and_publish(Metadata, PackageFiles, HexConfig1) of
-                ok ->
-                    rebar_api:info("Published ~s ~s", [Name, Version]),
-                    rebar3_hex_docs:publish(App, State, HexConfig1),
-                    {ok, State};
-                Error={error, _} ->
-                    Error
-            end;
-        _ ->
-            rebar3_hex_io:say("Goodbye..."),
-            {ok, State}
+            publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, State);
+        false ->
+            case rebar3_hex_io:ask("Proceed?", boolean, "Y") of
+                true ->
+                    publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, State);
+                _ ->
+                    rebar3_hex_io:say("Goodbye..."),
+                    {ok, State}
+            end
     end;
+
 publish(_AppDir, _Name, _Version, _Deps, Excluded, _AppDetails, _, _) ->
     ?PRV_ERROR({non_hex_deps, Excluded}).
+
+publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, State) ->
+    {ok, HexConfig1} = rebar3_hex_config:hex_config_write(HexConfig),
+    case create_and_publish(Metadata, PackageFiles, HexConfig1) of
+        ok ->
+            rebar_api:info("Published ~s ~s", [Name, Version]),
+            rebar3_hex_docs:publish(App, State, HexConfig1),
+            {ok, State};
+        Error={error, _} ->
+            Error
+    end.
 
 %% Internal functions
 
