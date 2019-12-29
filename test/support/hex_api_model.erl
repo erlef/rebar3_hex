@@ -22,6 +22,9 @@
 handle(Req, _Args) ->
     handle(Req#req.method, elli_request:path(Req), Req).
 
+handle('GET', [<<"auth">>], Req) ->
+    {204, [{<<"Foo">>, <<"Bar">>}], terms_to_body(Req, <<>>)};
+
 handle('POST', [<<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], Req) ->
     case authenticate(Req) of
        {ok, #{username := _Username, email := _Email}} ->

@@ -26,6 +26,7 @@ filenames="hex_core.hrl \
            hex_http.erl \
            hex_repo.erl \
            hex_api.erl \
+           hex_api_auth.erl \
            hex_api_key.erl \
            hex_api_package.erl \
            hex_api_package_owner.erl \

@@ -53,7 +53,8 @@ all() ->
      , owner_add_test
      , owner_transfer_test
      , owner_list_test
-     , owner_remove_test].
+     , owner_remove_test
+     , org_auth_with_key_test].
 
 init_per_suite(Config) ->
     meck:new([r3h_hex_api_user, rebar3_hex_config, rebar3_hex_io], [passthrough, no_link, unstick]),
@@ -457,6 +458,17 @@ publish_error_test(Config) ->
 
     ?assertMatch({error,{rebar3_hex_publish,no_write_key}}, rebar3_hex_publish:do(PubState)).
 
+org_auth_with_key_test(Config) ->
+    P = #{app => "valid",
+          mocks => [org_auth],
+          repo_config => #{repo => <<"hexpm:valid">>,
+                           name => <<"hexpm:valid">>
+                          }
+         },
+    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
+    {ok, AuthState} = test_utils:mock_command(rebar3_hex_org, ["auth", "-r", "hexpm:valid", "-k", "key"], Repo, State),
+
+    ?assertMatch({ok, AuthState}, rebar3_hex_org:do(AuthState)).
 key_list_test(Config) ->
     P = #{app => "valid", mocks => []},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
