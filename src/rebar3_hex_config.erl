@@ -45,12 +45,52 @@ repo(State, RepoName) ->
     MaybeFound2 =  get_repo(<<MaybeParentRepo/binary, BinName/binary>>, Repos),
     case {MaybeFound1, MaybeFound2} of
         {{ok, Repo1}, undefined} ->
-            {ok, Repo1};
+            {ok, merge_with_env(Repo1)};
         {undefined, {ok, Repo2}} ->
-            {ok, Repo2};
+            {ok, merge_with_env(Repo2)};
         {undefined, undefined} ->
             {error, {not_valid_repo, RepoName}}
     end.
+
+
+-define(ENV_VARS, [
+                   {"HEX_API_KEY", {api_key, {string, undefined}}},
+                   {"HEX_API_URL", {api_url, {string, undefined}}},
+                   {"HEX_UNSAFE_REGISTRY", {repo_verify, {boolean, false}}},
+                   {"HEX_NO_VERIFY_REPO_ORIGIN", {repo_verify_origin, {boolean, true}}}
+                  ]).
+
+merge_with_env(Repo) ->
+    lists:foldl(fun({EnvName, {Key, _} = Default}, Acc) ->
+                        Val = maybe_env_val(EnvName, Default),
+                        maybe_put_key(Key, Val, Acc)
+                end, Repo, ?ENV_VARS).
+
+maybe_put_key(_Key, undefined, Repo) ->
+    Repo;
+maybe_put_key(Key, Val, Repo) ->
+    case maps:get(Key, Repo, undefined) of
+        Val ->
+            Repo;
+        _ ->
+            Repo#{Key => Val}
+    end.
+
+maybe_env_val(K, {_, {Type, Default}}) ->
+    case {os:getenv(K), {Type, Default}} of
+        {false, {_, Default}} ->
+            Default;
+        {"", {_, Default}} ->
+            Default;
+        {Val, {boolean, _}} ->
+            to_bool(string:to_lower(Val));
+        {Val, {string, _}} ->
+          rebar_utils:to_binary(Val)
+    end.
+
+to_bool("0") -> false;
+to_bool("false") -> false;
+to_bool(_) -> true.
 
 parent_repos(State) ->
     Resources = rebar_state:resources(State),
@@ -75,11 +115,11 @@ get_repo(BinaryName, Repos) ->
         {error,{rebar_hex_repos,{repo_not_found,BinaryName}}} -> undefined
     end.
 
+hex_config_write(#{api_key := Key} = HexConfig) when is_binary(Key) ->
+    {ok, HexConfig};
 hex_config_write(#{write_key := undefined}) ->
     {error, no_write_key};
-hex_config_write(#{api_key := <<_ApiKey/binary>>} = HexConfig) ->
-    {ok, HexConfig};
-hex_config_write(#{write_key := WriteKey, username := Username} = HexConfig) ->
+hex_config_write(#{api_key := undefined, write_key := WriteKey, username := Username} = HexConfig) ->
     DecryptedWriteKey = rebar3_hex_user:decrypt_write_key(Username, WriteKey),
     {ok, HexConfig#{api_key => DecryptedWriteKey}}.
 
