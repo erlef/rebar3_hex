@@ -56,6 +56,10 @@ workflows:
   build_and_test:
     jobs:
       - rebar3_hex/build_and_test:
+          name: "otp-22"
+          version: "22-alpine"
+          codecov_flag: "otp22"
+      - rebar3_hex/build_and_test:
           name: "otp-21"
           version: "21-alpine"
           codecov_flag: "otp21"
