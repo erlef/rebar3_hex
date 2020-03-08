@@ -36,7 +36,7 @@ do(State) ->
 
 search(State, Repo, Term) ->
     HexConfig = rebar3_hex_config:hex_config_read(Repo),
-    case hex_api_package:search(HexConfig, rebar_utils:to_binary(Term), []) of
+    case r3h_hex_api_package:search(HexConfig, rebar_utils:to_binary(Term), []) of
         {ok, {200, _Headers, []}} ->
             io:format("No Results~n"),
             {ok, State};

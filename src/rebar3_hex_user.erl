@@ -117,7 +117,7 @@ whoami(#{name := Name} = Repo, State) ->
         undefined ->
             {error, "Not authenticated as any user currently for this repository"};
         ReadKey ->
-            case hex_api_user:me(Repo#{api_key => ReadKey}) of
+            case r3h_hex_api_user:me(Repo#{api_key => ReadKey}) of
                 {ok, {200, _Headers, #{<<"username">> := Username,
                                        <<"email">> := Email}}} ->
                     rebar3_hex_io:say("~ts : ~ts (~ts)", [Name, Username, Email]),
@@ -159,7 +159,7 @@ deauth(_Repo, State) ->
 
 reset_password(Repo, State) ->
     User = rebar3_hex_io:ask("Username or Email:", string, ""),
-    case hex_api_user:reset_password(Repo, list_to_binary(User)) of
+    case r3h_hex_api_user:reset_password(Repo, list_to_binary(User)) of
         {ok, {204, _Headers, _Content}} ->
              rebar3_hex_io:say("Email with reset link sent", []),
              {ok, State};
@@ -178,7 +178,7 @@ get_account_password(confirm) ->
     rebar3_hex_io:get_password(<<"Account Password (confirm): ">>).
 
 create_user(Username, Email, Password, Repo, State) ->
-    case hex_api_user:create(Repo, Username, Password, Email) of
+    case r3h_hex_api_user:create(Repo, Username, Password, Email) of
         {ok, {201, _Headers, _Body}} ->
             rebar3_hex_io:say("You are required to confirm your email to access your account, "
                         "a confirmation email has been sent to ~s", [Email]),
@@ -261,7 +261,7 @@ decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}) ->
     end.
 
 generate_key(RepoConfig, KeyName, Permissions) ->
-    case hex_api_key:add(RepoConfig, KeyName, Permissions) of
+    case r3h_hex_api_key:add(RepoConfig, KeyName, Permissions) of
         {ok, {201, _Headers, #{<<"secret">> := Secret}}} ->
             {ok, Secret};
         {ok, {_Status, _Headers, #{<<"message">> := Message}}} ->
