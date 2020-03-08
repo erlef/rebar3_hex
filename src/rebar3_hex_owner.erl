@@ -21,8 +21,8 @@ init(State) ->
                                  {bare, true},
                                  {deps, ?DEPS},
                                  {example, "rebar3 hex owner"},
-                                 {short_desc, "Add, remove or list package owners"},
-                                 {desc, ""},
+                                 {short_desc, "Add, remove, transfer or list package owners"},
+                                 {desc, support()},
                                  {opts, [rebar3_hex:repo_opt(),
                                          {level, $l, "level", {string, "full"}, "Ownership level."},
                                          {transfer, $t, "transfer", {boolean, false}, "Transfer Package"}
@@ -97,9 +97,28 @@ get_args([Task, Package, UserName, "-r", _]) ->
 get_args(BadCommand) ->
     BadCommand.
 
+support() ->
+    "Adds, removes or lists package owners.~n~n"
+    "Package owners have full permissions to the package. They can "
+    "publish and revert releases and even remove other package owners.~n~n"
+    "Supported commmand combinations: ~n~n"
+    "  rebar3 hex owner add <package> <username>~n~n"
+    "  rebar3 hex owner add <package> <username> <level>~n~n"
+    "  rebar3 hex owner add <package> <username> <level> <transfer>~n~n"
+    "  rebar3 hex owner list <package>~n~n"
+    "  rebar3 hex owner remove <package> <username>~n~n"
+    "  rebar3 hex owner transfer <package> <username>~n~n"
+    "Argument descriptions: ~n ~n"
+    "  <username> - a valid hex username or email address for a hex user~n~n"
+    "  <package>  - a valid hex package name~n~n"
+    "  <level>    - one of full or maintainer~n~n"
+    "  <transfer> - boolean value indicating whether to transfer a specified package or not~n~n".
+
 -spec format_error(any()) -> iolist().
 format_error(bad_command) ->
-    "Command must be one of add, remove or list";
+    S = "Invalid command ~n~n",
+    support(),
+    io_lib:format(S, []);
 format_error({error, Package, Reason}) ->
     io_lib:format("Error listing owners of package ~ts: ~p", [Package, Reason]);
 format_error({status, Status, Package}) ->
