@@ -8,7 +8,7 @@ all() ->
     [format_error_test].
 
 format_error_test(_Config) ->
-    Exp1 = "Invalid Command",
+    Exp1 = "Invalid command",
     Subject1 =  string:substr(rebar3_hex_owner:format_error(bad_command), 1, 15),
     ?assertEqual(Exp1, Subject1),
     Exp2 = <<"Error listing owners of package foo: because">>,
