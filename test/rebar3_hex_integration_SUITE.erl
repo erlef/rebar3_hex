@@ -56,11 +56,11 @@ all() ->
      , owner_remove_test].
 
 init_per_suite(Config) ->
-    meck:new([hex_api_user, rebar3_hex_config, rebar3_hex_io], [passthrough, no_link, unstick]),
+    meck:new([r3h_hex_api_user, rebar3_hex_config, rebar3_hex_io], [passthrough, no_link, unstick]),
     Config.
 
 end_per_suite(Config) ->
-    meck:unload([rebar3_hex_config, rebar3_hex_io, hex_api_user]),
+    meck:unload([rebar3_hex_config, rebar3_hex_io, r3h_hex_api_user]),
     Config.
 
 init_per_testcase(_Tc, Cfg) ->
@@ -73,7 +73,7 @@ end_per_testcase(_Tc, Config) ->
     MockPid = ?config(hex_mock_server, Config),
     ok = hex_db:stop(StorePid),
     ok = elli:stop(MockPid),
-    reset_mocks([rebar3_hex_config, rebar3_hex_io, hex_api_user]),
+    reset_mocks([rebar3_hex_config, rebar3_hex_io, r3h_hex_api_user]),
     Config.
 
 data_dir(Config) -> ?config(data_dir, Config).
@@ -241,7 +241,7 @@ register_empty_password_test(Config) ->
     ?assertMatch(error, rebar3_hex_user:do(AuthState)).
 
 register_error_test(Config) ->
-    meck:expect(hex_api_user, create, fun(_,_,_,_) -> {error, meh} end),
+    meck:expect(r3h_hex_api_user, create, fun(_,_,_,_) -> {error, meh} end),
     P = #{app => "valid", mocks => [register]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["register"], Repo, State),
@@ -290,9 +290,9 @@ auth_password_32_char_test(Config) ->
 
 auth_unhandled_test(Config) ->
     %% TODO: Revise hex_api_model and hex_db so that we don't need to meck this
-    meck:new([hex_api_key]),
+    meck:new([r3h_hex_api_key]),
     MeckReturn = {ok, {500, #{}, #{<<"message">> => <<"eh?">>}}},
-    meck:expect(hex_api_key, add, fun(_,_,_) -> MeckReturn end),
+    meck:expect(r3h_hex_api_key, add, fun(_,_,_) -> MeckReturn end),
 
     P = #{app => "valid", mocks => [first_auth]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
@@ -300,12 +300,12 @@ auth_unhandled_test(Config) ->
 
     ExpErr = {error,{rebar3_hex_user,{generate_key,<<"eh?">>}}},
     ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState)),
-    meck:unload([hex_api_key]).
+    meck:unload([r3h_hex_api_key]).
 
 auth_error_test(Config) ->
     %% TODO: Revise hex_api_model and hex_db so that we don't need to meck this
-    meck:new([hex_api_key]),
-    meck:expect(hex_api_key, add, fun(_,_,_) -> {error, meh} end),
+    meck:new([r3h_hex_api_key]),
+    meck:expect(r3h_hex_api_key, add, fun(_,_,_) -> {error, meh} end),
 
     P = #{app => "valid", mocks => [first_auth]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
@@ -313,7 +313,7 @@ auth_error_test(Config) ->
 
     ExpErr = {error,{rebar3_hex_user,{generate_key,["meh"]}}},
     ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState)),
-    meck:unload([hex_api_key]).
+    meck:unload([r3h_hex_api_key]).
 
 whoami_test(Config) ->
     P = #{app => "valid", mocks => [whoami]},
@@ -343,7 +343,7 @@ whoami_unhandled_test(_Config) ->
 % ?assertError({case_clause, {ok, {500, _, #{<<"whoa">> := <<"mr.">>}}}}, rebar3_hex_user:do(WhoamiState))
 
 whoami_api_error_test(Config) ->
-    meck:expect(hex_api_user, me, fun(_) -> {error, meh} end),
+    meck:expect(r3h_hex_api_user, me, fun(_) -> {error, meh} end),
     P = #{app => "valid", mocks => [whoami], repo_config => #{read_key => <<"!">>}},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     {ok, WhoamiState} = test_utils:mock_command(rebar3_hex_user, ["whoami"], Repo, State),
@@ -352,7 +352,7 @@ whoami_api_error_test(Config) ->
     ?assertMatch(ExpErr, rebar3_hex_user:do(WhoamiState)).
 
 whoami_error_test(Config) ->
-    meck:expect(hex_api_user, me, fun(_) -> {error, meh} end),
+    meck:expect(r3h_hex_api_user, me, fun(_) -> {error, meh} end),
     P = #{app => "valid", mocks => [whoami]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     {ok, WhoamiState} = test_utils:mock_command(rebar3_hex_user, ["whoami"], Repo, State),
@@ -399,7 +399,7 @@ reset_password_unhandled_test(_Config) ->
 % ?assertError({case_clause, {ok, {500, _, #{<<"whoa">> := <<"mr.">>}}}}, rebar3_hex_user:do(ResetState))
 
 reset_password_error_test(Config) ->
-    meck:expect(hex_api_user, reset_password, fun(_,_) -> {error, meh} end),
+    meck:expect(r3h_hex_api_user, reset_password, fun(_,_) -> {error, meh} end),
     P = #{app => "valid", mocks => [reset_password], username => "mr_pockets"},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     {ok, ResetState} = test_utils:mock_command(rebar3_hex_user, ["reset_password"], Repo, State),
@@ -571,7 +571,7 @@ setup_state(P, Config) ->
     {ok, Setup}.
 
 create_user(User, Pass, Email, Repo) ->
-    hex_api_user:create(Repo, User, Pass, Email).
+    r3h_hex_api_user:create(Repo, User, Pass, Email).
 
 setup_mocks_for(decrypt_write_key, #{password := Password}) ->
     expect_local_password_prompt(Password, Password);

@@ -79,7 +79,7 @@ revert(PkgName, Version, Repo, _State) ->
         {error, no_write_key} ->
             ?PRV_ERROR({no_write_key, maps:get(name, Repo)});
         {ok, HexConfig} ->
-            case hex_api_release:delete(HexConfig, PkgName, Version) of
+            case r3h_hex_api_release:delete(HexConfig, PkgName, Version) of
                 {ok, {Code, _Headers, _Body}} when Code =:= 200 ;
                                                    Code =:= 204 ->
                     rebar_api:info("Successfully deleted package ~ts ~ts", [PkgName, Version]),
