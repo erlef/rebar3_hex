@@ -16,7 +16,7 @@ all() ->
 
 publish_invalid_semver_test(Config) ->
     {ok, App, State} = test_utils:mock_app("bad_ver", ?config(data_dir, Config)),
-    Repo = maps:merge(hex_core:default_config(),
+    Repo = maps:merge(r3h_hex_core:default_config(),
 			#{name => <<"foo">>, repo => <<"foo">>,
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
@@ -29,7 +29,7 @@ publish_invalid_semver_test(Config) ->
 
 publish_no_descrip_test(Config) ->
     {ok, App, State} = test_utils:mock_app("no_descrip", ?config(data_dir, Config)),
-    Repo = maps:merge(hex_core:default_config(),
+    Repo = maps:merge(r3h_hex_core:default_config(),
 			#{name => <<"foo">>, repo => <<"foo">>,
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
@@ -40,7 +40,7 @@ publish_no_descrip_test(Config) ->
 
 publish_no_licenses_test(Config) ->
     {ok, App, State} = test_utils:mock_app("no_licenses", ?config(data_dir, Config)),
-    Repo = maps:merge(hex_core:default_config(),
+    Repo = maps:merge(r3h_hex_core:default_config(),
 			#{name => <<"foo">>, repo => <<"foo">>,
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
@@ -51,7 +51,7 @@ publish_no_licenses_test(Config) ->
 
 publish_empty_licenses_test(Config) ->
     {ok, App, State} = test_utils:mock_app("empty_licenses", ?config(data_dir, Config)),
-    Repo = maps:merge(hex_core:default_config(),
+    Repo = maps:merge(r3h_hex_core:default_config(),
 			#{name => <<"foo">>, repo => <<"foo">>,
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
@@ -62,7 +62,7 @@ publish_empty_licenses_test(Config) ->
 
 publish_empty_descrip_test(Config) ->
     {ok, App, State} = test_utils:mock_app("empty_descrip", ?config(data_dir, Config)),
-    Repo = maps:merge(hex_core:default_config(),
+    Repo = maps:merge(r3h_hex_core:default_config(),
 			#{name => <<"foo">>, repo => <<"foo">>,
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,
@@ -73,7 +73,7 @@ publish_empty_descrip_test(Config) ->
 
 publish_multi_errors_test(Config) ->
     {ok, App, State} = test_utils:mock_app("multi_errors", ?config(data_dir, Config)),
-    Repo = maps:merge(hex_core:default_config(),
+    Repo = maps:merge(r3h_hex_core:default_config(),
 			#{name => <<"foo">>, repo => <<"foo">>,
 			  api_url => <<"http://127.0.0.1:3000">>,
 			  repo_url => <<"http://127.0.0.1:3000">>,

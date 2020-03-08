@@ -2,7 +2,7 @@
 
 -export([mock_app/2, mock_app/3, mock_command/4, repo_config/0, repo_config/1]).
 
--define(REPO_CONFIG, maps:merge(hex_core:default_config(), #{
+-define(REPO_CONFIG, maps:merge(r3h_hex_core:default_config(), #{
                                   name        => <<"hexpm">>,
                                   repo        => <<"hexpm">>,
                                   api_url     => <<"http://127.0.0.1:3000">>,
