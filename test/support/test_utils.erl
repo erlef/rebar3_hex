@@ -1,6 +1,6 @@
 -module(test_utils).
 
--export([mock_app/2, mock_app/3, new_mock_command/4, mock_command/2, mock_command/3, repo_config/0, repo_config/1]).
+-export([mock_app/2, mock_app/3, mock_command/4, repo_config/0, repo_config/1]).
 
 -define(REPO_CONFIG, maps:merge(hex_core:default_config(), #{
                                   name        => <<"hexpm">>,
@@ -27,20 +27,7 @@ mock_app(AppName, DataDir, Repo) ->
     State = rebar_state:project_apps(rebar_state(Repo), [App]),
     {ok, App, State}.
 
-mock_command(Command, Repo) ->
-    mock_command(Command, Repo, rebar_state(Repo)).
-
-mock_command(Command, Repo, State0) when is_tuple(Command) ->
-    State1 = rebar_state:add_resource(State0, {pkg, rebar_pkg_resource}),
-    State2 = rebar_state:create_resources([{pkg, rebar_pkg_resource}], State1),
-    State3 = rebar_state:set(State2, hex, {repos,[Repo]}),
-    rebar_state:command_parsed_args(State3, Command);
-mock_command(Command, _Repo, State0) when is_list(Command) ->
-    State1 = rebar_state:add_resource(State0, {pkg, rebar_pkg_resource}),
-    State2 = rebar_state:create_resources([{pkg, rebar_pkg_resource}], State1),
-    rebar_state:command_args(State2, Command).
-
-new_mock_command(ProviderName, Command, Repo, State0) ->
+mock_command(ProviderName, Command, Repo, State0) ->
     State1 = rebar_state:add_resource(State0, {pkg, rebar_pkg_resource}),
     State2 = rebar_state:create_resources([{pkg, rebar_pkg_resource}], State1),
     State3 = rebar_state:set(State2, hex, {repos,[Repo]}),
@@ -59,4 +46,3 @@ repo_config() ->
     ?REPO_CONFIG.
 repo_config(Cfg) ->
     maps:merge(?REPO_CONFIG, Cfg).
-

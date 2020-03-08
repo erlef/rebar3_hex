@@ -5,7 +5,18 @@
 -include_lib("eunit/include/eunit.hrl").
 
 all() ->
-    [repo].
+    [repo, api_key_name_test, org_key_name_test].
+
+api_key_name_test(_Config) ->
+    ?assertEqual(<<"foo-api">>, rebar3_hex_config:api_key_name(<<"foo">>)),
+    ?assertEqual(<<"foo-api-org">>, rebar3_hex_config:api_key_name(<<"foo">>, <<"org">>)).
+
+org_key_name_test(_Config) ->
+    {ok, Name} = inet:gethostname(),
+    BinName = list_to_binary(Name),
+    Exp = <<BinName/binary, "-repository-org">>,
+    ?assertEqual(Exp, rebar3_hex_config:org_key_name(undefined, <<"org">>)),
+    ?assertEqual(<<"foo-repository-org">>, rebar3_hex_config:org_key_name(<<"foo">>, <<"org">>)).
 
 repo(_Config) ->
     ?assertError(function_clause, rebar3_hex_config:repo({})),

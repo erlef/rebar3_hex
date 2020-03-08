@@ -1,13 +1,49 @@
 -module(rebar3_hex_config).
 
--export([parent_repos/1,
-         hex_config_write/1,
-         hex_config_read/1,
-         repo/1,
-         update_auth_config/2
+-export([api_key_name/1
+         , api_key_name/2
+         , repos_key_name/0
+         , org_key_name/2
+         , parent_repos/1
+         , hex_config_write/1
+         , hex_config_read/1
+         , repo/1
+         , update_auth_config/2
         ]).
 
 -include("rebar3_hex.hrl").
+
+-spec api_key_name(binary()) -> binary().
+api_key_name(Key) ->
+    Prefix = key_name_prefix(Key),
+    key_name(Prefix, <<"-api">>).
+
+-spec api_key_name(binary(), binary()) -> binary().
+api_key_name(Key, Suffix) ->
+     Prefix = key_name_prefix(Key),
+     key_name(Prefix, <<"-api-">>, Suffix).
+
+-spec repos_key_name() -> binary().
+repos_key_name() ->
+     key_name(hostname(), <<"-repositories">>).
+
+-spec org_key_name(binary(), binary()) -> binary().
+org_key_name(Key, Org) ->
+     Prefix = key_name_prefix(Key),
+     key_name(Prefix, <<"-repository-">>, Org).
+
+hostname() ->
+    {ok, Name} = inet:gethostname(),
+    list_to_binary(Name).
+
+key_name(Prefix, Suffix) ->
+    <<Prefix/binary, Suffix/binary>>.
+
+key_name(Prefix, Interfix, Suffix) ->
+    <<Prefix/binary, Interfix/binary, Suffix/binary>>.
+
+key_name_prefix(undefined) -> hostname();
+key_name_prefix(Key) -> Key.
 
 update_auth_config(Config, State) ->
     rebar_hex_repos:update_auth_config(Config, State).
