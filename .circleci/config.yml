@@ -29,6 +29,7 @@ orbs:
               steps:
                 - run: <<parameters.pkg_install_cmd>> git
                 - rebar3/compile
+                - rebar3/dialyzer
                 - run: rebar3 as test xref
                 - rebar3/ct
 
