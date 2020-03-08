@@ -91,7 +91,7 @@ do_publish(App, State, Repo) ->
     {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
 
     case rebar3_hex_client:publish_docs(Config, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn), Tar) of
-        {created, _} ->
+        {ok, _} ->
             rebar_api:info("Published docs for ~ts ~ts", [PkgName, Vsn]),
             {ok, State};
         Reason ->
@@ -105,7 +105,7 @@ do_revert(App, State, Repo, Vsn) ->
     Name = binary_to_list(rebar_app_info:name(App)),
     PkgName = ec_cnv:to_list(proplists:get_value(pkg_name, AppDetails, Name)),
     case rebar3_hex_client:delete_docs(Config, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn)) of
-        {success, _Body} ->
+        {modified, _Body} ->
             rebar_api:info("Successfully deleted docs for ~ts ~ts", [Name, Vsn]),
             {ok, State};
         Reason ->

@@ -68,7 +68,7 @@ generate(State, HexConfig, Params) ->
     Perms = gather_permissions(proplists:get_all_values(permission, Params)),
     KeyName =  proplists:get_value(keyname, Params, undefined),
     case rebar3_hex_client:key_add(HexConfig, KeyName, Perms) of
-        {created, _Res} ->
+        {ok, _Res} ->
             rebar3_hex_io:say("Key successfully created", []),
             {ok, State};
         Error ->
@@ -77,7 +77,7 @@ generate(State, HexConfig, Params) ->
 
 fetch(State, HexConfig, KeyName) ->
     case rebar3_hex_client:key_get(HexConfig, KeyName) of
-        {success, Res} ->
+        {ok, Res} ->
             ok = print_key_details(Res),
             {ok, State};
         Error ->
@@ -86,7 +86,7 @@ fetch(State, HexConfig, KeyName) ->
 
 revoke(State, HexConfig, KeyName) ->
     case rebar3_hex_client:key_delete(HexConfig, KeyName) of
-        {success, _Res} ->
+        {ok, _Res} ->
              rebar3_hex_io:say("Key successfully revoked", []),
             {ok, State};
         Error ->
@@ -95,7 +95,7 @@ revoke(State, HexConfig, KeyName) ->
 
 revoke_all(State, HexConfig) ->
     case rebar3_hex_client:key_delete_all(HexConfig) of
-        {success, _Res} ->
+        {ok, _Res} ->
             rebar3_hex_io:say("All keys successfully revoked", []),
             {ok, State};
         Error ->
@@ -104,7 +104,7 @@ revoke_all(State, HexConfig) ->
 
 list(State, HexConfig) ->
     case rebar3_hex_client:key_list(HexConfig) of
-        {success, Res} ->
+        {ok, Res} ->
             ok = print_results(Res),
             {ok, State};
         Error ->
