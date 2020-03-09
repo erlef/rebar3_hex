@@ -90,7 +90,7 @@ generate(RepoName, State) ->
     Name = <<RepoName1/binary, "-repository">>,
 
     {ok, HexConfig} = rebar3_hex_config:hex_config_write(RepoConfig),
-    case r3h_hex_api_key:add(HexConfig, Name, Permissions) of
+    case hex_api_key:add(HexConfig, Name, Permissions) of
         {ok, {201, _Headers, #{<<"secret">> := Secret}}} ->
             rebar3_hex_io:say("Generated key: ~ts", [Secret]),
             {ok, State};

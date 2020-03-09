@@ -80,7 +80,7 @@ retire(PkgName, Version, Repo, Reason, Message, State) ->
             Body = #{<<"reason">> => Reason,
                      <<"message">> => Message},
 
-            case r3h_hex_api_release:retire(HexConfig, PkgName, Version, Body) of
+            case hex_api_release:retire(HexConfig, PkgName, Version, Body) of
                 {ok, {Code, _Headers, _Body}} when Code =:= 204 ->
                     rebar_api:info("Successfully retired package ~ts ~ts", [PkgName, Version]),
                     {ok, State};
