@@ -137,7 +137,7 @@ valid_level(<<"maintainer">>) -> true;
 valid_level(_) -> false.
 
 add(HexConfig, Package, UsernameOrEmail, Level, Transfer, State) ->
-    case r3h_hex_api_package_owner:add(HexConfig, Package, UsernameOrEmail, Level, Transfer) of
+    case hex_api_package_owner:add(HexConfig, Package, UsernameOrEmail, Level, Transfer) of
         {ok, {Code, _Headers, _Body}} when Code =:= 204 orelse Code =:= 201->
             {ok, State};
         {ok, {Status, _Headers, _Body}} ->
@@ -147,7 +147,7 @@ add(HexConfig, Package, UsernameOrEmail, Level, Transfer, State) ->
     end.
 
 remove(HexConfig, Package, UsernameOrEmail, State) ->
-    case r3h_hex_api_package_owner:delete(HexConfig, Package, UsernameOrEmail) of
+    case hex_api_package_owner:delete(HexConfig, Package, UsernameOrEmail) of
         {ok, {204, _Headers, _Body}} ->
             {ok, State};
         {ok, {Status, _Headers, _Body}} ->
@@ -157,7 +157,7 @@ remove(HexConfig, Package, UsernameOrEmail, State) ->
     end.
 
 list(HexConfig, Package, State) ->
-    case r3h_hex_api_package_owner:list(HexConfig, Package) of
+    case hex_api_package_owner:list(HexConfig, Package) of
         {ok, {200, _Headers, List}} ->
             Owners = [binary_to_list(maps:get(<<"email">>, Owner, <<"">>)) || Owner <- List],
             OwnersString = rebar_string:join(Owners, "\n"),

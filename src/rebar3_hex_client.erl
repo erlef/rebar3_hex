@@ -18,38 +18,38 @@
 -define(is_success(N), N >= 200 andalso N =< 299).
 
 key_add(HexConfig, <<KeyName/binary>>, Perms) ->
-    Res = r3h_hex_api_key:add(HexConfig, KeyName, Perms),
+    Res = hex_api_key:add(HexConfig, KeyName, Perms),
     response(Res);
 key_add(HexConfig, KeyName, Perms) ->
     key_add(HexConfig, to_binary(KeyName), Perms).
 
 key_get(HexConfig, <<KeyName/binary>>) ->
-    Res = r3h_hex_api_key:get(HexConfig, KeyName),
+    Res = hex_api_key:get(HexConfig, KeyName),
     response(Res);
 key_get(HexConfig, KeyName) ->
     key_get(HexConfig, to_binary(KeyName)).
 
 
 member_of(HexConfig) ->
-    Res =  r3h_hex_api_organization:list(HexConfig),
+    Res =  hex_api_organization:list(HexConfig),
     response(Res).
 
 key_list(HexConfig) ->
-    Res = r3h_hex_api_key:list(HexConfig),
+    Res = hex_api_key:list(HexConfig),
     response(Res).
 
 key_delete(HexConfig, <<KeyName/binary>>) ->
-    Res = r3h_hex_api_key:delete(HexConfig, KeyName),
+    Res = hex_api_key:delete(HexConfig, KeyName),
     response(Res);
 key_delete(HexConfig, KeyName) ->
     key_delete(HexConfig, to_binary(KeyName)).
 
 key_delete_all(HexConfig) ->
-    Res = r3h_hex_api_key:delete_all(HexConfig),
+    Res = hex_api_key:delete_all(HexConfig),
     response(Res).
 
 test_key(HexConfig, Perms) ->
-   Res = r3h_hex_api_auth:test(HexConfig, Perms),
+   Res = hex_api_auth:test(HexConfig, Perms),
    response(Res).
 
 publish_docs(Repo, Name, Version, Tarball) ->
@@ -62,11 +62,11 @@ publish_docs(Repo, Name, Version, Tarball) ->
     Config2 = maps:put(http_headers, Headers1, Config),
 
     Body = {TarballContentType, Tarball},
-    Res = r3h_hex_api:post(Config2, ["packages", Name, "releases", Version, "docs"], Body),
+    Res = hex_api:post(Config2, ["packages", Name, "releases", Version, "docs"], Body),
     response(Res).
 
 delete_docs(Config, Name, Version) ->
-    Res = r3h_hex_api:delete(Config, ["packages", Name, "releases", Version, "docs"]),
+    Res = hex_api:delete(Config, ["packages", Name, "releases", Version, "docs"]),
     response(Res).
 
 response({ok, {201, _Headers, Res}}) ->

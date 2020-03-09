@@ -229,7 +229,7 @@ maybe_say_coc(_) ->
 
 create_and_publish(Metadata, PackageFiles, HexConfig) ->
     {ok, #{tarball := Tarball, inner_checksum := _Checksum}} = hex_tarball:create(Metadata, PackageFiles),
-    case r3h_hex_api_release:publish(HexConfig, Tarball) of
+    case hex_api_release:publish(HexConfig, Tarball) of
         {ok, {400, _Headers, #{<<"message">> := Message}}} ->
             ?PRV_ERROR({publish_failed, Message});
         {ok, {401, _Headers, #{<<"message">> := Message}}} ->
