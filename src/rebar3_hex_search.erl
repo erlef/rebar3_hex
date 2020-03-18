@@ -35,7 +35,7 @@ do(State) ->
     {ok, State}.
 
 search(State, Repo, Term) ->
-    HexConfig = rebar3_hex_config:hex_config_read(Repo),
+    {ok, HexConfig} = rebar3_hex_config:hex_config_read(Repo),
     case hex_api_package:search(HexConfig, rebar_utils:to_binary(Term), []) of
         {ok, {200, _Headers, []}} ->
             io:format("No Results~n"),
@@ -57,9 +57,9 @@ search(State, Repo, Term) ->
             ok = rebar3_hex_results:print_table([Header] ++ Rows),
             {ok, State};
         {ok, {Status, _Headers, _Body}} ->
-            ?PRV_ERROR({status, Status});
+            throw(?PRV_ERROR({status, Status}));
         {error, Reason} ->
-            ?PRV_ERROR({error, Reason})
+            throw(?PRV_ERROR({error, Reason}))
     end.
 
 
