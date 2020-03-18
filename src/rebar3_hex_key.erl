@@ -37,32 +37,38 @@ init(State) ->
 do(State) ->
     case rebar3_hex_config:repo(State) of
         {ok, Repo} ->
-            handle_command(State, Repo);
+            SubCmd = rebar3_hex:sub_command(State),
+            handle_command(SubCmd, State, Repo);
         {error, Reason} ->
             ?PRV_ERROR(Reason)
     end.
 
-handle_command(State, Repo) ->
+handle_command("generate", State, Repo) ->
+    {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
+    {"generate", Params} = rebar3_hex:task_args(State),
+    generate(State, Config, Params);
+
+handle_command("fetch", State, Repo) ->
+    ["fetch", KeyName] = rebar_state:command_args(State),
+    {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
+    fetch(State, Config, KeyName);
+
+
+handle_command("list", State, Repo) ->
+    {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
+    list(State, Config);
+
+handle_command("revoke", State, Repo) ->
+    {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
     case rebar_state:command_args(State) of
-        ["generate"| _ ] ->
-             {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
-             {"generate", Params} = rebar3_hex:task_args(State),
-            generate(State, Config, Params);
-        ["fetch", KeyName] ->
-             {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
-            fetch(State, Config, KeyName);
         ["revoke", "--all"] ->
-            {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
             revoke_all(State, Config);
         ["revoke", KeyName] ->
-             {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
-            revoke(State, Config, KeyName);
-        ["list"] ->
-			 {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
-            list(State, Config);
-        _ ->
-            ?PRV_ERROR(bad_command)
-    end.
+            revoke(State, Config, KeyName)
+    end;
+
+handle_command(_, _, _) ->
+    ?PRV_ERROR(bad_command).
 
 generate(State, HexConfig, Params) ->
     Perms = gather_permissions(proplists:get_all_values(permission, Params)),
