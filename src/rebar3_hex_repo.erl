@@ -55,6 +55,8 @@ do(State) ->
                             {ok, State}
                     end
             end;
+        "list" ->
+            list_repos(State);
         Command ->
             ?PRV_ERROR({bad_command, Command})
     end.
@@ -99,3 +101,33 @@ generate(RepoName, State) ->
         {error, Reason} ->
             ?PRV_ERROR({error, Reason})
     end.
+
+list_repos(State) ->
+    Resources = rebar_state:resources(State),
+    #{repos := Repos} = rebar_resource_v2:find_resource_state(pkg, Resources),
+    Headers = ["Name", "URL", "Public Key", "Auth Key"],
+    Rows = lists:map(fun(Repo) ->
+                             #{name := Name,
+                               api_organization := Org,
+                               repo_url := Url,
+                               read_key := ReadKey,
+                               repo_public_key := PubKey} = Repo,
+
+                             AuthKey = maps:get(auth_key, Repo, ReadKey),
+                             [binary_to_list(Name),
+                              maybe_org_url(Org, Url),
+                              printable_public_key(PubKey),
+                              binary_to_list(AuthKey)]
+                     end, Repos),
+    rebar3_hex_results:print_table([Headers] ++ Rows),
+    {ok, State}.
+
+printable_public_key(PubKey) ->
+    [Pem] = public_key:pem_decode(PubKey),
+    Public =  public_key:pem_entry_decode(Pem),
+    Hash = crypto:hash(sha256, public_key:ssh_encode(Public, ssh2_pubkey)),
+    Encoded = string:substr(base64:encode_to_string(Hash), 1, 43),
+    "SHA256:" ++ Encoded.
+
+maybe_org_url(undefined, Url) -> binary_to_list(Url);
+maybe_org_url(Org, Url) -> binary_to_list(Url) ++ "/repos/" ++ binary_to_list(Org).
