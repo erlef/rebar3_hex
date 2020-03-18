@@ -53,7 +53,6 @@ handle_command("fetch", State, Repo) ->
     {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
     fetch(State, Config, KeyName);
 
-
 handle_command("list", State, Repo) ->
     {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
     list(State, Config);
