@@ -16,7 +16,7 @@ init(State) ->
                                  {namespace, hex},
                                  {bare, true},
                                  {deps, ?DEPS},
-                                 {example, "rebar3 hex key [generate <key> | list | revoke <key> | revoke --all]"},
+                                 {example, "rebar3 hex key [generate -k <key> | list | revoke -k <key> | revoke --all]"},
                                  {short_desc, "Remove or list API keys associated with your account"},
                                  {desc, ""},
                                  {opts, [
@@ -33,31 +33,34 @@ init(State) ->
 do(State) ->
     case rebar3_hex_config:repo(State) of
         {ok, Repo} ->
-            SubCmd = rebar3_hex:sub_command(State),
-            handle_command(SubCmd, State, Repo);
+            TaskArgs = rebar3_hex:task_args(State),
+            handle_command(TaskArgs, State, Repo);
         {error, Reason} ->
             ?PRV_ERROR(Reason)
     end.
 
-handle_command("generate", State, Repo) ->
+handle_command({"generate", Params}, State, Repo) ->
     case rebar3_hex_config:hex_config_write(Repo) of
         {ok, Config} ->
-            {"generate", Params} = rebar3_hex:task_args(State),
             generate(State, Config, Params);
         Err ->
             ?PRV_ERROR(Err)
     end;
 
-handle_command("fetch", State, Repo) ->
+handle_command({"fetch", Params}, State, Repo) ->
     case rebar3_hex_config:hex_config_read(Repo) of
         {ok, Config} ->
-            ["fetch", KeyName] = rebar_state:command_args(State),
-            fetch(State, Config, KeyName);
+            case Params of
+                [{keyname, KeyName}] ->
+                    fetch(State, Config, KeyName);
+                [] ->
+                    ?PRV_ERROR({fetch, missing_required_params})
+            end;
         Err ->
             ?PRV_ERROR(Err)
     end;
 
-handle_command("list", State, Repo) ->
+handle_command({"list", _Params},  State, Repo) ->
     case rebar3_hex_config:hex_config_read(Repo) of
         {ok, Config} ->
             list(State, Config);
@@ -65,14 +68,16 @@ handle_command("list", State, Repo) ->
             ?PRV_ERROR(Err)
     end;
 
-handle_command("revoke", State, Repo) ->
+handle_command({"revoke", Params}, State, Repo) ->
     case rebar3_hex_config:hex_config_write(Repo) of
         {ok, Config} ->
-            case rebar_state:command_args(State) of
-                ["revoke", "--all"] ->
+            case Params of
+               [{all,true}]  ->
                     revoke_all(State, Config);
-                ["revoke", KeyName] ->
-                    revoke(State, Config, KeyName)
+               [{keyname, KeyName}] ->
+                    revoke(State, Config, KeyName);
+               _ ->
+                 ?PRV_ERROR({revoke, unsupported_params})
             end;
         Err ->
             ?PRV_ERROR(Err)
@@ -164,9 +169,11 @@ print_key_details(#{<<"name">> := Name,
 
 -spec format_error(any()) -> iolist().
 format_error({list, {unauthorized, _Res}}) ->
-    "Not authorized";
+    "Error while attempting to perform list : Not authorized";
+format_error({list,{error,#{<<"message">> := Msg}}}) ->
+   "Error while attempting to perform list : " ++ Msg;
 format_error({revoke, {not_found, _Res}}) ->
-    "Key not found";
+    "Error while revoking key : key not found";
 format_error({generate, {validation_errors, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
     ErrorString = rebar3_hex_results:errors_to_string(Errors),
     io_lib:format("~ts~n\t~ts", [Message, ErrorString]);

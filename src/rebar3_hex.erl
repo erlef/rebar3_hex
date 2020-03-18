@@ -29,12 +29,6 @@ task_args(State) ->
     {[{task, Task} | Args], _} = rebar_state:command_parsed_args(State),
     {Task, Args}.
 
-sub_command(State) ->
-  case rebar_state:command_args(State) of
-      [] -> undefined;
-      [Cmd|_] -> Cmd
-  end.
-
 repo_opt() ->
   {repo, $r, "repo", string, "Repository to use for this command."}.
 
