@@ -70,15 +70,8 @@ handle_command({"revoke", _Params}, _State, _Repo) ->
 handle_command(_, _, _) ->
     ?PRV_ERROR(bad_command).
 
-perform(State, Repo, read, Fun, Params) ->
-    case rebar3_hex_config:hex_config_read(Repo) of
-      {ok, Config} ->
-          Fun(State, Config, Params);
-      Err ->
-          ?PRV_ERROR(Err)
-    end;
-perform(State, Repo, write, Fun, Params) ->
-    case rebar3_hex_config:hex_config_write(Repo) of
+perform(State, Repo, RepoContext, Fun, Params) ->
+    case rebar3_hex_config:hex_config(Repo, RepoContext) of
       {ok, Config} ->
           Fun(State, Config, Params);
       Err ->
