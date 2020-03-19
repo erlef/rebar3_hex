@@ -39,46 +39,51 @@ do(State) ->
     end.
 
 handle_command({"generate", Params}, State, Repo) ->
-    case rebar3_hex_config:hex_config_write(Repo) of
-      {ok, Config} ->
-          generate(State, Config, Params);
-      Err ->
-          ?PRV_ERROR(Err)
-    end;
+    Fun = fun (State1, Config, Params1) ->
+                  generate(State1, Config, Params1)
+          end,
+    perform(State, Repo, write, Fun, Params);
 handle_command({"fetch", []}, _State, _Repo) ->
     ?PRV_ERROR({fetch, missing_required_params});
 handle_command({"fetch", [{keyname, KeyName}]}, State, Repo) ->
-    case rebar3_hex_config:hex_config_read(Repo) of
-      {ok, Config} ->
-          fetch(State, Config, KeyName);
-      Err ->
-          ?PRV_ERROR(Err)
-    end;
+    Fun = fun (State1, Config, [KeyName1]) ->
+                  fetch(State1, Config, KeyName1)
+          end,
+    perform(State, Repo, read, Fun, [KeyName]);
 handle_command({"list", _Params}, State, Repo) ->
-    case rebar3_hex_config:hex_config_read(Repo) of
-      {ok, Config} ->
-          list(State, Config);
-      Err ->
-          ?PRV_ERROR(Err)
-    end;
+    Fun = fun (State1, Config, []) ->
+                  list(State1, Config)
+          end,
+    perform(State, Repo, read, Fun, []);
 handle_command({"revoke", [{keyname, KeyName}]}, State, Repo) ->
-    case rebar3_hex_config:hex_config_write(Repo) of
-      {ok, Config} ->
-          revoke(State, Config, KeyName);
-      Err ->
-          ?PRV_ERROR(Err)
-    end;
+    Fun = fun (State1, Config, [KeyName1]) ->
+                  revoke(State1, Config, KeyName1)
+          end,
+    perform(State, Repo, write, Fun, [KeyName]);
 handle_command({"revoke", [{all, true}]}, State, Repo) ->
-    case rebar3_hex_config:hex_config_write(Repo) of
-      {ok, Config} ->
-          revoke_all(State, Config);
-      Err ->
-          ?PRV_ERROR(Err)
-    end;
+    Fun = fun (State1, Config, []) ->
+                  revoke_all(State1, Config)
+          end,
+    perform(State, Repo, write, Fun, []);
 handle_command({"revoke", _Params}, _State, _Repo) ->
     ?PRV_ERROR({revoke, unsupported_params});
 handle_command(_, _, _) ->
     ?PRV_ERROR(bad_command).
+
+perform(State, Repo, read, Fun, Params) ->
+    case rebar3_hex_config:hex_config_read(Repo) of
+      {ok, Config} ->
+          Fun(State, Config, Params);
+      Err ->
+          ?PRV_ERROR(Err)
+    end;
+perform(State, Repo, write, Fun, Params) ->
+    case rebar3_hex_config:hex_config_write(Repo) of
+      {ok, Config} ->
+          Fun(State, Config, Params);
+      Err ->
+          ?PRV_ERROR(Err)
+    end.
 
 generate(State, HexConfig, Params) ->
     Perms = gather_permissions(proplists:get_all_values(permission, Params)),
