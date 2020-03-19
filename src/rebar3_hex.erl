@@ -1,6 +1,6 @@
 -module(rebar3_hex).
 
--export([init/1, get_required/2, task_args/1, repo_opt/0, help_opt/0, sub_command/1]).
+-export([init/1, get_required/2, task_args/1, repo_opt/0, help_opt/0]).
 
 init(State) ->
     lists:foldl(fun provider_init/2, {ok, State}, [rebar3_hex_user,
