@@ -45,6 +45,7 @@ all() ->
      , publish_org_error_test
      , publish_org_requires_repo_arg_test
      , publish_error_test
+     , publish_unauthorized_test
      , key_list_test
      , key_get_test
      , key_add_test
@@ -456,6 +457,17 @@ publish_error_test(Config) ->
     {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, [], Repo, State),
 
     ?assertMatch({error,{rebar3_hex_publish,no_write_key}}, rebar3_hex_publish:do(PubState)).
+
+publish_unauthorized_test(Config) ->
+    WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"unauthorized">>),
+    P = #{app => "valid",
+          mocks => [publish],
+          repo_config => #{write_key => WriteKey, repo => <<"hexpm:valid">>, name => <<"hexpm:valid">>}
+         },
+    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["-r", "hexpm:valid"], Repo, State),
+    Exp = {error, {rebar3_hex_publish, {publish_failed, <<"account not authorized for this action">>}}},
+    ?assertMatch(Exp, rebar3_hex_publish:do(PubState)).
 
 key_list_test(Config) ->
     P = #{app => "valid", mocks => []},
