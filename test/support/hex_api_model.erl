@@ -92,6 +92,8 @@ handle('POST', [<<"publish">>], Req) ->
                 }
             },
            respond_with(201, Req, Res);
+       unauthorized ->
+            respond_with(403, Req, #{<<"message">> => <<"account not authorized for this action">>});
        error ->
            respond_with(401, Req, #{})
    end;
@@ -125,7 +127,9 @@ handle('POST', [<<"repos">>, _Repo, <<"publish">>], Req) ->
                 }
             },
            respond_with(201, Req, Res);
-       error ->
+       unauthorized ->
+            respond_with(403, Req, #{<<"message">> => <<"account not authorized for this action">>});
+        error ->
            respond_with(401, Req, #{})
    end;
 
@@ -308,6 +312,8 @@ authenticate(Req) ->
                    organization => <<"hexpm">>,
                    source => key,
                    key => <<"key">>}};
+        <<"unauthorized">> ->
+            unauthorized;
         _ ->
             error
     end.
