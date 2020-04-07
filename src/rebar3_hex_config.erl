@@ -5,6 +5,7 @@
          , repos_key_name/0
          , org_key_name/2
          , parent_repos/1
+         , hex_config/2
          , hex_config_write/1
          , hex_config_read/1
          , repo/1
@@ -149,6 +150,12 @@ get_repo(BinaryName, Repos) ->
             Name
     catch
         {error,{rebar_hex_repos,{repo_not_found,BinaryName}}} -> undefined
+    end.
+
+hex_config(Repo, Op) ->
+    case Op of
+        read ->  hex_config_read(Repo);
+        write -> hex_config_write(Repo)
     end.
 
 hex_config_write(#{api_key := Key} = HexConfig) when is_binary(Key) ->

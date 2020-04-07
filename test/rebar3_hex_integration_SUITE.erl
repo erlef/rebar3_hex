@@ -479,21 +479,21 @@ key_list_test(Config) ->
 key_get_test(Config) ->
     P = #{app => "valid", mocks => []},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, GetState} = test_utils:mock_command(rebar3_hex_key, ["fetch", "key"], Repo, State),
+    {ok, GetState} = test_utils:mock_command(rebar3_hex_key, ["fetch", "-k", "key"], Repo, State),
 
     ?assertMatch({ok, GetState}, rebar3_hex_key:do(GetState)).
 
 key_add_test(Config) ->
     P = #{app => "valid", mocks => [key_mutation]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, AddState} = test_utils:mock_command(rebar3_hex_key, ["generate", "foo"], Repo, State),
+    {ok, AddState} = test_utils:mock_command(rebar3_hex_key, ["generate", "-k", "foo"], Repo, State),
 
     ?assertMatch({ok, AddState}, rebar3_hex_key:do(AddState)).
 
 key_delete_test(Config) ->
     P = #{app => "valid", mocks => [key_mutation]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, AddState} = test_utils:mock_command(rebar3_hex_key, ["revoke", "key"], Repo, State),
+    {ok, AddState} = test_utils:mock_command(rebar3_hex_key, ["revoke", "-k", "key"], Repo, State),
 
     ?assertMatch({ok, AddState}, rebar3_hex_key:do(AddState)).
 
