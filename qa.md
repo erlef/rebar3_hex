@@ -8,6 +8,17 @@
   * [reset_password](#reset-password)
   * [Deauth](#deauth)
 - [User tests (unhappy path)](#user-tests--unhappy-path-)
+  * [Register with short password](#register-with-short-password)
+  * [Register with invalid email](#register-with-invalid-email)
+  * [Register with short password](#register-with-short-password-1)
+  * [Register with invalid username, email, and password](#register-with-invalid-username--email--and-password)
+  * [Register with existing username](#register-with-existing-username)
+  * [Register with existing email address](#register-with-existing-email-address)
+  * [Login bad credentials](#login-bad-credentials)
+  * [Login with non-existent credentials](#login-with-non-existent-credentials)
+  * [Whoami with no authenticated user](#whoami-with-no-authenticated-user)
+  * [Reset Password](#reset-password)
+  * [Deauth](#deauth-1)
 - [Publish tests (happy path)](#publish-tests--happy-path-)
 - [Publish tests (unhappy path)](#publish-tests--unhappy-path-)
 - [Cut tests (happy path)](#cut-tests--happy-path-)
@@ -128,7 +139,6 @@
 
 1. Provided you have successfully completed register and login steps execute the deauth sub-command :
 
-
         $ rebar3 hex user deauth
         User `jerry` removed from the local machine. To authenticate again, run `rebar3 hex user auth` or create a new user with `rebar3 hex user register`
 
@@ -138,6 +148,125 @@
          #{<<"hexpm">> => #{}}.
 
 ## User tests (unhappy path)
+
+### Register with short password
+
+1. Provided you have no authenticated user attempt to register using a username that is less than 3 characters and observe a proper error message
+
+        $ rebar3 hex user register
+        Username: ([])> eh
+        Email: ([])> foo@bar.org
+        Account Password:
+        Account Password (confirm):
+        Registering...
+        ===> Registration of user failed: username should be at least 3 character(s)
+
+### Register with invalid email
+
+1. Provided you have no authenticated user attempt to register using an invalid email address and observer a proper error message
+
+        $ rebar3 hex user register
+        Username: ([])> foobars
+        Email: ([])> foobla
+        Account Password:
+        Account Password (confirm):
+        Registering...
+        ===> Registration of user failed: email has invalid format
+
+### Register with short password
+
+1. Provided you have no authenticated user attempt to register using a password that is less than 7 chars and observe a proper error message
+
+        $ rebar3 hex user register
+        Username: ([])> hmm
+        Email: ([])> foo@bar.io
+        Account Password:
+        Account Password (confirm):
+        Registering...
+        ===> Registration of user failed: password should be at least 7 character(s)
+
+### Register with invalid username, email, and password
+
+1. Provided you have no authenticated user attempt to register using a username that is less than 3 chars, an invalid email, and a password that is less than 7 chars and observe a proper error message
+
+        $ rebar3 hex user register
+        Username: ([])> sh
+        Email: ([])> eh?
+        Account Password:
+        Account Password (confirm):
+        Registering...
+        ===> Registration of user failed: email has invalid format, password should be at least 7 character(s), username should be at least 3 character(s)
+
+### Register with existing username
+
+1. Provided you have registered an account, attempt to register using the existing username
+
+        $ rebar3 hex user register
+        Username: ([])> jerry
+        Email: ([])> foo@meh.eh
+        Account Password:
+        Account Password (confirm):
+        Registering...
+        ===> Registration of user failed: username has already been taken
+
+### Register with existing email address
+
+1. Provided you have registered an account, attempt to register using the existing email address and observer a proper error message
+
+        $ rebar3 hex user register
+        Username: ([])> nottaken1
+        Email: ([])> jerry@foo.bar
+        Account Password:
+        Account Password (confirm):
+        Account Password (confirm): Registering...
+        ===> Registration of user failed: email already in use
+
+### Login bad credentials
+
+1. Provided you have registered an account on your local hexpm instance, try logging in with bad credentials and observe an error message returned.
+
+        $ rebar3 hex user auth
+        Username: ([])> jerry
+        Account Password:
+        You have authenticated on Hex using your account password. However, Hex requires you to have a local password that applies only to this machine for security purposes. Please enter it.
+        Local Password:
+        Local Password (confirm):
+        Generating all keys...
+        ===> Failure generating authentication tokens: invalid username and password combination
+
+### Login with non-existent credentials
+
+1. Attempt to login with a username that is non-existent on the hexpm instance
+
+        Username: ([])> eh
+        Account Password:
+        You have authenticated on Hex using your account password. However, Hex requires you to have a local password that applies only to this machine for security purposes. Please enter it.
+        Local Password:
+        Local Password (confirm):
+        Generating all keys...
+        ===> Failure generating authentication tokens: invalid username and password combination
+
+### Whoami with no authenticated user
+
+1. Provided you have no authenticated user for your local hexpm instance attempt to run whoami sub-command and observe a proper error message
+
+        $ rebar3 hex user whoami
+        ===> Not authenticated as any user currently for this repository
+
+### Reset Password
+
+1. Provided you have no authenticated user for your local hexpm instance attempt to reset password and observe a normal info message
+
+        $ rebar3 hex user reset_password
+        Username or Email: ([])> eh
+        Email with reset link sent
+
+### Deauth
+
+1. Provided you have no authenticated user attempt to deauth and observer an info message
+
+        $ rebar3 hex user deauth
+        Not authenticated as any user currently for this repository
 
 ## Publish tests (happy path)
 
