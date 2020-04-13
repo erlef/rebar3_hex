@@ -1,5 +1,6 @@
 # rebar3_hex QA
 
+- [Currently not covered](#currently-not-covered)
 - [Prep](#prep)
 - [User tests (happy path)](#user-tests--happy-path-)
   * [Register](#register)
@@ -20,7 +21,9 @@
   * [Reset Password](#reset-password)
   * [Deauth](#deauth-1)
 - [Publish tests (happy path)](#publish-tests--happy-path-)
+  * [Publish](#publish)
 - [Publish tests (unhappy path)](#publish-tests--unhappy-path-)
+  * [Hex offline](#hex-offline)
 - [Cut tests (happy path)](#cut-tests--happy-path-)
 - [Cut tests (unhappy path)](#cut-tests--unhappy-path-)
 - [Docs test (happy path)](#docs-test--happy-path-)
@@ -37,6 +40,10 @@
 - [Owner tests (unhappy path)](#owner-tests--unhappy-path-)
 - [Search - happy path](#search---happy-path)
 - [Search - unhappy path](#search---unhappy-path)
+
+## Currently not covered
+
+1. Setting up thet docs server and infrastructure is currently not covered by this process
 
 ## Prep
 
@@ -270,7 +277,46 @@
 
 ## Publish tests (happy path)
 
+### Publish
+
+1. Provided you have an account and have authed with your local hexpm instance, try to publish your test app.
+
+        $ rebar3 hex publish
+        Publishing truecoat 0.4.0 to hexpm
+        Description: It gets installed at the factory
+        Dependencies:
+
+        Included files:
+        LICENSE
+        README.md
+        rebar.config
+        rebar.lock
+        src/truecoat.app.src
+        src/truecoat.erl
+        Licenses: Apache 2.0
+        Links:
+
+        Build tools: rebar3
+        Be aware, you are publishing to the public Hexpm repository.
+        Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct
+        Proceed? ("Y")> y
+        Local Password:
+        ===> Published truecoat 0.4.0
+        ===> Published docs for truecoat 0.4.0
+
+1. Visit your local hexpm instance and very your test app has been published
+
 ## Publish tests (unhappy path)
+
+### Hex offline
+
+NB: The check below currently fails with a raw error message.
+
+1. Provided you have an account and are authenticated for your local hexpm instance, stop your local hexpm instance and attempt to publish. Observer a proper a error message.
+
+        {error,{failed_connect,[{to_address,{"localhost",4000}},
+                        {inet,[inet],econnrefused}]}}
+
 
 ## Cut tests (happy path)
 
