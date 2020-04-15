@@ -43,9 +43,10 @@
 
 ## Currently not covered
 
-1. Setting up thet docs server and infrastructure is currently not covered by this process
+1. Setting up the docs server and infrastructure is currently not covered by this process
 
 ## Prep
+
 
 1. Ensure you have a postgres instance running with a `postgres` as a superuser and password `postgres`. Alternatively edit config/dev.exs and adjust accordingly to your existing setup.
 
@@ -65,6 +66,22 @@
 1. Start hexpm:
 
         mix phx.server
+
+1. Fork a copy of [truecoat](https://github.com/starbelly/truecoat.git)
+
+- Forking is useful for testing the `cut` command in rebar3_hex
+- Alternatively you can create your own test app using [rebar3](https://github.com/erlang/rebar3/)
+- ***NOTE*** : if you do create your own test app be sure that at the very least you configure an entry for hexpm that points to your ***local*** instance of hexpm. Below is an example config:
+
+        {project_plugins, [rebar3_hex]}.
+        {hex, [{repos, [
+                #{name => <<"hexpm">>,
+                  api_url => <<"http://localhost:4000/api">>,
+                  repo_url => <<"http://localhost:4000">>,
+                  repo_verify => false,
+                  repo_verify_origin => false}
+               ]}]
+        }.
 
 1. Open another terminal and git a copy of truecoat or alternatively create your own rebar3 test app
 
@@ -277,7 +294,7 @@
 
 ## Publish tests (happy path)
 
-### Publish
+### Publish with prompt
 
 1. Provided you have an account and have authed with your local hexpm instance, try to publish your test app.
 
@@ -306,9 +323,38 @@
 
 1. Visit your local hexpm instance and very your test app has been published
 
+### Publish without prompt
+
+1. Provided you have an account and have authed with your local hexpm instance, try to publish your test app with --yes flag and observe you are only prompted for your local password
+
+        rebar3 hex publish --yes
+        ===> Verifying dependencies...
+        Publishing truecoat 0.4.0 to hexpm
+        Description: It gets installed at the factory
+        Dependencies:
+
+        Included files:
+        LICENSE
+        README.md
+        rebar.config
+        rebar.lock
+        src/truecoat.app.src
+        src/truecoat.erl
+        Licenses: Apache 2.0
+        Links:
+
+        Build tools: rebar3
+        Be aware, you are publishing to the public Hexpm repository.
+        Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct
+        Local Password:
+        ===> Published truecoat 0.4.0
+        ===> Published docs for truecoat 0.4.0
+
+1. Visit your local hexpm instance and very your test app has been published
+
 ## Publish tests (unhappy path)
 
-### Hex offline
+### Publish with prompt (hex offline)
 
 NB: The check below currently fails with a raw error message.
 
@@ -317,6 +363,33 @@ NB: The check below currently fails with a raw error message.
         {error,{failed_connect,[{to_address,{"localhost",4000}},
                         {inet,[inet],econnrefused}]}}
 
+
+### Publish without prompt (hex offline)
+
+NB: The check below currently fails with a raw error message.
+
+1. Provided you have an account and are authenticated for your local hexpm instance, stop your local hexpm instance and attempt to publish using the --yes flag.  Observe you are prompted only for your local password and you receive proper a error message.
+
+        Publishing truecoat 0.4.0 to hexpm
+        Description: It gets installed at the factory
+        Dependencies:
+
+        Included files:
+        LICENSE
+        README.md
+        rebar.config
+        rebar.lock
+        src/truecoat.app.src
+        src/truecoat.erl
+        Licenses: Apache 2.0
+        Links:
+
+        Build tools: rebar3
+        Be aware, you are publishing to the public Hexpm repository.
+        Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct
+        Local Password:
+        ===> {error,{failed_connect,[{to_address,{"localhost",4000}},
+                                {inet,[inet],econnrefused}]}}
 
 ## Cut tests (happy path)
 
