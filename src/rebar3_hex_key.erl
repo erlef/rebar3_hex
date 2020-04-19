@@ -145,17 +145,6 @@ print_results(Res) ->
     ok.
 
 
-print_key_details(#{<<"name">> := Name,
-                    <<"inserted_at">> := Created,
-                    <<"updated_at">> := Updated}) ->
-    Header = ["Name", "Created", "Updated", "LastUsed", "LastUsedBy"],
-    Row = [binary_to_list(Name),
-           binary_to_list(Created),
-           binary_to_list(Updated),
-           "never",
-           "n/a"],
-    ok = rebar3_hex_results:print_table([Header] ++ [Row]),
-    ok;
 
 print_key_details(#{<<"name">> := Name,
                     <<"inserted_at">> := Created,
@@ -168,6 +157,18 @@ print_key_details(#{<<"name">> := Name,
            binary_to_list(Updated),
            binary_to_list(Used),
            binary_to_list(Addr)],
+    ok = rebar3_hex_results:print_table([Header] ++ [Row]),
+    ok;
+
+print_key_details(#{<<"name">> := Name,
+                    <<"inserted_at">> := Created,
+                    <<"updated_at">> := Updated}) ->
+    Header = ["Name", "Created", "Updated", "LastUsed", "LastUsedBy"],
+    Row = [binary_to_list(Name),
+           binary_to_list(Created),
+           binary_to_list(Updated),
+           "never",
+           "n/a"],
     ok = rebar3_hex_results:print_table([Header] ++ [Row]),
     ok.
 
