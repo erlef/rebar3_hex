@@ -129,12 +129,16 @@ format_error(bad_command) ->
     "Invalid command and/or options provided";
 format_error({publish, {unauthorized, _Res}}) ->
     "Error publishing : Not authorized";
+format_error({publish, {error, #{<<"message">> := <<"Page not found">>}}}) ->
+    "Error publishing : No docs server/storage appears to be configured for this hex instance";
 format_error({publish, {not_found, _Res}}) ->
     "Error publishing : Package or Package Version not found";
 format_error({revert, {unauthorized, _Res}}) ->
     "Error reverting docs : Not authorized";
 format_error({revert, {not_found, _Res}}) ->
     "Error reverting docs : Package or Package Version not found";
+format_error({revert, {ok, nil}}) ->
+    "Unable revert docs : docs do not appear to exist";
 format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
 
