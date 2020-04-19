@@ -102,7 +102,6 @@ retire(PkgName, Version, Repo, RetireReason, RetireMessage, State) ->
                 {ok, {422, _Headers, #{<<"errors">> := Errors, <<"message">> := Message}}} ->
                     ?PRV_ERROR({validation_errors, Errors, Message});
                 {ok, {Code, Headers, Body}} ->
-                    erlang:display({Code, Headers, Body}),
                     ?PRV_ERROR({api_error, PkgName, Version, rebar3_hex_client:pretty_print_status(Code)});
                 {error, Reason} ->
                     ?PRV_ERROR({api_error, PkgName, Version, io_lib:format("~p", [Reason])})
