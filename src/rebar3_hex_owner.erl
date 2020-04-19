@@ -203,5 +203,4 @@ list(HexConfig, Package, State) ->
 
 verb_to_gerund(add) -> "adding";
 verb_to_gerund(remove) -> "removing";
-verb_to_gerund(list) -> "listing";
-verb_to_gerund(transfer) -> "transfer".
+verb_to_gerund(list) -> "listing".
