@@ -46,14 +46,7 @@ handle_command(State, Repo) ->
             case valid_level(Level) of
                 true ->
                     {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
-                    try add(Config, Package, UsernameOrEmail, Level, Transfer, State) of
-                        {ok, State} ->
-                            ok = rebar3_hex_io:say("Added ~ts to ~ts", [UsernameOrEmail, Package]),
-                            {ok, State}
-                    catch
-                        Err ->
-                            Err
-                    end;
+                    {ok, State} = add(Config, Package, UsernameOrEmail, Level, Transfer, State);
                 false ->
                     {error, "level must be one of full or maintainer"}
             end;
