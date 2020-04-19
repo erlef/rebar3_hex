@@ -46,9 +46,14 @@ handle_command(State, Repo) ->
             case valid_level(Level) of
                 true ->
                     {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
-                    {ok, State} = add(Config, Package, UsernameOrEmail, Level, Transfer, State),
-                    ok = rebar3_hex_io:say("Added ~ts to ~ts", [UsernameOrEmail, Package]),
-                    {ok, State};
+                    try add(Config, Package, UsernameOrEmail, Level, Transfer, State) of
+                        {ok, State} ->
+                            ok = rebar3_hex_io:say("Added ~ts to ~ts", [UsernameOrEmail, Package]),
+                            {ok, State}
+                    catch
+                        {error, _} = Err ->
+                            Err
+                    end;
                 false ->
                     {error, "level must be one of full or maintainer"}
             end;
@@ -90,6 +95,8 @@ command_args(State) ->
 
 get_args(["list", Package]) ->
     {"list", Package};
+get_args(["list", Package| _Rest]) ->
+    {"list", Package};
 get_args([Task, Package, Username]) when Task =:= "transfer" ->
     {Task, Package, Username};
 get_args([Task, Package, UserName | _Rest]) when Task =:= "add" orelse Task =:= "remove" ->
@@ -121,6 +128,9 @@ format_error(bad_command) ->
     S = "Invalid command ~n~n",
     support(),
     io_lib:format(S, []);
+format_error({validation_errors, Cmd, Package, User, Errors, Message}) ->
+    ErrorString = rebar3_hex_results:errors_to_string(Errors),
+    io_lib:format("Failed to ~ts ~ts as owner of package ~ts : ~ts~n\t~ts", [Cmd, User, Package, Message, ErrorString]);
 format_error({error, Package, Reason}) ->
     io_lib:format("Error listing owners of package ~ts: ~p", [Package, Reason]);
 format_error({status, Status, Package}) ->
@@ -142,10 +152,12 @@ add(HexConfig, Package, UsernameOrEmail, Level, Transfer, State) ->
     case hex_api_package_owner:add(HexConfig, Package, UsernameOrEmail, Level, Transfer) of
         {ok, {Code, _Headers, _Body}} when Code =:= 204 orelse Code =:= 201->
             {ok, State};
+		{ok, {422, _Headers, #{<<"errors">> := Errors, <<"message">> := Message}}} ->
+			throw(?PRV_ERROR({validation_errors, add, Package, UsernameOrEmail, Errors, Message}));
         {ok, {Status, _Headers, _Body}} ->
-            ?PRV_ERROR({Status, Package, UsernameOrEmail});
+            throw(?PRV_ERROR({status, Status, Package, UsernameOrEmail}));
         {error, Reason} ->
-            ?PRV_ERROR({error, Package, UsernameOrEmail, Reason})
+            throw(?PRV_ERROR({error, Package, UsernameOrEmail, Reason}))
     end.
 
 remove(HexConfig, Package, UsernameOrEmail, State) ->
