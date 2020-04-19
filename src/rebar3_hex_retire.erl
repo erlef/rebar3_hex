@@ -57,6 +57,21 @@ handle_command(State, Repo) ->
            rebar_utils:to_binary(Message),
            State).
 
+errors_to_string(Value) when is_binary(Value) ->
+    Value;
+errors_to_string(Map) when is_map(Map) ->
+    errors_to_string(maps:to_list(Map));
+errors_to_string({<<"reason">> = Key, <<"is invalid">> = Value}) ->
+    ValidVals =  "must be one of other, invalid, security, deprecated or renamed",
+	io_lib:format("~s: ~s - ~s", [Key, errors_to_string(Value),  ValidVals]);
+errors_to_string({Key, Value}) ->
+    io_lib:format("~s: ~s", [Key, errors_to_string(Value)]);
+errors_to_string(Errors) when is_list(Errors) ->
+    lists:flatten([io_lib:format("~s", [errors_to_string(Values)]) || Values <- Errors]).
+
+format_error({validation_errors, Errors, Message}) ->
+    ErrorString = errors_to_string(Errors),
+    io_lib:format("Failed to retire package: ~ts~n\t~ts", [Message, ErrorString]);
 format_error({api_error, PkgName, Version, Reason}) ->
     io_lib:format("Unable to delete package ~ts ~ts: ~ts", [PkgName, Version, Reason]);
 format_error({required, pkg}) ->
@@ -70,20 +85,22 @@ format_error({required, message}) ->
 format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
 
-retire(PkgName, Version, Repo, Reason, Message, State) ->
+retire(PkgName, Version, Repo, RetireReason, RetireMessage, State) ->
     case rebar3_hex_config:hex_config_write(Repo) of
         {error, no_write_key} ->
             ?PRV_ERROR({no_write_key, maps:get(name, Repo)});
 
         {ok, HexConfig} ->
 
-            Body = #{<<"reason">> => Reason,
-                     <<"message">> => Message},
+            Msg = #{<<"reason">> => RetireReason,
+                     <<"message">> => RetireMessage},
 
-            case hex_api_release:retire(HexConfig, PkgName, Version, Body) of
-                {ok, {Code, _Headers, _Body}} when Code =:= 204 ->
+            case hex_api_release:retire(HexConfig, PkgName, Version, Msg) of
+                {ok, {204, _Headers, _Body}} ->
                     rebar_api:info("Successfully retired package ~ts ~ts", [PkgName, Version]),
                     {ok, State};
+                {ok, {422, _Headers, #{<<"errors">> := Errors, <<"message">> := Message}}} ->
+                    ?PRV_ERROR({validation_errors, Errors, Message});
                 {ok, {Code, _Headers, _Body}} ->
                     ?PRV_ERROR({api_error, PkgName, Version, rebar3_hex_client:pretty_print_status(Code)});
                 {error, Reason} ->
