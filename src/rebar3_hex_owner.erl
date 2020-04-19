@@ -66,7 +66,7 @@ handle_command(State, Repo) ->
             {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
             {ok, State} = list(Config, Package, State),
             {ok, State};
-        _Command ->
+        Command ->
             ?PRV_ERROR(bad_command)
     end.
 
@@ -90,6 +90,8 @@ command_args(State) ->
 
 get_args(["list", Package]) ->
     {"list", Package};
+get_args([Task, Package, Username]) when Task =:= "transfer" ->
+    {Task, Package, Username};
 get_args([Task, Package, UserName | _Rest]) when Task =:= "add" orelse Task =:= "remove" ->
     {Task, Package, UserName};
 get_args([Task, Package, UserName, "-r", _]) ->
