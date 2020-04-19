@@ -51,7 +51,7 @@ handle_command(State, Repo) ->
                             ok = rebar3_hex_io:say("Added ~ts to ~ts", [UsernameOrEmail, Package]),
                             {ok, State}
                     catch
-                        {error, _} = Err ->
+                        Err ->
                             Err
                     end;
                 false ->
@@ -154,11 +154,11 @@ add(HexConfig, Package, UsernameOrEmail, Level, Transfer, State) ->
         {ok, {Code, _Headers, _Body}} when Code =:= 204 orelse Code =:= 201->
             {ok, State};
 		{ok, {422, _Headers, #{<<"errors">> := Errors, <<"message">> := Message}}} ->
-			throw(?PRV_ERROR({validation_errors, add, Package, UsernameOrEmail, Errors, Message}));
+            erlang:error(?PRV_ERROR({validation_errors, add, Package, UsernameOrEmail, Errors, Message}));
         {ok, {Status, _Headers, _Body}} ->
-            throw(?PRV_ERROR({status, Status, Package, UsernameOrEmail}));
+            erlang:error(?PRV_ERROR({status, Status, Package, UsernameOrEmail}));
         {error, Reason} ->
-            throw(?PRV_ERROR({error, Package, UsernameOrEmail, Reason}))
+            erlang:error(?PRV_ERROR({error, Package, UsernameOrEmail, Reason}))
     end.
 
 remove(HexConfig, Package, UsernameOrEmail, State) ->
