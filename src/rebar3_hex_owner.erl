@@ -66,7 +66,7 @@ handle_command(State, Repo) ->
             {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
             {ok, State} = list(Config, Package, State),
             {ok, State};
-        Command ->
+        _Command ->
             ?PRV_ERROR(bad_command)
     end.
 
