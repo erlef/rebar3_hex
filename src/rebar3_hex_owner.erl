@@ -59,14 +59,25 @@ handle_command(State, Repo) ->
             end;
         {"remove", Package, UsernameOrEmail} ->
             {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
-            {ok, State} = remove(Config, Package, UsernameOrEmail, State),
-            ok = rebar3_hex_io:say("Removed ~ts to ~ts", [UsernameOrEmail, Package]),
-            {ok, State};
+
+            try remove(Config, Package, UsernameOrEmail, State) of
+                {ok, State} ->
+                ok = rebar3_hex_io:say("Removed ~ts to ~ts", [UsernameOrEmail, Package]),
+                {ok, State}
+            catch
+                {error, _} = Err ->
+                    Err
+            end;
         {"transfer", Package, UsernameOrEmail} ->
             {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
-            {ok, State} = add(Config, Package, UsernameOrEmail, <<"full">>, true, State),
-            ok = rebar3_hex_io:say("Transfered ~ts to ~ts", [UsernameOrEmail, Package]),
-            {ok, State};
+            try add(Config, Package, UsernameOrEmail, <<"full">>, true, State) of
+                {ok, State} ->
+                    ok = rebar3_hex_io:say("Transfered ~ts to ~ts", [UsernameOrEmail, Package]),
+                    {ok, State}
+            catch
+                {error, _} = Err ->
+                    Err
+            end;
         {"list", Package} ->
             {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
             {ok, State} = list(Config, Package, State),
@@ -99,6 +110,8 @@ get_args(["list", Package| _Rest]) ->
     {"list", Package};
 get_args([Task, Package, Username]) when Task =:= "transfer" ->
     {Task, Package, Username};
+get_args([Task, _Package, _Username| _Rest]) when Task =:= "transfer" ->
+    throw(?PRV_ERROR({error, internal, "transfer does not support the --level switch"}));
 get_args([Task, Package, UserName | _Rest]) when Task =:= "add" orelse Task =:= "remove" ->
     {Task, Package, UserName};
 get_args([Task, Package, UserName, "-r", _]) ->
@@ -132,6 +145,8 @@ format_error({validation_errors, Cmd, Package, User, Errors, Message}) ->
     ErrorString = rebar3_hex_results:errors_to_string(Errors),
     Action = verb_to_gerund(Cmd),
     io_lib:format("Error ~ts ~ts as owner of package ~ts : ~ts~n\t~ts", [Action, User, Package, Message, ErrorString]);
+format_error({error, internal, Reason}) ->
+    Reason;
 format_error({error, Package, Reason}) ->
     io_lib:format("Error listing owners of package ~ts: ~p", [Package, Reason]);
 format_error({status, Status, Package}) ->
@@ -165,10 +180,12 @@ remove(HexConfig, Package, UsernameOrEmail, State) ->
     case hex_api_package_owner:delete(HexConfig, Package, UsernameOrEmail) of
         {ok, {204, _Headers, _Body}} ->
             {ok, State};
+        {ok, {422, _Headers, #{<<"errors">> := Errors, <<"message">> := Message}}} ->
+			throw(?PRV_ERROR({validation_errors, remove, Package, UsernameOrEmail, Errors, Message}));
         {ok, {Status, _Headers, _Body}} ->
-            ?PRV_ERROR({status, Status, Package, UsernameOrEmail});
+            throw(?PRV_ERROR({status, Status, Package, UsernameOrEmail}));
         {error, Reason} ->
-            ?PRV_ERROR({error, Package, UsernameOrEmail, Reason})
+            throw(?PRV_ERROR({error, Package, UsernameOrEmail, Reason}))
     end.
 
 list(HexConfig, Package, State) ->
@@ -179,9 +196,9 @@ list(HexConfig, Package, State) ->
             rebar3_hex_io:say("~s", [OwnersString]),
             {ok, State};
         {ok, {Status, _Headers, _Body}} ->
-            ?PRV_ERROR({status, Status, Package});
+            throw(?PRV_ERROR({status, Status, Package}));
         {error, Reason} ->
-            ?PRV_ERROR({error, Package, Reason})
+            throw(?PRV_ERROR({error, Package, Reason}))
     end.
 
 verb_to_gerund(add) -> "adding";
