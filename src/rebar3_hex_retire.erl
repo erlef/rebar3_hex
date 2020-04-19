@@ -71,7 +71,7 @@ errors_to_string(Errors) when is_list(Errors) ->
 
 format_error({validation_errors, Errors, Message}) ->
     ErrorString = errors_to_string(Errors),
-    io_lib:format("Failed to reture package: ~ts~n\t~ts", [Message, ErrorString]);
+    io_lib:format("Failed to retire package: ~ts~n\t~ts", [Message, ErrorString]);
 format_error({api_error, PkgName, Version, Reason}) ->
     io_lib:format("Unable to delete package ~ts ~ts: ~ts", [PkgName, Version, Reason]);
 format_error({required, pkg}) ->
