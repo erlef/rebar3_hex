@@ -25,7 +25,7 @@ init(State) ->
                                 {short_desc, "Add, remove or list configured repositories and their auth keys"},
                                 {desc, ""},
                                 {opts, [{subcmd, undefined, undefined, string, "Repo task to run"},
-                                        {repo, undefined, undefined, string, "Name of a repository"},
+                                        rebar3_hex:repo_opt(),
                                         {key, $k, "key", string, "Authentication key for repository"}]}
                                 ]),
     State1 = rebar_state:add_provider(State, Provider),
