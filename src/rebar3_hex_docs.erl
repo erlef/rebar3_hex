@@ -84,7 +84,7 @@ do_publish(App, State, Repo) ->
     OriginalVsn = rebar_app_info:original_vsn(App),
     Vsn = rebar_utils:vcs_vsn(App, OriginalVsn, State),
 
-    Tarball = PkgName++"-"++Vsn++"-docs.tar.gz",
+    Tarball = PkgName ++ "-" ++ vsn_string(Vsn) ++ "-docs.tar.gz",
     ok = erl_tar:create(Tarball, file_list(Files), [compressed]),
     {ok, Tar} = file:read_file(Tarball),
     file:delete(Tarball),
@@ -98,6 +98,11 @@ do_publish(App, State, Repo) ->
         Reason ->
             ?PRV_ERROR({publish, Reason})
     end.
+
+vsn_string(<<Vsn/binary>>) ->
+    binary_to_list(Vsn);
+vsn_string(Vsn) ->
+    Vsn.
 
 do_revert(App, State, Repo, Vsn) ->
     {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
