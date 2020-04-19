@@ -130,7 +130,8 @@ format_error(bad_command) ->
     io_lib:format(S, []);
 format_error({validation_errors, Cmd, Package, User, Errors, Message}) ->
     ErrorString = rebar3_hex_results:errors_to_string(Errors),
-    io_lib:format("Failed to ~ts ~ts as owner of package ~ts : ~ts~n\t~ts", [Cmd, User, Package, Message, ErrorString]);
+    Action = verb_to_gerund(Cmd),
+    io_lib:format("Error ~ts ~ts as owner of package ~ts : ~ts~n\t~ts", [Action, User, Package, Message, ErrorString]);
 format_error({error, Package, Reason}) ->
     io_lib:format("Error listing owners of package ~ts: ~p", [Package, Reason]);
 format_error({status, Status, Package}) ->
@@ -182,3 +183,8 @@ list(HexConfig, Package, State) ->
         {error, Reason} ->
             ?PRV_ERROR({error, Package, Reason})
     end.
+
+verb_to_gerund(add) -> "adding";
+verb_to_gerund(remove) -> "removing";
+verb_to_gerund(list) -> "listing";
+verb_to_gerund(transfer) -> "transfer".
