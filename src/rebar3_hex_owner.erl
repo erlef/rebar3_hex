@@ -90,6 +90,8 @@ command_args(State) ->
 
 get_args(["list", Package]) ->
     {"list", Package};
+get_args(["list", Package| _Rest]) ->
+    {"list", Package};
 get_args([Task, Package, Username]) when Task =:= "transfer" ->
     {Task, Package, Username};
 get_args([Task, Package, UserName | _Rest]) when Task =:= "add" orelse Task =:= "remove" ->
@@ -121,6 +123,10 @@ format_error(bad_command) ->
     S = "Invalid command ~n~n",
     support(),
     io_lib:format(S, []);
+format_error({validation_errors, Cmd, Package, User, Errors, Message}) ->
+    ErrorString = rebar3_hex_results:errors_to_string(Errors),
+    Action = verb_to_gerund(Cmd),
+    io_lib:format("Error ~ts ~ts as owner of package ~ts : ~ts~n\t~ts", [Action, User, Package, Message, ErrorString]);
 format_error({error, Package, Reason}) ->
     io_lib:format("Error listing owners of package ~ts: ~p", [Package, Reason]);
 format_error({status, Status, Package}) ->
@@ -142,10 +148,12 @@ add(HexConfig, Package, UsernameOrEmail, Level, Transfer, State) ->
     case hex_api_package_owner:add(HexConfig, Package, UsernameOrEmail, Level, Transfer) of
         {ok, {Code, _Headers, _Body}} when Code =:= 204 orelse Code =:= 201->
             {ok, State};
+		{ok, {422, _Headers, #{<<"errors">> := Errors, <<"message">> := Message}}} ->
+            erlang:error(?PRV_ERROR({validation_errors, add, Package, UsernameOrEmail, Errors, Message}));
         {ok, {Status, _Headers, _Body}} ->
-            ?PRV_ERROR({Status, Package, UsernameOrEmail});
+            erlang:error(?PRV_ERROR({status, Status, Package, UsernameOrEmail}));
         {error, Reason} ->
-            ?PRV_ERROR({error, Package, UsernameOrEmail, Reason})
+            erlang:error(?PRV_ERROR({error, Package, UsernameOrEmail, Reason}))
     end.
 
 remove(HexConfig, Package, UsernameOrEmail, State) ->
@@ -170,3 +178,7 @@ list(HexConfig, Package, State) ->
         {error, Reason} ->
             ?PRV_ERROR({error, Package, Reason})
     end.
+
+verb_to_gerund(add) -> "adding";
+verb_to_gerund(remove) -> "removing";
+verb_to_gerund(list) -> "listing".
