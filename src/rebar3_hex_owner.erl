@@ -90,6 +90,8 @@ command_args(State) ->
 
 get_args(["list", Package]) ->
     {"list", Package};
+get_args([Task, Package, Username]) when Task =:= "transfer" ->
+    {Task, Package, Username};
 get_args([Task, Package, UserName | _Rest]) when Task =:= "add" orelse Task =:= "remove" ->
     {Task, Package, UserName};
 get_args([Task, Package, UserName, "-r", _]) ->
