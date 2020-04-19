@@ -81,7 +81,8 @@ do_publish(App, State, Repo) ->
     AppDetails = rebar_app_info:app_details(App),
     Name = binary_to_list(rebar_app_info:name(App)),
     PkgName = rebar_utils:to_list(proplists:get_value(pkg_name, AppDetails, Name)),
-    Vsn = rebar_app_info:original_vsn(App),
+    OriginalVsn = rebar_app_info:original_vsn(App),
+    Vsn = rebar_utils:vcs_vsn(App, OriginalVsn, State),
 
     Tarball = PkgName++"-"++Vsn++"-docs.tar.gz",
     ok = erl_tar:create(Tarball, file_list(Files), [compressed]),
