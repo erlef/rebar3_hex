@@ -137,10 +137,7 @@ publish(App, HexConfig, State) ->
 
 
     Deps = rebar_state:get(State, {locks, default}, []),
-    TopLevel = [{N, [{<<"app">>, A},
-                     {<<"optional">>, false},
-                     {<<"requirement">>, V}]} || {A,{pkg,N,V,_},0} <- Deps],
-    Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
+    {TopLevel, Excluded} = gather_deps(Deps),
 
     case is_valid_app({App, Name, ResolvedVersion, AppDetails}) of
         ok ->
@@ -204,6 +201,19 @@ publish(App, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
 
 publish(_AppDir, _Name, _Version, _Deps, Excluded, _AppDetails, _, _) ->
     ?PRV_ERROR({non_hex_deps, Excluded}).
+
+gather_deps(Deps) ->
+    Top = lists:foldl(fun(D,Acc) -> lock_to_dep(D, Acc) end, [], Deps),
+    Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
+    {Top, Excluded}.
+
+
+lock_to_dep({A,{pkg,N,V,_, _},0}, Acc) ->
+         [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"requirement">>, V}]} | Acc];
+lock_to_dep({A, {pkg,N,V,_},0}, Acc) ->
+        [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"requirement">>, V}]} | Acc];
+lock_to_dep(_, Acc) ->
+    Acc.
 
 publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, State) ->
     {ok, HexConfig1} = rebar3_hex_config:hex_config_write(HexConfig),
@@ -376,6 +386,7 @@ format_build_tools(BuildTools) ->
     string:join([io_lib:format("~s", [Tool]) || Tool <- BuildTools], ", ").
 
 update_versions(ConfigDeps, Deps) ->
+    erlang:display({ConfigDeps, Deps}),
     [begin
          case lists:keyfind(binary_to_atom(N, utf8), 1, ConfigDeps) of
              {_, V} when is_list(V) ->
