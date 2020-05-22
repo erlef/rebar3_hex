@@ -207,7 +207,6 @@ gather_deps(Deps) ->
     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
     {Top, Excluded}.
 
-
 lock_to_dep({A,{pkg,N,V,_, _},0}, Acc) ->
          [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"requirement">>, V}]} | Acc];
 lock_to_dep({A, {pkg,N,V,_},0}, Acc) ->
