@@ -385,7 +385,6 @@ format_build_tools(BuildTools) ->
     string:join([io_lib:format("~s", [Tool]) || Tool <- BuildTools], ", ").
 
 update_versions(ConfigDeps, Deps) ->
-    erlang:display({ConfigDeps, Deps}),
     [begin
          case lists:keyfind(binary_to_atom(N, utf8), 1, ConfigDeps) of
              {_, V} when is_list(V) ->
