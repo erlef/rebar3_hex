@@ -105,10 +105,12 @@ format_error_test(_Config) ->
                <<"myapp.app.src : deprecated field contributors found">>},
               {no_write_key,
                <<"No write key found for user. Be sure to authenticate first with: rebar3 hex user auth">>},
-              {{validation_errors, [<<"Bad things">>, {<<"More bad">>, <<"things">>}], <<"eh?">>},
+              {
+               {publish, {error, #{<<"message">> => <<"eh?">>, <<"errors">> => [<<"Bad things">>, {<<"More bad">>,
+                                                                                         <<"things">>}]}}},
                <<"Failed to publish package: eh?\n\tBad thingsMore bad: things">>
               },
-              {{publish_failed, "non sequitur"}, <<"Failed to publish package: non sequitur">>},
+              {{publish, {error, #{<<"message">> => "non sequitur"}}}, <<"Failed to publish package: non sequitur">>},
               {{non_hex_deps, ["dep1", "dep2", "dep3"]},
                <<"Can not publish package because the following deps are not available in hex: dep1, dep2, dep3">>},
               {undefined_server_error, <<"Unknown server error">>},
