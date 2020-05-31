@@ -67,7 +67,7 @@ handle_command(State, Repo) ->
             {ok, State} = list(Config, Package, State),
             {ok, State};
         _Command ->
-            ?PRV_ERROR(bad_command)
+            ?PRV_ERROR({bad_command, rebar_state:command_args(State)})
     end.
 
 command_args(State) ->
@@ -119,10 +119,10 @@ support() ->
     "  <transfer> - boolean value indicating whether to transfer a specified package or not~n~n".
 
 -spec format_error(any()) -> iolist().
-format_error(bad_command) ->
-    S = "Invalid command ~n~n",
-    support(),
-    io_lib:format(S, []);
+format_error({bad_command, Cmd}) ->
+    CmdStr = string:join(Cmd, " "),
+    S = "Invalid command : rebar3 hex owner ~s ~n~n~s~n~n" ++ support(),
+    io_lib:format(S, [CmdStr, rebar3_hex:white_bold(["rebar3 hex owner usage"])]);
 format_error({validation_errors, Cmd, Package, User, Errors, Message}) ->
     ErrorString = rebar3_hex_results:errors_to_string(Errors),
     Action = verb_to_gerund(Cmd),

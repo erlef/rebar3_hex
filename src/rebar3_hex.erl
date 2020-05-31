@@ -1,6 +1,6 @@
 -module(rebar3_hex).
 
--export([init/1, get_required/2, task_args/1, repo_opt/0, help_opt/0]).
+-export([init/1, get_required/2, white_bold/1, task_args/1, repo_opt/0, help_opt/0]).
 
 init(State) ->
     lists:foldl(fun provider_init/2, {ok, State}, [rebar3_hex_user,
@@ -13,6 +13,10 @@ init(State) ->
                                                    rebar3_hex_revert,
                                                    rebar3_hex_retire,
                                                    rebar3_hex_publish]).
+
+
+white_bold(Text) ->
+    ["\e[", "37", ";", "1", "m", Text, "\e[0m"].
 
 provider_init(Module, {ok, State}) ->
     Module:init(State).
