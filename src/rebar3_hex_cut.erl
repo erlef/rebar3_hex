@@ -101,13 +101,12 @@ do_(Type, App, HexConfig, State) ->
             case rebar3_hex_publish:validate_app_details(AppDetails) of
                 ok ->
                     Name = rebar_app_info:name(App),
-                    AppDir = rebar_app_info:dir(App),
                     Deps = rebar_state:get(State, {locks, default}, []),
                     TopLevel = [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"requirement">>, V}]}
                                 || {A,{pkg,N,V,_},0} <- Deps],
                     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
 
-                    case rebar3_hex_publish:publish(AppDir, Name, NewVersion, TopLevel,
+                    case rebar3_hex_publish:publish(App, Name, NewVersion, TopLevel,
                                                     Excluded, AppDetails, HexConfig, State) of
                         {ok, _State} ->
                             case rebar3_hex_io:ask("Push new tag to origin?", boolean, "Y") of
