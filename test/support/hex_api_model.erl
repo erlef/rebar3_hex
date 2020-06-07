@@ -54,6 +54,13 @@ handle('PUT', [<<"packages">>, _Name, <<"owners">>, _UserOrOrg], Req) ->
            respond_with(401, Req, #{})
    end;
 
+handle('DELETE', [<<"packages">>, _Name, <<"releases">>, _Version], Req) ->
+    case authenticate(Req) of
+       {ok, #{username := _Username, email := _Email}} ->
+           {204, [{<<"Foo">>, <<"Bar">>}], terms_to_body(Req, <<"">>)};
+       error ->
+           respond_with(401, Req, #{})
+   end;
 
 handle('DELETE', [<<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], Req) ->
     case authenticate(Req) of

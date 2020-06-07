@@ -41,6 +41,8 @@ all() ->
      , whoami_unhandled_test
      , deauth_test
      , publish_test
+     , publish_replace_test
+     , publish_revert_test
      , publish_org_test
      , publish_org_error_test
      , publish_org_requires_repo_arg_test
@@ -422,6 +424,25 @@ publish_test(Config) ->
 
     ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
 
+%% TODO: This test currently is merely to see if we can handle the --replace switch
+%% In order for the test to be more meaningful we need to update the hex_api_model to keep
+%% track of packages that have been published and when, further we need to provide
+%% a package add function on hex_api_model which takes a package name, published at timestamp, etc. 
+%% so we can test the sad paths (i.e., you can not replace a package after N seconds)
+publish_replace_test(Config) ->
+    P = #{app => "valid", mocks => [publish]},
+    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["--replace"], Repo, State),
+
+    ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
+
+publish_revert_test(Config) ->
+    P = #{app => "valid", mocks => [publish_revert], version => "1.0.0"},
+    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["--revert", "1.0.0", "--package", "valid"], Repo, State),
+
+    ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
+
 % TODO: We need to test publishing when a repo is only in rebar.config
 % which is valid and works. Setting up the state is not clear though.
 % -- Bryan
@@ -466,7 +487,12 @@ publish_unauthorized_test(Config) ->
          },
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["-r", "hexpm:valid"], Repo, State),
-    Exp = {error, {rebar3_hex_publish, {publish_failed, <<"account not authorized for this action">>}}},
+    Exp = {error,
+           {rebar3_hex_publish,
+            {publish,
+             {error,
+              #{<<"message">> =>
+                <<"account not authorized for this action">>}}}}},
     ?assertMatch(Exp, rebar3_hex_publish:do(PubState)).
 
 key_list_test(Config) ->
@@ -716,6 +742,28 @@ setup_mocks_for(publish, #{username := Username,
               {CocStr, []}],
 		expects_output(OneOfs);
 
+setup_mocks_for(publish_revert, #{username := Username,
+                           password := Password,
+                           password_confirmation := PasswordConfirm,
+                           version := Vsn,
+                           repo := Repo}) ->
+
+    Fun = fun(Cfg, State) ->
+                  Rname = maps:get(name, Repo),
+                  Skey = maps:get(repo_key, Repo),
+                  [Rname] = maps:keys(Cfg),
+                  #{repo_key := Skey, username := Username} = maps:get(Rname, Cfg),
+                  {ok, State} end,
+    meck:expect(rebar3_hex_config, update_auth_config, Fun),
+
+    expect_local_password_prompt(Password, PasswordConfirm),
+    Exps = [
+            {[65,108,115,111,32,100,101,108,101,116,101,32,116,97,103,32,118,Vsn,
+              63],
+             boolean,"N", {returns, false}}
+           ],
+    expects_prompts(Exps);
+
 setup_mocks_for(register, #{username := Username,
                             email := Email,
                             password := Password,
@@ -751,7 +799,7 @@ expects_registration_confirmation_output(RepoName, Email) ->
 %% if an any atom is supplied for an argument list in the list of expected prompts
 %% a pattern match is performed to test equality.
 expects_output([{_T, _A} | _R] = OneOfs) ->
-	meck:expect(rebar3_hex_io, say, fun(Templ, Args) ->
+    meck:expect(rebar3_hex_io, say, fun(Templ, Args) ->
         Pred = fun(E) ->
             case E of
                 {T, any} ->
@@ -823,6 +871,8 @@ expects_prompts(OneOfs) ->
                         _ ->
                             false
                     end;
+                {P, T, V} ->
+                    {P, T, V} == {Prompt, Type, Str};
                 {P, T, V, _} ->
                     {P, T, V} == {Prompt, Type, Str}
             end

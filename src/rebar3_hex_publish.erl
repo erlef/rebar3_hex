@@ -30,8 +30,10 @@
 %% Public API
 %% ===================================================================
 
+
 -spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
 init(State) ->
+
     Provider = providers:create([{name, ?PROVIDER},
                                  {module, ?MODULE},
                                  {namespace, hex},
@@ -39,12 +41,12 @@ init(State) ->
                                  {deps, ?DEPS},
                                  {example, "rebar3 hex publish"},
                                  {short_desc, "Publish a new version of your package and update the package"},
-                                 {desc, ""},
+                                 {desc, support()},
                                  {opts, [rebar3_hex:repo_opt(),
-                                         {"yes", $y, "yes", {boolean, false}, "Publishes the package without any confirmation
-                                         prompts"},
-                                         {"--revert", undefined, "--revert", string, "Revert given version."}]}]),
-
+                                         {yes, $y, "yes", {boolean, false}, help(yes)},
+                                         {replace, undefined, "replace", {boolean, false}, help(replace)},
+                                         {package, $p, "package", string, help(package)},
+                                         {revert, undefined, "revert", string, help(revert)}]}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
@@ -52,12 +54,20 @@ init(State) ->
 do(State) ->
     case rebar3_hex_config:repo(State) of
         {ok, Repo} ->
-            handle_command(State, Repo);
+            OptMap = rebar3_hex:gather_opts([revert, package], State),
+            handle_command(OptMap, State, Repo);
         {error, Reason} ->
             ?PRV_ERROR(Reason)
         end.
 
-handle_command(State, Repo) ->
+handle_command(#{revert := Vsn, package := Pkg}, State, Repo) -> 
+    ok = rebar3_hex_revert:revert(binarify(Pkg), binarify(Vsn), Repo, State),
+    {ok, State};
+
+handle_command(#{revert := _Vsn}, _State, _Repo) -> 
+    {error, "--revert requires a package name"};
+
+handle_command(_Args, State, Repo) ->
         case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
             undefined ->
                 ?PRV_ERROR(no_write_key);
@@ -100,10 +110,11 @@ format_error({has_contributors, AppName}) ->
 format_error(no_write_key) ->
     "No write key found for user. Be sure to authenticate first with:"
     ++ " rebar3 hex user auth";
-format_error({validation_errors, Errors, Message}) ->
+
+format_error({publish, {error, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
     ErrorString = errors_to_string(Errors),
     io_lib:format("Failed to publish package: ~ts~n\t~ts", [Message, ErrorString]);
-format_error({publish_failed, Message}) ->
+format_error({publish, {error, #{<<"message">> := Message}}}) ->
     io_lib:format("Failed to publish package: ~ts", [Message]);
 format_error({non_hex_deps, Excluded}) ->
     Err = "Can not publish package because the following deps are not available"
@@ -147,7 +158,7 @@ publish(App, HexConfig, State) ->
             ?PRV_ERROR(Errors)
     end.
 
-publish(App, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
+publish(App, Name, Version,  Deps, [], AppDetails, HexConfig, State) ->
     AppDir = rebar_app_info:dir(App),
     Config = rebar_config:consult(AppDir),
     ConfigDeps = proplists:get_value(deps, Config, []),
@@ -161,7 +172,7 @@ publish(App, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
     Links = proplists:get_value(links, AppDetails, []),
     BuildTools = proplists:get_value(build_tools, AppDetails, [<<"rebar3">>]),
 
-    %% We check the app file for the 'pkg' key wich allows us to select
+    %% We check the app file for the 'pkg' key which allows us to select
     %% a package name other then the app name, if it is not set we default
     %% back to the app name.
     PkgName = rebar_utils:to_binary(proplists:get_value(pkg_name, AppDetails, Name)),
@@ -202,6 +213,12 @@ publish(App, Name, Version, Deps, [], AppDetails, HexConfig, State) ->
 publish(_AppDir, _Name, _Version, _Deps, Excluded, _AppDetails, _, _) ->
     ?PRV_ERROR({non_hex_deps, Excluded}).
 
+hex_opts(Opts) ->
+    lists:filter(fun({K, _}) -> is_hex_opt(K) end, Opts).
+
+is_hex_opt(replace) -> true;
+is_hex_opt(_) -> false.
+
 gather_deps(Deps) ->
     Top = lists:foldl(fun(D,Acc) -> lock_to_dep(D, Acc) end, [], Deps),
     Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
@@ -215,8 +232,10 @@ lock_to_dep(_, Acc) ->
     Acc.
 
 publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, State) ->
+    {Args, _} = rebar_state:command_parsed_args(State),
+    HexOpts = hex_opts(Args), 
     {ok, HexConfig1} = rebar3_hex_config:hex_config_write(HexConfig),
-    case create_and_publish(Metadata, PackageFiles, HexConfig1) of
+    case create_and_publish(HexOpts, Metadata, PackageFiles, HexConfig1) of
         ok ->
             rebar_api:info("Published ~s ~s", [Name, Version]),
             rebar3_hex_docs:publish(App, State, HexConfig1),
@@ -236,22 +255,13 @@ maybe_say_coc(#{name := <<"hexpm">>}) ->
 maybe_say_coc(_) ->
     ok.
 
-create_and_publish(Metadata, PackageFiles, HexConfig) ->
+create_and_publish(Opts, Metadata, PackageFiles, HexConfig) ->
     {ok, #{tarball := Tarball, inner_checksum := _Checksum}} = hex_tarball:create(Metadata, PackageFiles),
-    case hex_api_release:publish(HexConfig, Tarball) of
-        {ok, {201, _Headers, _Body}} ->
-            ok;
-        {ok, {200, _Headers, _Body}} ->
-            ok;
-        {ok, {422, _Headers, #{<<"errors">> := Errors,
-                               <<"message">> := Message}}} ->
-            ?PRV_ERROR({validation_errors, Errors, Message});
-        {ok, {500, _Headers, _Body}} ->
-            ?PRV_ERROR({error, "Internal Server Error"});
-        {ok, {_Status, _Headers, #{<<"message">> := Message}}} ->
-            ?PRV_ERROR({publish_failed, Message});
-        {error, Reason} ->
-            ?PRV_ERROR({error, Reason})
+    case rebar3_hex_client:publish(HexConfig, Tarball, Opts) of
+        {ok, _Res} ->
+          ok;
+      Error ->
+          ?PRV_ERROR({publish, Error})
     end.
 
 
@@ -434,7 +444,6 @@ binarify({Key, Value}) ->
 binarify(Term) ->
     Term.
 
-
 %% via ec_cnv
 -spec to_atom(atom() | list() | binary() | integer() | float()) ->
                      atom().
@@ -465,3 +474,30 @@ to_list(X)
 to_list(X)
   when erlang:is_list(X) ->
     X.
+
+help(package) -> 
+    "Specifies the package to use with the publish command, currently only utilized in a revert operation";
+help(revert) ->
+    "Revert given version, if the last version is reverted the package is removed";
+help(replace) ->
+    "Allows overwriting an existing package version if it exists. Private "
+    "packages can always be overwritten, publicpackages can only be "
+    "overwritten within one hour after they were initially published.";
+help(yes) -> 
+    "Publishes the package without any confirmation prompts".
+
+support() ->
+    "Publishes a new version of a package with options to revert and replace existing packages~n~n"
+    "Supported commmand combinations:~n~n"
+    "  rebar3 hex publish~n~n"
+    "  rebar3 hex publish --yes~n~n"
+    "  rebar3 hex publish --repo <repo>~n~n"
+    "  rebar3 hex publish --repo <repo> --yes~n~n"
+    "  rebar3 hex publish --revert <version> --package <package>~n~n"
+    "  rebar3 hex publish --revert <version> --package <package> --yes~n~n"
+    "  rebar3 hex publish --replace~n~n"
+    "  rebar3 hex publish --replace --yes~n~n"
+    "Argument descriptions:~n~n"
+    "  <repo>    - a valid repository, only required when multiple repositories are configured~n~n"
+    "  <version> - a valid version string, currently only utilized with --revert switch~n~n"
+    "  <package> - a valid package name, currently only utilized with --revert switch~n~n".

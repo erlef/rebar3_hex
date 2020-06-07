@@ -1,6 +1,6 @@
 -module(rebar3_hex).
 
--export([init/1, get_required/2, task_args/1, repo_opt/0, help_opt/0]).
+-export([init/1, gather_opts/2, get_required/2, task_args/1, repo_opt/0, help_opt/0]).
 
 init(State) ->
     lists:foldl(fun provider_init/2, {ok, State}, [rebar3_hex_user,
@@ -16,6 +16,17 @@ init(State) ->
 
 provider_init(Module, {ok, State}) ->
     Module:init(State).
+
+gather_opts(Targets, State) -> 
+    {Args, _} = rebar_state:command_parsed_args(State),
+    lists:foldl(fun(T, Acc) -> 
+                        case proplists:get_value(T, Args, undefined) of
+                            undefined -> 
+                                Acc;
+                            V -> 
+                                maps:put(T, V, Acc)
+                        end
+                end, #{}, Targets).
 
 get_required(Key, Args) ->
     case proplists:get_value(Key, Args) of

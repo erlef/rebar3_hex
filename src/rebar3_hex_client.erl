@@ -6,6 +6,7 @@
          , key_delete/2
          , key_delete_all/1
          , key_list/1
+         , publish/3
          , publish_docs/4
          , delete_docs/3
          , test_key/2
@@ -52,6 +53,10 @@ test_key(HexConfig, Perms) ->
    Res = hex_api_auth:test(HexConfig, Perms),
    response(Res).
 
+publish(HexConfig, Tarball, Opts) ->
+    Res = hex_api_release:publish(HexConfig, Tarball, Opts),
+    response(Res).
+
 publish_docs(Repo, Name, Version, Tarball) ->
     {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
 
@@ -76,6 +81,8 @@ response({ok, {204, _Headers, Res}}) ->
 response({ok, {N, _Headers, Res}}) when ?is_success(N) ->
     {ok, Res};
 response({ok, {401, _Headers, Res}}) ->
+    {error, Res};
+response({ok, {403, _Headers, Res}}) ->
     {error, Res};
 response({ok, {404, _Headers, Res}}) ->
     {error, Res};
