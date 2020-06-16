@@ -234,12 +234,16 @@ lock_to_dep(_, Acc) ->
 publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, State) ->
     {Args, _} = rebar_state:command_parsed_args(State),
     HexOpts = hex_opts(Args), 
-    {ok, HexConfig1} = rebar3_hex_config:hex_config_write(HexConfig),
-    case create_and_publish(HexOpts, Metadata, PackageFiles, HexConfig1) of
-        ok ->
-            rebar_api:info("Published ~s ~s", [Name, Version]),
-            rebar3_hex_docs:publish(App, State, HexConfig1),
-            {ok, State};
+    case rebar3_hex_config:hex_config_write(HexConfig) of
+        {ok, HexConfig1} ->
+            case create_and_publish(HexOpts, Metadata, PackageFiles, HexConfig1) of
+                ok ->
+                    rebar_api:info("Published ~s ~s", [Name, Version]),
+                    rebar3_hex_docs:publish(App, State, HexConfig1),
+                    {ok, State};
+                Error={error, _} ->
+                    Error
+            end;
         Error={error, _} ->
             Error
     end.
