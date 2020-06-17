@@ -130,8 +130,12 @@ do_(Type, App, HexConfig, State) ->
             NewAppSrcFile = io_lib:format("~tp.\n", [Spec]),
             ok = rebar_file_utils:write_file_if_contents_differ(AppSrcFile, NewAppSrcFile),
             ask_commit_and_push(NewVersion),
-            rebar3_hex_publish:publish(rebar_app_info:original_vsn(App, NewVersion), HexConfig, State),
-            {ok, State}
+            case rebar3_hex_publish:publish(rebar_app_info:original_vsn(App, NewVersion), HexConfig, State) of
+                {ok, _State} ->
+                    {ok, State};
+                {error, _} = Error ->
+                    Error
+            end
     end.
 
 get_increment(Version) ->

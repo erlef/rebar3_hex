@@ -164,7 +164,9 @@ hex_config_write(#{write_key := undefined}) ->
     {error, no_write_key};
 hex_config_write(#{api_key := undefined, write_key := WriteKey, username := Username} = HexConfig) ->
     DecryptedWriteKey = rebar3_hex_user:decrypt_write_key(Username, WriteKey),
-    {ok, HexConfig#{api_key => DecryptedWriteKey}}.
+    {ok, HexConfig#{api_key => DecryptedWriteKey}};
+hex_config_write(_) ->
+    {error, no_write_key}.
 
 hex_config_read(#{read_key := ReadKey} = HexConfig) ->
     {ok, HexConfig#{api_key => ReadKey}};
