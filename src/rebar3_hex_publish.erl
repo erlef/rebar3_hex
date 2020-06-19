@@ -7,9 +7,10 @@
          do/1,
          format_error/1]).
 
--export([publish/3
-        ,publish/8,
-        validate_app_details/1]).
+-export([publish/3,
+         publish/8,
+         validate_app_details/1,
+         gather_deps/1]).
 
 -include("rebar3_hex.hrl").
 
@@ -220,9 +221,13 @@ is_hex_opt(replace) -> true;
 is_hex_opt(_) -> false.
 
 gather_deps(Deps) ->
-    Top = lists:foldl(fun(D,Acc) -> lock_to_dep(D, Acc) end, [], Deps),
-    Excluded = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
-    {Top, Excluded}.
+    Top = locks_to_deps(Deps),
+    Excluded = [binary_to_list(N) || {N,{T,_,_,_},0} <- Deps, T =/= pkg],
+    Excluded1 = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
+    {Top, Excluded++Excluded1}.
+
+locks_to_deps(Deps) ->
+    lists:foldl(fun(D,Acc) -> lock_to_dep(D, Acc) end, [], Deps).
 
 lock_to_dep({A,{pkg,N,V,_, _},0}, Acc) ->
          [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"requirement">>, V}]} | Acc];
