@@ -105,16 +105,16 @@ ask_convert(Prompt, TransFun, Type,  Default) ->
     end.
 
 maybe_continue(Prompt, TransFun, Type, Default) ->
-        case Default of
-                none ->
-                    continue(Prompt, TransFun, Type, Default);
-                Default ->
-                    TransFun(Type, Default)
-            end.
+    case Default of
+        none ->
+            continue(Prompt, TransFun, Type, Default);
+        Default ->
+            TransFun(Type, Default)
+    end.
 
 continue(Prompt, TransFun, Type, Default) ->
-            say("I didn't get that. This ~p kind of question.~n", [Type]),
-            ask_convert(Prompt, TransFun, Type, Default).
+    say("I didn't understand that. A ~p is expected.~n", [Type]),
+    ask_convert(Prompt, TransFun, Type, Default).
 
 default(none) ->
     [];

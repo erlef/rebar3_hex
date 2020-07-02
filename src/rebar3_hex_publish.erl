@@ -198,7 +198,7 @@ publish(App, Name, Version,  Deps, [], AppDetails, HexConfig, State) ->
     rebar3_hex_io:say("  Build tools: ~ts", [format_build_tools(BuildTools)]),
     maybe_say_coc(HexConfig),
     {Args, _} = rebar_state:command_parsed_args(State),
-    case proplists:get_bool("yes", Args) of
+    case proplists:get_bool(yes, Args) of
         true ->
             publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, State);
         false ->
