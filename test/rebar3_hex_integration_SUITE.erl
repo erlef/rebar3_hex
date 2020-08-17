@@ -9,54 +9,54 @@
 %%%%%%%%%%%%%%%%%%
 
 all() ->
-
-    [sanity_check
-     , decrypt_write_key_test
-     , bad_command_test
-     , docs_test
-     , docs_auth_error_test
-     , docs_invalid_repo_test
-     , docs_no_write_key_test
-     , docs_revert_test
-     , docs_revert_auth_error_test
-     , reset_password_test
-     , reset_password_error_test
-     , reset_password_unhandled_test
-     , reset_password_api_error_test
-     , register_user_test
-     , register_empty_password_test
-     , register_password_mismatch_test
-     , register_error_test
-     , register_existing_user_test
-     , auth_test
-     , auth_bad_local_password_test
-     , auth_password_24_char_test
-     , auth_password_32_char_test
-     , auth_unhandled_test
-     , auth_error_test
-     , whoami_test
-     , whoami_not_authed_test
-     , whoami_error_test
-     , whoami_unknown_test
-     , whoami_unhandled_test
-     , deauth_test
-     , publish_test
-     , publish_replace_test
-     , publish_revert_test
-     , publish_org_test
-     , publish_org_error_test
-     , publish_org_requires_repo_arg_test
-     , publish_error_test
-     , publish_unauthorized_test
-     , key_list_test
-     , key_get_test
-     , key_add_test
-     , key_delete_test
-     , key_delete_all_test
-     , owner_add_test
-     , owner_transfer_test
-     , owner_list_test
-     , owner_remove_test].
+    [ sanity_check
+    , decrypt_write_key_test
+    , bad_command_test
+    , docs_test
+    , docs_auth_error_test
+    , docs_dir_error_test
+    , docs_invalid_repo_test
+    , docs_no_write_key_test
+    , docs_revert_test
+    , docs_revert_auth_error_test
+    , reset_password_test
+    , reset_password_error_test
+    , reset_password_unhandled_test
+    , reset_password_api_error_test
+    , register_user_test
+    , register_empty_password_test
+    , register_password_mismatch_test
+    , register_error_test
+    , register_existing_user_test
+    , auth_test
+    , auth_bad_local_password_test
+    , auth_password_24_char_test
+    , auth_password_32_char_test
+    , auth_unhandled_test
+    , auth_error_test
+    , whoami_test
+    , whoami_not_authed_test
+    , whoami_error_test
+    , whoami_unknown_test
+    , whoami_unhandled_test
+    , deauth_test
+    , publish_test
+    , publish_replace_test
+    , publish_revert_test
+    , publish_org_test
+    , publish_org_error_test
+    , publish_org_requires_repo_arg_test
+    , publish_error_test
+    , publish_unauthorized_test
+    , key_list_test
+    , key_get_test
+    , key_add_test
+    , key_delete_test
+    , key_delete_all_test
+    , owner_add_test
+    , owner_transfer_test
+    , owner_list_test
+    , owner_remove_test].
 
 init_per_suite(Config) ->
     meck:new([hex_api_user, rebar3_hex_config, rebar3_hex_io], [passthrough, no_link, unstick]),
@@ -122,6 +122,13 @@ docs_test(Config) ->
     {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, Repo, State),
     {ok, NewState} = rebar_prv_edoc:do(DocState),
     ?assertMatch({ok, NewState}, rebar3_hex_docs:do(NewState)).
+
+docs_dir_error_test(Config) ->
+    P = #{app => "valid", mocks => [docs]},
+    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
+    Command = ["docs"],
+    {ok, NewState} = test_utils:mock_command(rebar3_hex_docs, Command, Repo, State),
+    ?assertThrow(rebar_abort, rebar3_hex_docs:do(NewState)).
 
 docs_revert_test(Config) ->
     P = #{app => "valid", mocks => [docs]},
@@ -421,18 +428,20 @@ publish_test(Config) ->
     P = #{app => "valid", mocks => [publish]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, [], Repo, State),
+    {ok, _} = rebar_prv_edoc:do(PubState),
 
     ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
 
 %% TODO: This test currently is merely to see if we can handle the --replace switch
 %% In order for the test to be more meaningful we need to update the hex_api_model to keep
 %% track of packages that have been published and when, further we need to provide
-%% a package add function on hex_api_model which takes a package name, published at timestamp, etc. 
+%% a package add function on hex_api_model which takes a package name, published at timestamp, etc.
 %% so we can test the sad paths (i.e., you can not replace a package after N seconds)
 publish_replace_test(Config) ->
     P = #{app => "valid", mocks => [publish]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["--replace"], Repo, State),
+    {ok, _} = rebar_prv_edoc:do(PubState),
 
     ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
 
@@ -455,6 +464,7 @@ publish_org_test(Config) ->
          },
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["-r", "hexpm:valid"], Repo, State),
+    {ok, _} = rebar_prv_edoc:do(PubState),
 
     ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
 
@@ -598,6 +608,9 @@ setup_state(P, Config) ->
     Repo = test_utils:repo_config(RepoConfig),
 
     {ok, App, State} = test_utils:mock_app(AppName, ?config(data_dir, Config), Repo),
+
+    %% Make sure there is no leftover generated doc directory
+    ok = rebar_file_utils:rm_rf(filename:join(rebar_app_info:dir(App), "doc")),
 
     Setup = Params#{ repo => Repo,
                      app_state => App,
