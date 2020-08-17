@@ -1,8 +1,7 @@
 -module(rebar3_hex_file).
 
--export([
-         expand_paths/2,
-         update_app_src/2
+-export([ expand_paths/2
+        , update_app_src/2
         ]).
 
 expand_paths(Paths, Dir) ->

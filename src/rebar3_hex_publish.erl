@@ -3,25 +3,28 @@
 %% @end
 -module(rebar3_hex_publish).
 
--export([init/1,
-         do/1,
-         format_error/1]).
+-export([ init/1
+        , do/1
+        , format_error/1
+        ]).
 
--export([publish/3,
-         publish/8,
-         validate_app_details/1,
-         gather_deps/1]).
+-export([ publish/3
+        , publish/8
+        , validate_app_details/1
+        , gather_deps/1
+        ]).
 
 -include("rebar3_hex.hrl").
 
 -define(PROVIDER, publish).
 -define(DEPS, [{default, lock}]).
 
--define(VALIDATIONS, [  has_semver
-                      , has_contributors
-                      , has_maintainers
-                      , has_description
-                      , has_licenses ]).
+-define(VALIDATIONS, [ has_semver
+                     , has_contributors
+                     , has_maintainers
+                     , has_description
+                     , has_licenses
+                     ]).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -34,7 +37,6 @@
 
 -spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
 init(State) ->
-
     Provider = providers:create([{name, ?PROVIDER},
                                  {module, ?MODULE},
                                  {namespace, hex},
@@ -61,11 +63,11 @@ do(State) ->
             ?PRV_ERROR(Reason)
         end.
 
-handle_command(#{revert := Vsn, package := Pkg}, State, Repo) -> 
+handle_command(#{revert := Vsn, package := Pkg}, State, Repo) ->
     ok = rebar3_hex_revert:revert(binarify(Pkg), binarify(Vsn), Repo, State),
     {ok, State};
 
-handle_command(#{revert := _Vsn}, _State, _Repo) -> 
+handle_command(#{revert := _Vsn}, _State, _Repo) ->
     {error, "--revert requires a package name"};
 
 handle_command(_Args, State, Repo) ->
@@ -238,7 +240,7 @@ lock_to_dep(_, Acc) ->
 
 publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, State) ->
     {Args, _} = rebar_state:command_parsed_args(State),
-    HexOpts = hex_opts(Args), 
+    HexOpts = hex_opts(Args),
     case rebar3_hex_config:hex_config_write(HexConfig) of
         {ok, HexConfig1} ->
             case create_and_publish(HexOpts, Metadata, PackageFiles, HexConfig1) of
@@ -484,7 +486,7 @@ to_list(X)
   when erlang:is_list(X) ->
     X.
 
-help(package) -> 
+help(package) ->
     "Specifies the package to use with the publish command, currently only utilized in a revert operation";
 help(revert) ->
     "Revert given version, if the last version is reverted the package is removed";
@@ -492,7 +494,7 @@ help(replace) ->
     "Allows overwriting an existing package version if it exists. Private "
     "packages can always be overwritten, publicpackages can only be "
     "overwritten within one hour after they were initially published.";
-help(yes) -> 
+help(yes) ->
     "Publishes the package without any confirmation prompts".
 
 support() ->

@@ -1,15 +1,15 @@
 -module(rebar3_hex_config).
 
--export([api_key_name/1
-         , api_key_name/2
-         , repos_key_name/0
-         , org_key_name/2
-         , parent_repos/1
-         , hex_config/2
-         , hex_config_write/1
-         , hex_config_read/1
-         , repo/1
-         , update_auth_config/2
+-export([ api_key_name/1
+        , api_key_name/2
+        , repos_key_name/0
+        , org_key_name/2
+        , parent_repos/1
+        , hex_config/2
+        , hex_config_write/1
+        , hex_config_read/1
+        , repo/1
+        , update_auth_config/2
         ]).
 
 -include("rebar3_hex.hrl").
@@ -33,6 +33,7 @@ org_key_name(Key, Org) ->
      Prefix = key_name_prefix(Key),
      key_name(Prefix, <<"-repository-">>, Org).
 
+-spec hostname() -> binary().
 hostname() ->
     {ok, Name} = inet:gethostname(),
     list_to_binary(Name).
@@ -55,12 +56,10 @@ repo(State) ->
     #{repos := Repos} = rebar_resource_v2:find_resource_state(pkg, Resources),
     case proplists:get_value(repo, Args, undefined) of
         undefined ->
-            DefaultBinName = rebar_utils:to_binary(?DEFAULT_HEX_REPO),
-            Res = lists:filter(fun(R) -> maps:get(name, R) =/= DefaultBinName end,
-                               Repos),
+            Res = [R || R <- Repos, maps:get(name, R) =/= ?DEFAULT_HEX_REPO],
             case Res of
                 [] ->
-                    case rebar_hex_repos:get_repo_config(rebar_utils:to_binary(?DEFAULT_HEX_REPO), Repos) of
+                    case rebar_hex_repos:get_repo_config(?DEFAULT_HEX_REPO, Repos) of
                         {ok, Repo} ->
                             {ok, Repo};
                         _ ->
@@ -90,12 +89,13 @@ repo(State, RepoName) ->
     end.
 
 
--define(ENV_VARS, [
-                   {"HEX_API_KEY", {api_key, {string, undefined}}},
-                   {"HEX_API_URL", {api_url, {string, undefined}}},
-                   {"HEX_UNSAFE_REGISTRY", {repo_verify, {boolean, false}}},
-                   {"HEX_NO_VERIFY_REPO_ORIGIN", {repo_verify_origin, {boolean, true}}}
-                  ]).
+-define( ENV_VARS
+       , [ {"HEX_API_KEY", {api_key, {string, undefined}}}
+         , {"HEX_API_URL", {api_url, {string, undefined}}}
+         , {"HEX_UNSAFE_REGISTRY", {repo_verify, {boolean, false}}}
+         , {"HEX_NO_VERIFY_REPO_ORIGIN", {repo_verify_origin, {boolean, true}}}
+         ]
+       ).
 
 merge_with_env(Repo) ->
     lists:foldl(fun({EnvName, {Key, _} = Default}, Acc) ->
@@ -152,11 +152,10 @@ get_repo(BinaryName, Repos) ->
         {error,{rebar_hex_repos,{repo_not_found,BinaryName}}} -> undefined
     end.
 
-hex_config(Repo, Op) ->
-    case Op of
-        read ->  hex_config_read(Repo);
-        write -> hex_config_write(Repo)
-    end.
+hex_config(Repo, read) ->
+    hex_config_read(Repo);
+hex_config(Repo, write) ->
+    hex_config_write(Repo).
 
 hex_config_write(#{api_key := Key} = HexConfig) when is_binary(Key) ->
     {ok, HexConfig};

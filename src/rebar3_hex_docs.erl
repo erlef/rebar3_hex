@@ -51,15 +51,14 @@ publish(App, State, Repo) ->
     handle_command(App, State, Repo).
 
 publish_apps(Apps, State) ->
-  lists:foldl(fun(App, {ok, StateAcc}) ->
-                                case handle_command(App, StateAcc) of
-                                    {ok, _StateAcc} ->
-                                        {ok, StateAcc};
-                                    Err ->
-                                        throw(Err)
-                                end
-
-                        end, {ok, State}, Apps).
+    lists:foldl(fun(App, {ok, StateAcc}) ->
+                        case handle_command(App, StateAcc) of
+                            {ok, _StateAcc} ->
+                                {ok, StateAcc};
+                            Err ->
+                                throw(Err)
+                        end
+                end, {ok, State}, Apps).
 
 handle_command(App, State) ->
     {ok, Repo} = rebar3_hex_config:repo(State),
@@ -137,4 +136,3 @@ format_error({revert, {not_found, _Res}}) ->
     "Error reverting docs : Package or Package Version not found";
 format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
-
