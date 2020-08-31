@@ -1,18 +1,19 @@
 -module(rebar3_hex_client).
 
 -export([ is_success/1
-         , key_add/3
-         , key_get/2
-         , key_delete/2
-         , key_delete_all/1
-         , key_list/1
-         , publish/3
-         , publish_docs/4
-         , delete_docs/3
-         , test_key/2
-         , member_of/1
-         , pretty_print_status/1
-         , pretty_print_errors/1]).
+        , key_add/3
+        , key_get/2
+        , key_delete/2
+        , key_delete_all/1
+        , key_list/1
+        , publish/3
+        , publish_docs/4
+        , delete_docs/3
+        , test_key/2
+        , member_of/1
+        , pretty_print_status/1
+        , pretty_print_errors/1
+        ]).
 
 -include("rebar3_hex.hrl").
 
@@ -29,7 +30,6 @@ key_get(HexConfig, <<KeyName/binary>>) ->
     response(Res);
 key_get(HexConfig, KeyName) ->
     key_get(HexConfig, to_binary(KeyName)).
-
 
 member_of(HexConfig) ->
     Res =  hex_api_organization:list(HexConfig),
