@@ -47,7 +47,7 @@ format_error_test(_Config) ->
                  list_to_bitstring(rebar3_hex_user:format_error(no_match_local_password))),
     ?assertEqual(<<"Command must be one of register, whoami, auth, deauth or reset_password">>,
                  list_to_bitstring(rebar3_hex_user:format_error(bad_command))),
-    ?assertEqual(["'eh?'"], rebar3_hex_user:format_error('eh?')).
+    ?assertEqual("An unknown error was encountered. Run with DEBUG=1 for more details.", rebar3_hex_user:format_error('eh?')).
 
 
 
