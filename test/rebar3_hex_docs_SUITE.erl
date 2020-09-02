@@ -21,5 +21,5 @@ format_error_test(_Config) ->
     Exp5 = "Error reverting docs : Package or Package Version not found",
     ?assertEqual(Exp5, rebar3_hex_docs:format_error({revert, {not_found, <<>>}})),
 
-    Exp6 = [[60,60,"\"something bad\"",62,62]],
+    Exp6 = "An unknown error was encountered. Run with DEBUG=1 for more details.",
     ?assertEqual(Exp6, rebar3_hex_docs:format_error(<<"something bad">>)).
