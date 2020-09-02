@@ -21,11 +21,5 @@ format_error({Cmd, missing_required_params}) ->
     io_lib:format("Required parameters for the ~ts command have not been supplied.", [Cmd]);
 
 format_error(Reason) ->
-    try io_lib:format("~p", [Reason]) of
-        Result ->
-            Result
-    catch
-        _:_  ->
-            io_lib:format("Unknown error encountered : ~ts", [Reason])
-    end.
-
+    rebar_api:debug("Unknown error : ~ts", [Reason]),
+    "An unknown error was encountered. Run with DEBUG=1 for more details.".
