@@ -98,6 +98,7 @@ handle_command(App, State, Repo) ->
     end.
 
 do_publish(App, State, Repo) ->
+    maybe_gen_docs(State),
     AppDir = rebar_app_info:dir(App),
     DocDir = resolve_doc_dir(App),
     assert_doc_dir(filename:join(AppDir, DocDir)),
@@ -155,6 +156,32 @@ resolve_doc_dir(AppInfo) ->
     AppDetails = rebar_app_info:app_details(AppInfo),
     Dir = proplists:get_value(dir, EdocOpts, ?DEFAULT_DOC_DIR),
     proplists:get_value(doc, AppDetails, Dir).
+
+maybe_gen_docs(State) -> 
+    case doc_opts(State) of
+        undefined -> 
+             rebar_api:error("No docs config found", []),
+            noop;
+        PrvName -> 
+            AllProviders = rebar_state:providers(State),
+             case providers:get_provider(PrvName, AllProviders) of
+                 not_found -> 
+                     rebar_api:error("No provider found for ~ts", [PrvName]),
+                     noop;
+                 Prv ->
+                     providers:do(Prv, State)
+             end
+    end.
+
+doc_opts(State) -> 
+    Opts = rebar_state:opts(State),
+    case proplists:get_value(doc, rebar_opts:get(Opts, hex), undefined) of
+        PrvName when is_atom(PrvName) -> PrvName;
+        undefined -> undefined;
+        _ -> 
+            %% Any other data type or structure is currently not supported. 
+            undefined
+    end.
 
 -spec assert_doc_dir(string()) -> true.
 assert_doc_dir(DocDir) ->
