@@ -3,11 +3,14 @@ version: 2.1
 orbs:
   rebar3_hex:
     orbs:
-      rebar3: tsloughter/rebar3@0.5.5
+      rebar3: tsloughter/rebar3@0.6.4
 
     jobs:
       build_and_test:
         parameters:
+          image: 
+            description: The Erlang/OTP docker image repository to use
+            type: string
           version:
             description: The Erlang/OTP docker image tag to use.
             type: string
@@ -19,10 +22,9 @@ orbs:
             type: string
         executor:
           name: rebar3/erlang
-          version: <<parameters.version>>
+          image: <<parameters.image>>
+          tag: <<parameters.version>>
         steps:
-          - rebar3/install_ca_certs:
-              pkg_install_cmd: <<parameters.pkg_install_cmd>>
           - checkout
           - rebar3/with_deps_cache:
               cache_key_postfix: -<<parameters.version>>
@@ -30,7 +32,6 @@ orbs:
                 - run: <<parameters.pkg_install_cmd>> git
                 - rebar3/compile
                 - rebar3/dialyzer
-                - run: rebar3 as test xref
                 - rebar3/ct
 
                 - store_test_results:
@@ -56,24 +57,28 @@ workflows:
   build_and_test:
     jobs:
       - rebar3_hex/build_and_test:
+          name: "otp-23"
+          version: "23-alpine"
+          codecov_flag: "otp23"
+          image: "erlang" 
+      - rebar3_hex/build_and_test:
           name: "otp-22"
           version: "22-alpine"
           codecov_flag: "otp22"
+          image: "erlang"
       - rebar3_hex/build_and_test:
           name: "otp-21"
           version: "21-alpine"
           codecov_flag: "otp21"
+          image: "erlang"
       - rebar3_hex/build_and_test:
           name: "otp-20"
           version: "20-alpine"
           codecov_flag: "otp20"
+          image: "erlang"
       - rebar3_hex/build_and_test:
           name: "otp-19"
           version: "19"
           codecov_flag: "otp19"
-          pkg_install_cmd: "apt-get -y update && apt-get -y install"
-      - rebar3_hex/build_and_test:
-          name: "otp-18"
-          version: "18"
-          codecov_flag: "otp18"
+          image: "erlang"
           pkg_install_cmd: "apt-get -y update && apt-get -y install"
