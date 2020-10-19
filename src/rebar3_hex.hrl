@@ -1,5 +1,6 @@
 -define(DEFAULT_FILES, ["src", "c_src", "include", "rebar.config.script"
                        ,"priv", "rebar.config", "rebar.lock"
+                       ,"CHANGELOG*", "changelog*"
                        ,"README*", "readme*"
                        ,"LICENSE*", "license*"
                        ,"NOTICE"]).
