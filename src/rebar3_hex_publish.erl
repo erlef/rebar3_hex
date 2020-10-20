@@ -114,8 +114,8 @@ format_error(no_write_key) ->
     "No write key found for user. Be sure to authenticate first with:"
     ++ " rebar3 hex user auth";
 
-format_error({publish, {error, {tarball, too_big}}}) -> 
-    "Overall size of package exceeds max allowed size (8MB compressed, 67MB total)"; 
+format_error({publish, {error, {tarball, _} = Err}}) -> 
+    hex_tarball:format_error(Err);
 format_error({publish, {error, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
     ErrorString = errors_to_string(Errors),
     io_lib:format("Failed to publish package: ~ts~n\t~ts", [Message, ErrorString]);
