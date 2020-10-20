@@ -30,7 +30,7 @@ mock_app(AppName, DataDir, Repo) ->
 mock_command(ProviderName, Command, Repo, State0) ->
     State1 = rebar_state:add_resource(State0, {pkg, rebar_pkg_resource}),
     State2 = rebar_state:create_resources([{pkg, rebar_pkg_resource}], State1),
-    State3 = rebar_state:set(State2, hex, {repos,[Repo]}),
+    State3 = rebar_state:set(State2, hex, [{repos,[Repo]}]),
     State4 = rebar_state:command_args(State3, Command),
     {ok, State5} = ProviderName:init(State4),
 
