@@ -114,6 +114,8 @@ format_error(no_write_key) ->
     "No write key found for user. Be sure to authenticate first with:"
     ++ " rebar3 hex user auth";
 
+format_error({publish, {error, {tarball, _} = Err}}) -> 
+    hex_tarball:format_error(Err);
 format_error({publish, {error, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
     ErrorString = errors_to_string(Errors),
     io_lib:format("Failed to publish package: ~ts~n\t~ts", [Message, ErrorString]);
@@ -267,14 +269,17 @@ maybe_say_coc(_) ->
     ok.
 
 create_and_publish(Opts, Metadata, PackageFiles, HexConfig) ->
-    {ok, #{tarball := Tarball, inner_checksum := _Checksum}} = hex_tarball:create(Metadata, PackageFiles),
-    case rebar3_hex_client:publish(HexConfig, Tarball, Opts) of
-        {ok, _Res} ->
-          ok;
-      Error ->
-          ?PRV_ERROR({publish, Error})
+    case hex_tarball:create(Metadata, PackageFiles) of
+         {ok, #{tarball := Tarball, inner_checksum := _Checksum}} -> 
+            case rebar3_hex_client:publish(HexConfig, Tarball, Opts) of
+                {ok, _Res} ->
+                    ok;
+                Error ->
+                    ?PRV_ERROR({publish, Error})
+            end;
+         Error -> 
+            ?PRV_ERROR({publish, Error})
     end.
-
 
 known_exclude_file(Path, ExcludeRe) ->
     KnownExcludes = [
