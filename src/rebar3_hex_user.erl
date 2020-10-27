@@ -241,14 +241,14 @@ generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
     end.
 
 -ifdef(POST_OTP_22).
--spec encrypt_write_key(binary(), binary(), binary()) -> {binary(), binary(), binary(), {binary(), binary()}}.
+-spec encrypt_write_key(binary(), binary(), binary()) -> {binary(), {binary(), binary()}}.
 encrypt_write_key(Username, LocalPassword, WriteKey) ->
     AAD = Username,
     IV = crypto:strong_rand_bytes(16),
     Key =  pad(LocalPassword),
     {IV, crypto:crypto_one_time_aead(cipher(Key), Key, IV, WriteKey, AAD, true)}.
 -else.
--spec encrypt_write_key(binary(), binary(), binary()) -> {binary(), binary(), binary(), {binary(), binary()}}.
+-spec encrypt_write_key(binary(), binary(), binary()) -> {binary(), {binary(), binary()}}.
 encrypt_write_key(Username, LocalPassword, WriteKey) ->
     AAD = Username,
     IV = crypto:strong_rand_bytes(16),
@@ -281,9 +281,11 @@ decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}) ->
     end.
 -endif.
 
+-ifdef(POST_OTP_22).
 cipher(Key) when size(Key) == 16  -> aes_128_gcm;
 cipher(Key) when size(Key) == 24  -> aes_192_gcm;
 cipher(Key) when size(Key) == 32  -> aes_256_gcm.
+-endif.
 
 generate_key(RepoConfig, KeyName, Permissions) ->
     case hex_api_key:add(RepoConfig, KeyName, Permissions) of
