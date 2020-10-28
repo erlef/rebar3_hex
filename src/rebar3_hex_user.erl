@@ -282,9 +282,9 @@ decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}) ->
 -endif.
 
 -ifdef(POST_OTP_22).
-cipher(Key) when size(Key) == 16  -> aes_128_gcm;
-cipher(Key) when size(Key) == 24  -> aes_192_gcm;
-cipher(Key) when size(Key) == 32  -> aes_256_gcm.
+cipher(Key) when byte_size(Key) == 16  -> aes_128_gcm;
+cipher(Key) when byte_size(Key) == 24  -> aes_192_gcm;
+cipher(Key) when byte_size(Key) == 32  -> aes_256_gcm.
 -endif.
 
 generate_key(RepoConfig, KeyName, Permissions) ->
