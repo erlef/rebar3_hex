@@ -240,18 +240,38 @@ generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
             Error
     end.
 
+-ifdef(POST_OTP_22).
+-spec encrypt_write_key(binary(), binary(), binary()) -> {binary(), {binary(), binary()}}.
+encrypt_write_key(Username, LocalPassword, WriteKey) ->
+    AAD = Username,
+    IV = crypto:strong_rand_bytes(16),
+    Key =  pad(LocalPassword),
+    {IV, crypto:crypto_one_time_aead(cipher(Key), Key, IV, WriteKey, AAD, true)}.
+-else.
+-spec encrypt_write_key(binary(), binary(), binary()) -> {binary(), {binary(), binary()}}.
 encrypt_write_key(Username, LocalPassword, WriteKey) ->
     AAD = Username,
     IV = crypto:strong_rand_bytes(16),
     {IV, crypto:block_encrypt(aes_gcm, pad(LocalPassword), IV, {AAD, WriteKey})}.
+-endif.
 
-
+-spec decrypt_write_key(binary(), {binary(), {binary(), binary()}} | undefined) -> binary().
 decrypt_write_key(_Username, undefined) ->
     {error, no_write_key};
 decrypt_write_key(Username, {IV, {CipherText, CipherTag}}) ->
     LocalPassword = rebar3_hex_io:get_password(<<"Local Password: ">>),
     decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}).
 
+-ifdef(POST_OTP_22).
+decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}) ->
+    Key = pad(LocalPassword),
+    case crypto:crypto_one_time_aead(cipher(Key), Key, IV, CipherText, Username, CipherTag, false) of
+        error ->
+            throw(?PRV_ERROR(bad_local_password));
+        Result ->
+            Result
+    end.
+-else.
 decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}) ->
     case crypto:block_decrypt(aes_gcm, pad(LocalPassword), IV, {Username, CipherText, CipherTag}) of
         error ->
@@ -259,6 +279,13 @@ decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}) ->
         Result ->
             Result
     end.
+-endif.
+
+-ifdef(POST_OTP_22).
+cipher(Key) when byte_size(Key) == 16  -> aes_128_gcm;
+cipher(Key) when byte_size(Key) == 24  -> aes_192_gcm;
+cipher(Key) when byte_size(Key) == 32  -> aes_256_gcm.
+-endif.
 
 generate_key(RepoConfig, KeyName, Permissions) ->
     case hex_api_key:add(RepoConfig, KeyName, Permissions) of
