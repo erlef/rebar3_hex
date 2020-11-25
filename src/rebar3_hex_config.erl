@@ -61,7 +61,7 @@ repo(State) ->
                 [] ->
                     case rebar_hex_repos:get_repo_config(?DEFAULT_HEX_REPO, Repos) of
                         {ok, Repo} ->
-                            {ok, Repo};
+                            {ok, set_http_adapter(Repo)};
                         _ ->
                             {error, no_repo_in_state}
                     end;
@@ -81,9 +81,9 @@ repo(State, RepoName) ->
     MaybeFound2 =  get_repo(<<MaybeParentRepo/binary, BinName/binary>>, Repos),
     case {MaybeFound1, MaybeFound2} of
         {{ok, Repo1}, undefined} ->
-            {ok, merge_with_env(Repo1)};
+            {ok, set_http_adapter(merge_with_env(Repo1))};
         {undefined, {ok, Repo2}} ->
-            {ok, merge_with_env(Repo2)};
+            {ok, set_http_adapter(merge_with_env(Repo2))};
         {undefined, undefined} ->
             {error, {not_valid_repo, RepoName}}
     end.
@@ -125,6 +125,9 @@ maybe_env_val(K, {_, {Type, Default}}) ->
           rebar_utils:to_binary(Val)
     end.
 
+set_http_adapter(Repo) ->
+    Repo#{http_adapter => {hex_http_httpc, #{profile => rebar}}}.
+
 to_bool("0") -> false;
 to_bool("false") -> false;
 to_bool(_) -> true.
@@ -158,16 +161,16 @@ hex_config(Repo, write) ->
     hex_config_write(Repo).
 
 hex_config_write(#{api_key := Key} = HexConfig) when is_binary(Key) ->
-    {ok, HexConfig};
+    {ok, set_http_adapter(HexConfig)};
 hex_config_write(#{write_key := undefined}) ->
     {error, no_write_key};
 hex_config_write(#{api_key := undefined, write_key := WriteKey, username := Username} = HexConfig) ->
     DecryptedWriteKey = rebar3_hex_user:decrypt_write_key(Username, WriteKey),
-    {ok, HexConfig#{api_key => DecryptedWriteKey}};
+    {ok, set_http_adapter(HexConfig#{api_key => DecryptedWriteKey})};
 hex_config_write(_) ->
     {error, no_write_key}.
 
 hex_config_read(#{read_key := ReadKey} = HexConfig) ->
-    {ok, HexConfig#{api_key => ReadKey}};
+    {ok, set_http_adapter(HexConfig#{api_key => ReadKey})};
 hex_config_read(_Config) ->
     {error, no_read_key}.
