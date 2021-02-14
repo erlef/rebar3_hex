@@ -157,29 +157,49 @@ resolve_doc_dir(AppInfo) ->
     Dir = proplists:get_value(dir, EdocOpts, ?DEFAULT_DOC_DIR),
     proplists:get_value(doc, AppDetails, Dir).
 
-maybe_gen_docs(State) -> 
+maybe_gen_docs(State) ->
     case doc_opts(State) of
-        undefined -> 
-             rebar_api:error("No docs config found", []),
-            noop;
-        PrvName -> 
+        {ok, {PrvName, Opts}} ->
             AllProviders = rebar_state:providers(State),
-             case providers:get_provider(PrvName, AllProviders) of
-                 not_found -> 
-                     rebar_api:error("No provider found for ~ts", [PrvName]),
-                     noop;
-                 Prv ->
-                     providers:do(Prv, State)
-             end
+            case providers:get_provider(PrvName, AllProviders) of
+                not_found ->
+                    rebar_api:error("No provider found for ~ts", [PrvName]),
+                    noop;
+                Prv ->
+                    case providers:do(Prv, State) of
+                        {ok, State} ->
+                            case proplists:get_value(post_process, Opts, undefined) of
+                                undefined ->
+                                    ok;
+                                PostOpts ->
+                                    maybe_post_process(PostOpts)
+                            end;
+                        Err ->
+                            ?PRV_ERROR({publish, Err})
+                    end
+            end;
+        _ ->
+            rebar_api:error("No valid hex docs configuration found", []),
+            noop
     end.
 
-doc_opts(State) -> 
+maybe_post_process({shell, Cmd}) ->
+    AbsCmd = filename:absname(Cmd),
+    rebar_utils:sh(AbsCmd, [use_stdout]);
+maybe_post_process(_) -> ok.
+
+doc_opts(State) ->
     Opts = rebar_state:opts(State),
     case proplists:get_value(doc, rebar_opts:get(Opts, hex), undefined) of
-        PrvName when is_atom(PrvName) -> PrvName;
-        undefined -> undefined;
-        _ -> 
-            %% Any other data type or structure is currently not supported. 
+        PrvName when is_atom(PrvName) ->
+            {ok, PrvName, []};
+        {PrvName, DocOpts} when is_atom(PrvName) andalso is_list(DocOpts) ->
+            {ok, {PrvName, DocOpts}};
+        undefined ->
+            undefined;
+        Eh ->
+            erlang:display(Eh),
+            %% Any other data type or structure is currently not supported.
             undefined
     end.
 
