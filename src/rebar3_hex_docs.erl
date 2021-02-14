@@ -197,8 +197,7 @@ doc_opts(State) ->
             {ok, {PrvName, DocOpts}};
         undefined ->
             undefined;
-        Eh ->
-            erlang:display(Eh),
+        _ ->
             %% Any other data type or structure is currently not supported.
             undefined
     end.
