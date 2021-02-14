@@ -166,21 +166,24 @@ maybe_gen_docs(State) ->
                     rebar_api:error("No provider found for ~ts", [PrvName]),
                     noop;
                 Prv ->
-                    case providers:do(Prv, State) of
-                        {ok, State} ->
-                            case proplists:get_value(post_process, Opts, undefined) of
-                                undefined ->
-                                    ok;
-                                PostOpts ->
-                                    maybe_post_process(PostOpts)
-                            end;
-                        Err ->
-                            ?PRV_ERROR({publish, Err})
-                    end
+                    gen_docs(State, Prv, Opts)
             end;
         _ ->
             rebar_api:error("No valid hex docs configuration found", []),
             noop
+    end.
+
+gen_docs(State, Prv, Opts) ->
+    case providers:do(Prv, State) of
+        {ok, State} ->
+            case proplists:get_value(post_process, Opts, undefined) of
+                undefined ->
+                    ok;
+                PostOpts ->
+                    maybe_post_process(PostOpts)
+            end;
+        Err ->
+            ?PRV_ERROR({publish, Err})
     end.
 
 maybe_post_process({shell, Cmd}) ->
