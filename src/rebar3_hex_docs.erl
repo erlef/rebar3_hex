@@ -194,12 +194,12 @@ maybe_post_process(_) -> ok.
 doc_opts(State) ->
     Opts = rebar_state:opts(State),
     case proplists:get_value(doc, rebar_opts:get(Opts, hex), undefined) of
+        undefined ->
+            undefined;
         PrvName when is_atom(PrvName) ->
             {ok, PrvName, []};
         {PrvName, DocOpts} when is_atom(PrvName) andalso is_list(DocOpts) ->
             {ok, {PrvName, DocOpts}};
-        undefined ->
-            undefined;
         _ ->
             %% Any other data type or structure is currently not supported.
             undefined
