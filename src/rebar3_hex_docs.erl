@@ -160,17 +160,14 @@ resolve_doc_dir(AppInfo) ->
 maybe_gen_docs(State) ->
     case doc_opts(State) of
         {ok, {PrvName, Opts}} ->
-            AllProviders = rebar_state:providers(State),
-            case providers:get_provider(PrvName, AllProviders) of
+            case providers:get_provider(PrvName, rebar_state:providers(State)) of
                 not_found ->
-                    rebar_api:error("No provider found for ~ts", [PrvName]),
-                    noop;
+                    rebar_api:error("No provider found for ~ts", [PrvName]);
                 Prv ->
                     gen_docs(State, Prv, Opts)
             end;
         _ ->
-            rebar_api:error("No valid hex docs configuration found", []),
-            noop
+            rebar_api:error("No valid hex docs configuration found", [])
     end.
 
 gen_docs(State, Prv, Opts) ->
@@ -193,7 +190,7 @@ maybe_post_process({shell, [{cmd, Cmd}, {args, Args}]}) ->
     Cmd1 = post_proc_cmd_path(Cmd),
     Cmd2 = rebar_string:join([Cmd1, rebar_string:join(Args, " ")], " "),
     do_sh(Cmd2);
-maybe_post_process({shell, Cmd}) ->
+maybe_post_process({shell, Cmd}) when is_binary(Cmd) or is_list(Cmd) ->
     do_sh(post_proc_cmd_path(Cmd));
 maybe_post_process(_) ->
     ok.
