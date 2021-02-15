@@ -180,24 +180,28 @@ gen_docs(State, Prv, Opts) ->
                 undefined ->
                     ok;
                 PostOpts ->
-                    maybe_post_process(PostOpts)
+                    Supported = {shell, proplists:get_value(shell, PostOpts, undefined)},
+                    maybe_post_process(Supported)
             end;
         Err ->
             ?PRV_ERROR({publish, Err})
     end.
 
+maybe_post_process({shell, undefined}) ->
+    ok;
 maybe_post_process({shell, [{cmd, Cmd}, {args, Args}]}) ->
-    Cmd1 = post_proc_cmd(Cmd),
+    Cmd1 = post_proc_cmd_path(Cmd),
     Cmd2 = Cmd1 ++ " " ++ string:join(Args, " "),
-    erlang:display(Cmd2),
-    rebar_utils:sh(Cmd2, [{use_stdout, true}, debug_and_abort_on_error]);
+    do_sh(Cmd2);
 maybe_post_process({shell, Cmd}) ->
-    erlang:display(Cmd),
-    rebar_utils:sh(post_proc_cmd(Cmd), [{use_stdout, true}, debug_and_abort_on_error]);
+    do_sh(post_proc_cmd_path(Cmd));
 maybe_post_process(_) ->
     ok.
 
-post_proc_cmd(Cmd) ->
+do_sh(Cmd) ->
+    rebar_utils:sh(Cmd, [{use_stdout, true}, debug_and_abort_on_error]).
+
+post_proc_cmd_path(Cmd) ->
     case rebar_utils:find_executable(Cmd) of
         false -> filename:absname(Cmd);
         Path -> Path
