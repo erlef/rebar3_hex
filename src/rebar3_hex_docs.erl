@@ -164,14 +164,14 @@ resolve_doc_dir(AppInfo) ->
 %%   - `{doc, Provider}' where `Provider' is a rebar3 provider such as `edoc'
 %%   - `{doc, {Provider, Options}}' where `Options' is a property list.
 %%
-%%  Currently we support the following options:
+%%  Supported options:
 %%
 %%  - `post_process' - This option should be used to indicate the user wants to
 %%    execute a command after the doc provider has successfully run. The only supported
 %%    `post_process' options at this time is the `shell' option described below
 %%
 %%
-%%  Currently supported `post_process' options :
+%%  Supported `post_process' options :
 %%    - `shell' : The `shell' option may take one of two forms. Either
 %%    `{shell, "cmd"}' or `{shell, [{cmd, "cmd"}, {args, ["arg1", "arg2"]}]}'
 %%    We attempt to find the executable on the users PATH, if not found we assume
