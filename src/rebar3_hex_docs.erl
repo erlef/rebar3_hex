@@ -159,10 +159,9 @@ resolve_doc_dir(AppInfo) ->
 
 %% @doc Generates docs based on configuration
 %%
-%% This function will generate a docs according to the following configuration:
+%% This function will generate docs according to the following configuration:
 %%
-%%   - `{doc, Provider}' where `Provider' is a rebar3 provider such as `edoc'
-%%   - `{doc, {Provider, Options}}' where `Options' is a property list.
+%%   - `{doc, Options}' where `Options' is a map.
 %%
 %%  Supported options:
 %%
@@ -173,13 +172,17 @@ resolve_doc_dir(AppInfo) ->
 %%
 %%  Supported `post_process' options :
 %%    - `shell' : The `shell' option may take one of two forms. Either
-%%    `{shell, "cmd"}' or `{shell, [{cmd, "cmd"}, {args, ["arg1", "arg2"]}]}'
+%%    `{shell, "cmd"}' or `{shell, #{cmd, "cmd", args => ["arg1", "arg2"]}}'
 %%    We attempt to find the executable on the users PATH, if not found we assume
 %%    the command is a file in the CWD (normally the root of a users app).
 %%
+%%  Example config :
+%%
+%%  `{doc, #{provider => edoc, post_process => [{shell, #{cmd => "echo", args => ["hello"]}}]}}'
+%%
 maybe_gen_docs(State) ->
     case doc_opts(State) of
-        {ok, {PrvName, Opts}} ->
+        {ok, #{provider := PrvName} = Opts} ->
             case providers:get_provider(PrvName, rebar_state:providers(State)) of
                 not_found ->
                     rebar_api:error("No provider found for ~ts", [PrvName]);
@@ -190,23 +193,26 @@ maybe_gen_docs(State) ->
             rebar_api:error("No valid hex docs configuration found", [])
     end.
 
-gen_docs(State, Prv, Opts) ->
+doc_opts(State) ->
+    Opts = rebar_state:opts(State),
+    case proplists:get_value(doc, rebar_opts:get(Opts, hex), undefined) of
+        DocOpts when is_map(DocOpts) -> {ok, DocOpts};
+        _ -> undefined
+    end.
+
+gen_docs(State, Prv, #{post_process := PostOpts}) ->
     case providers:do(Prv, State) of
         {ok, State} ->
-            case proplists:get_value(post_process, Opts, undefined) of
-                undefined ->
-                    ok;
-                PostOpts ->
-                    Supported = {shell, proplists:get_value(shell, PostOpts, undefined)},
-                    maybe_post_process(Supported)
-            end;
+            Supported = {shell, proplists:get_value(shell, PostOpts, undefined)},
+            maybe_post_process(Supported);
         Err ->
             ?PRV_ERROR({publish, Err})
-    end.
+    end;
+gen_docs(State, _, _) -> {ok, State}.
 
 maybe_post_process({shell, undefined}) ->
     ok;
-maybe_post_process({shell, [{cmd, Cmd}, {args, Args}]}) ->
+maybe_post_process({shell, #{cmd := Cmd, args := Args}}) ->
     Cmd1 = post_proc_cmd_path(Cmd),
     Cmd2 = rebar_string:join([Cmd1, rebar_string:join(Args, " ")], " "),
     do_sh(Cmd2);
@@ -222,20 +228,6 @@ post_proc_cmd_path(Cmd) ->
     case rebar_utils:find_executable(Cmd) of
         false -> filename:absname(Cmd);
         Path -> Path
-    end.
-
-doc_opts(State) ->
-    Opts = rebar_state:opts(State),
-    case proplists:get_value(doc, rebar_opts:get(Opts, hex), undefined) of
-        undefined ->
-            undefined;
-        PrvName when is_atom(PrvName) ->
-            {ok, PrvName, []};
-        {PrvName, DocOpts} when is_atom(PrvName) andalso is_list(DocOpts) ->
-            {ok, {PrvName, DocOpts}};
-        _ ->
-            %% Any other data type or structure is currently not supported.
-            undefined
     end.
 
 -spec assert_doc_dir(string()) -> true.
