@@ -189,8 +189,10 @@ gen_docs(State, Prv, Opts) ->
 maybe_post_process({shell, [{cmd, Cmd}, {args, Args}]}) ->
     Cmd1 = post_proc_cmd(Cmd),
     Cmd2 = Cmd1 ++ " " ++ string:join(Args, " "),
+    erlang:display(Cmd2),
     rebar_utils:sh(Cmd2, [{use_stdout, true}, debug_and_abort_on_error]);
 maybe_post_process({shell, Cmd}) ->
+    erlang:display(Cmd),
     rebar_utils:sh(post_proc_cmd(Cmd), [{use_stdout, true}, debug_and_abort_on_error]);
 maybe_post_process(_) ->
     ok.
