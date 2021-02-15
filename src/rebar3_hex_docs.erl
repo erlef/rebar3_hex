@@ -191,7 +191,7 @@ maybe_post_process({shell, undefined}) ->
     ok;
 maybe_post_process({shell, [{cmd, Cmd}, {args, Args}]}) ->
     Cmd1 = post_proc_cmd_path(Cmd),
-    Cmd2 = Cmd1 ++ " " ++ string:join(Args, " "),
+    Cmd2 = rebar_string:join([Cmd1, rebar_string:join(Args, " ")], " "),
     do_sh(Cmd2);
 maybe_post_process({shell, Cmd}) ->
     do_sh(post_proc_cmd_path(Cmd));
