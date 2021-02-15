@@ -186,10 +186,20 @@ gen_docs(State, Prv, Opts) ->
             ?PRV_ERROR({publish, Err})
     end.
 
+maybe_post_process({shell, [{cmd, Cmd}, {args, Args}]}) ->
+    Cmd1 = post_proc_cmd(Cmd),
+    Cmd2 = Cmd1 ++ " " ++ string:join(Args, " "),
+    rebar_utils:sh(Cmd2, [{use_stdout, true}, debug_and_abort_on_error]);
 maybe_post_process({shell, Cmd}) ->
-    AbsCmd = filename:absname(Cmd),
-    rebar_utils:sh(AbsCmd, [use_stdout]);
-maybe_post_process(_) -> ok.
+    rebar_utils:sh(post_proc_cmd(Cmd), [{use_stdout, true}, debug_and_abort_on_error]);
+maybe_post_process(Eh) ->
+    ok.
+
+post_proc_cmd(Cmd) ->
+    case rebar_utils:find_executable(Cmd) of
+        false -> filename:absname(Cmd);
+        Path -> Path
+    end.
 
 doc_opts(State) ->
     Opts = rebar_state:opts(State),
