@@ -192,7 +192,7 @@ maybe_post_process({shell, [{cmd, Cmd}, {args, Args}]}) ->
     rebar_utils:sh(Cmd2, [{use_stdout, true}, debug_and_abort_on_error]);
 maybe_post_process({shell, Cmd}) ->
     rebar_utils:sh(post_proc_cmd(Cmd), [{use_stdout, true}, debug_and_abort_on_error]);
-maybe_post_process(Eh) ->
+maybe_post_process(_) ->
     ok.
 
 post_proc_cmd(Cmd) ->
