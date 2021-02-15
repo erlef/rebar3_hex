@@ -157,6 +157,26 @@ resolve_doc_dir(AppInfo) ->
     Dir = proplists:get_value(dir, EdocOpts, ?DEFAULT_DOC_DIR),
     proplists:get_value(doc, AppDetails, Dir).
 
+%% @doc Generates docs based on configuration
+%%
+%% This function will generate a docs according to the following configuration:
+%%
+%%   - `{doc, Provider}' where `Provider' is a rebar3 provider such as `edoc'
+%%   - `{doc, {Provider, Options}}' where `Options' is a property list.
+%%
+%%  Currently we support the following options:
+%%
+%%  - `post_process' - This option should be used to indicate the user wants to
+%%    execute a command after the doc provider has successfully run. The only supported
+%%    `post_process' options at this time is the `shell' option described below
+%%
+%%
+%%  Currently supported `post_process' options :
+%%    - `shell' : The `shell' option may take one of two forms. Either
+%%    `{shell, "cmd"}' or `{shell, [{cmd, "cmd"}, {args, ["arg1", "arg2"]}]}'
+%%    We attempt to find the executable on the users PATH, if not found we assume
+%%    the command is a file in the CWD (normally the root of a users app).
+%%
 maybe_gen_docs(State) ->
     case doc_opts(State) of
         {ok, {PrvName, Opts}} ->
@@ -190,7 +210,7 @@ maybe_post_process({shell, [{cmd, Cmd}, {args, Args}]}) ->
     Cmd1 = post_proc_cmd_path(Cmd),
     Cmd2 = rebar_string:join([Cmd1, rebar_string:join(Args, " ")], " "),
     do_sh(Cmd2);
-maybe_post_process({shell, Cmd}) when is_binary(Cmd) or is_list(Cmd) ->
+maybe_post_process({shell, Cmd}) when is_list(Cmd) ->
     do_sh(post_proc_cmd_path(Cmd));
 maybe_post_process(_) ->
     ok.
