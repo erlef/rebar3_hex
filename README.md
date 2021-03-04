@@ -1,5 +1,10 @@
-rebar3 Hex Providers
+rebar3 Hex Providers [![GitHub Actions CI][ci-img]][ci] [![Coverage][cov-img]][cov]
 =========================
+
+[ci]: https://github.com/tsloughter/rebar3_hex
+[ci-img]: https://github.com/tsloughter/rebar3_hex/workflows/build/badge.svg
+[cov]: https://codecov.io/gh/tsloughter/rebar3_hex
+[cov-img]: https://codecov.io/gh/tsloughter/rebar3_hex/branch/master/graph/badge.svg
 
 Providers for interacting with the Erlang package manager [hex.pm](https://hex.pm/).
 
