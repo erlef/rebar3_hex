@@ -1,0 +1,34 @@
+---
+name: build
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  ci:
+    name: >
+      Run checks and tests over ${{matrix.otp_vsn}} and ${{matrix.os}}
+    runs-on: ${{matrix.os}}
+    container:
+      image: erlang:${{matrix.otp_vsn}}
+    strategy:
+      matrix:
+        otp_vsn: [19.3, 20.3, 21.3, 22.3, 23.2]
+        os: [ubuntu-latest]
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v2
+      - name: Static analysis
+        run: rebar3 dialyzer
+      - name: Common Tests
+        run: rebar3 ct
+      - name: Code coverage
+        run: rebar3 as test do cover,covertool generate
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v1
+        with:
+          files: _build/test/covertool/rebar3_hex.covertool.xml
+          name: ${{matrix.otp_vsn}}
