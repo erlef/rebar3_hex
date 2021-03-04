@@ -45,26 +45,42 @@ handle_command(State, Repo) ->
         {"add", Package, UsernameOrEmail, Level, Transfer} ->
             case valid_level(Level) of
                 true ->
-                    {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
-                    {ok, State} = add(Config, Package, UsernameOrEmail, Level, Transfer, State),
-                    ok = rebar3_hex_io:say("Added ~ts to ~ts", [UsernameOrEmail, Package]),
-                    {ok, State};
+                    case rebar3_hex_config:hex_config_write(Repo) of
+                        {ok, Config}  ->
+                            {ok, State} = add(Config, Package, UsernameOrEmail, Level, Transfer, State),
+                            ok = rebar3_hex_io:say("Added ~ts to ~ts", [UsernameOrEmail, Package]),
+                            {ok, State};
+                        Err ->
+                            ?PRV_ERROR(Err)
+                    end;
                 false ->
                     {error, "level must be one of full or maintainer"}
             end;
         {"remove", Package, UsernameOrEmail} ->
-            {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
-            {ok, State} = remove(Config, Package, UsernameOrEmail, State),
-            ok = rebar3_hex_io:say("Removed ~ts to ~ts", [UsernameOrEmail, Package]),
-            {ok, State};
+            case rebar3_hex_config:hex_config_write(Repo) of
+                {ok, Config} ->
+                    {ok, State} = remove(Config, Package, UsernameOrEmail, State),
+                    ok = rebar3_hex_io:say("Removed ~ts to ~ts", [UsernameOrEmail, Package]),
+                    {ok, State};
+                Err ->
+                    ?PRV_ERROR(Err)
+            end;
         {"transfer", Package, UsernameOrEmail} ->
-            {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
-            {ok, State} = add(Config, Package, UsernameOrEmail, <<"full">>, true, State),
-            ok = rebar3_hex_io:say("Transfered ~ts to ~ts", [UsernameOrEmail, Package]),
-            {ok, State};
+            case  rebar3_hex_config:hex_config_write(Repo) of
+                {ok, Config} ->
+                    {ok, State} = add(Config, Package, UsernameOrEmail, <<"full">>, true, State),
+                    ok = rebar3_hex_io:say("Transfered ~ts to ~ts", [UsernameOrEmail, Package]),
+                    {ok, State};
+                Err ->
+                    ?PRV_ERROR(Err)
+            end;
         {"list", Package} ->
-            {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
-            list(Config, Package, State);
+            case rebar3_hex_config:hex_config_read(Repo) of
+                {ok, Config} ->
+                    list(Config, Package, State);
+                Err ->
+                    ?PRV_ERROR(Err)
+            end;
         _Command ->
             ?PRV_ERROR(bad_command)
     end.
