@@ -168,7 +168,7 @@ remove(HexConfig, Package, UsernameOrEmail, State) ->
 list(HexConfig, Package, State) ->
     case hex_api_package_owner:list(HexConfig, Package) of
         {ok, {200, _Headers, List}} ->
-            Owners = [binary_to_list(maps:get(<<"email">>, Owner, <<"">>)) || Owner <- List],
+            Owners = [owner_email(Owner) || Owner <- List],
             OwnersString = rebar_string:join(Owners, "\n"),
             rebar3_hex_io:say("~s", [OwnersString]),
             {ok, State};
@@ -176,6 +176,12 @@ list(HexConfig, Package, State) ->
             ?PRV_ERROR({status, Status, Package});
         {error, Reason} ->
             ?PRV_ERROR({error, Package, Reason})
+    end.
+
+owner_email(Owner) ->
+    case maps:get(<<"email">>, Owner, <<"">>) of
+        Email when is_binary(Email) -> binary_to_list(Email);
+        _ -> "unspecified"
     end.
 
 verb_to_gerund(add) -> "adding";
