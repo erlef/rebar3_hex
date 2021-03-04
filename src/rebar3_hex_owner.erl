@@ -64,8 +64,7 @@ handle_command(State, Repo) ->
             {ok, State};
         {"list", Package} ->
             {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
-            {ok, State} = list(Config, Package, State),
-            {ok, State};
+            list(Config, Package, State);
         _Command ->
             ?PRV_ERROR(bad_command)
     end.
@@ -169,7 +168,7 @@ remove(HexConfig, Package, UsernameOrEmail, State) ->
 list(HexConfig, Package, State) ->
     case hex_api_package_owner:list(HexConfig, Package) of
         {ok, {200, _Headers, List}} ->
-            Owners = [binary_to_list(maps:get(<<"email">>, Owner, <<"">>)) || Owner <- List],
+            Owners = [owner(Owner) || Owner <- List],
             OwnersString = rebar_string:join(Owners, "\n"),
             rebar3_hex_io:say("~s", [OwnersString]),
             {ok, State};
@@ -178,6 +177,21 @@ list(HexConfig, Package, State) ->
         {error, Reason} ->
             ?PRV_ERROR({error, Package, Reason})
     end.
+
+owner(Owner) ->
+    Name0 = maps:get(<<"username">>, Owner, nil),
+    Email0 = maps:get(<<"email">>, Owner, nil),
+    {Name, Email} = case {Name0, Email0} of
+                        _ when is_binary(Name0), is_binary(Email0) ->
+                            {Name0, Email0};
+                        _ when is_binary(Name0) ->
+                            {Name0, <<"unspecified">>};
+                        _ when is_binary(Email0) ->
+                            {<<"unspecified">>, Email0};
+                        _ ->
+                            {<<"unspecified">>, <<"unspecified">>}
+                    end,
+    binary_to_list(Name) ++ " (" ++ binary_to_list(Email) ++ ")".
 
 verb_to_gerund(add) -> "adding";
 verb_to_gerund(remove) -> "removing";

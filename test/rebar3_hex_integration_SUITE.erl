@@ -691,7 +691,7 @@ setup_mocks_for(owner, #{password := Password}) ->
                   case {Templ, Args} of
                       {_, [_UserOrOrg, _Package]} -> %% add/remove
                           ok;
-                      {"~s",[[]]} ->  %% list
+                      {"~s",["unspecified (unspecified)"]} ->  %% list
                           ok
                   end
           end,
