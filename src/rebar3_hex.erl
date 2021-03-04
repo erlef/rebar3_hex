@@ -43,8 +43,13 @@ get_required(Key, Args) ->
     end.
 
 task_args(State) ->
-    {[{task, Task} | Args], _} = rebar_state:command_parsed_args(State),
-    {Task, Args}.
+    {Opts, _Args} = rebar_state:command_parsed_args(State),
+    case proplists:get_value(task, Opts, undefined) of
+        undefined ->
+            {undefined, Opts};
+        Task ->
+            {Task, proplists:delete(task, Opts)}
+    end.
 
 repo_opt() ->
   {repo, $r, "repo", string, "Repository to use for this command."}.
