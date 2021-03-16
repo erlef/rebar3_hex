@@ -165,29 +165,25 @@ resolve_doc_dir(AppInfo) ->
 %%
 %%  Supported options:
 %%
-%%  - `post_process' - This option should be used to indicate the user wants to
-%%    execute a command after the doc provider has successfully run. The only supported
-%%    `post_process' options at this time is the `shell' option described below
-%%
-%%
-%%  Supported `post_process' options :
-%%    - `shell' : The `shell' option may take one of two forms. Either
-%%    `{shell, "cmd"}' or `{shell, #{cmd, "cmd", args => ["arg1", "arg2"]}}'
-%%    We attempt to find the executable on the users PATH, if not found we assume
-%%    the command is a file in the CWD (normally the root of a users app).
+%%  - `provider' - This value of this option should be the name of a valid doc
+%%                 provider, such as `edoc'. Note that only `edoc' is supported out of
+%%                 the box with rebar3. Refer to `src/rebar_prv_edoc.erl' as an example
+%%                 of a docs provider in `rebar3', as well as
+%%                 https://rebar3.org/docs/tutorials/building_plugins/ for documentation on
+%%                 creating plugins.
 %%
 %%  Example config :
 %%
-%%  `{doc, #{provider => edoc, post_process => [{shell, #{cmd => "echo", args => ["hello"]}}]}}'
+%%  `{doc, #{provider => edoc}}'
 %%
 maybe_gen_docs(State) ->
     case doc_opts(State) of
-        {ok, #{provider := PrvName} = Opts} ->
+        {ok, #{provider := PrvName}} ->
             case providers:get_provider(PrvName, rebar_state:providers(State)) of
                 not_found ->
                     rebar_api:error("No provider found for ~ts", [PrvName]);
                 Prv ->
-                    gen_docs(State, Prv, Opts)
+                    gen_docs(State, Prv)
             end;
         _ ->
             rebar_api:error("No valid hex docs configuration found", [])
@@ -200,34 +196,12 @@ doc_opts(State) ->
         _ -> undefined
     end.
 
-gen_docs(State, Prv, #{post_process := PostOpts}) ->
+gen_docs(State, Prv) ->
     case providers:do(Prv, State) of
         {ok, State} ->
-            Supported = {shell, proplists:get_value(shell, PostOpts, undefined)},
-            maybe_post_process(Supported);
+            {ok, State};
         Err ->
             ?PRV_ERROR({publish, Err})
-    end;
-gen_docs(State, _, _) -> {ok, State}.
-
-maybe_post_process({shell, undefined}) ->
-    ok;
-maybe_post_process({shell, #{cmd := Cmd, args := Args}}) ->
-    Cmd1 = post_proc_cmd_path(Cmd),
-    Cmd2 = rebar_string:join([Cmd1, rebar_string:join(Args, " ")], " "),
-    do_sh(Cmd2);
-maybe_post_process({shell, Cmd}) when is_list(Cmd) ->
-    do_sh(post_proc_cmd_path(Cmd));
-maybe_post_process(_) ->
-    ok.
-
-do_sh(Cmd) ->
-    rebar_utils:sh(Cmd, [{use_stdout, true}, debug_and_abort_on_error]).
-
-post_proc_cmd_path(Cmd) ->
-    case rebar_utils:find_executable(Cmd) of
-        false -> filename:absname(Cmd);
-        Path -> Path
     end.
 
 -spec assert_doc_dir(string()) -> true.

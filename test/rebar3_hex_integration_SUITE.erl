@@ -13,10 +13,6 @@ all() ->
     , decrypt_write_key_test
     , bad_command_test
     , docs_test
-    , docs_post_process_test
-    , docs_post_process_error_test
-    , docs_post_process_with_args_test
-    , docs_post_process_with_args_error_test
     , docs_auth_error_test
     , docs_dir_error_test
     , docs_invalid_repo_test
@@ -127,44 +123,6 @@ docs_test(Config) ->
     {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, RepoConfig, State),
     {ok, NewState} = rebar_prv_edoc:do(DocState),
     ?assertMatch({ok, NewState}, rebar3_hex_docs:do(NewState)).
-
-docs_post_process_test(Config) ->
-    P = #{app => "valid", mocks => [docs]},
-    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    Command = ["docs"],
-    RepoConfig =  [{repos,[Repo]}, {doc, #{provider => edoc, post_process =>  [{shell, "echo"}]}}],
-    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, RepoConfig, State),
-    {ok, NewState} = rebar_prv_edoc:init(DocState),
-    ?assertMatch({ok, NewState}, rebar3_hex_docs:do(NewState)).
-
-docs_post_process_error_test(Config) ->
-    P = #{app => "valid", mocks => [docs]},
-    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    Command = ["docs"],
-    RepoConfig =  [{repos,[Repo]}, {doc, #{provider => edoc, post_process => [{shell, "eh?"}]}}],
-    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, RepoConfig, State),
-    {ok, NewState} = rebar_prv_edoc:init(DocState),
-    ?assertThrow(rebar_abort, rebar3_hex_docs:do(NewState)).
-
-docs_post_process_with_args_test(Config) ->
-    P = #{app => "valid", mocks => [docs]},
-    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    Command = ["docs"],
-    PostProc = [{shell, #{cmd => "echo", args => ["this","that","foo","bar"]}}],
-    RepoConfig =  [{repos,[Repo]}, {doc, #{provider => edoc, post_process => PostProc}}],
-    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, RepoConfig, State),
-    {ok, NewState} = rebar_prv_edoc:init(DocState),
-    ?assertMatch({ok, NewState}, rebar3_hex_docs:do(NewState)).
-
-docs_post_process_with_args_error_test(Config) ->
-    P = #{app => "valid", mocks => [docs]},
-    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    Command = ["docs"],
-    PostProc = [{shell, #{cmd => "eh?", args => ["this","that","foo","bar"]}}],
-    RepoConfig =  [{repos,[Repo]}, {doc, #{provider => edoc, post_process => PostProc}}],
-    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, RepoConfig, State),
-    {ok, NewState} = rebar_prv_edoc:init(DocState),
-    ?assertThrow(rebar_abort, rebar3_hex_docs:do(NewState)).
 
 docs_dir_error_test(Config) ->
     P = #{app => "valid", mocks => [docs]},
