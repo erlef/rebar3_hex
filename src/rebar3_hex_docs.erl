@@ -98,6 +98,7 @@ handle_command(App, State, Repo) ->
     end.
 
 do_publish(App, State, Repo) ->
+    maybe_gen_docs(State, Repo),
     AppDir = rebar_app_info:dir(App),
     DocDir = resolve_doc_dir(App),
     assert_doc_dir(filename:join(AppDir, DocDir)),
@@ -155,6 +156,76 @@ resolve_doc_dir(AppInfo) ->
     AppDetails = rebar_app_info:app_details(AppInfo),
     Dir = proplists:get_value(dir, EdocOpts, ?DEFAULT_DOC_DIR),
     proplists:get_value(doc, AppDetails, Dir).
+
+%% @doc Generates docs based on configuration
+%%
+%% This function will generate docs according to the following configuration:
+%%
+%%   - `{doc, Options}' as part of your global hex config, where `Options' is a map.
+%%   - `#{doc => Options}' as part of a specific repo configuration, where `Options' is a map
+%%
+%%  Repo specific config will always override global hex config if the repo in question is
+%%  the context in which rebar3_hex is operating in.
+%%
+%%  Supported options:
+%%
+%%  - `provider' - This value of this option should be the name of a valid doc
+%%                 provider, such as `edoc'. Note that only `edoc' is supported out of
+%%                 the box with rebar3. Refer to `src/rebar_prv_edoc.erl' as an example
+%%                 of a docs provider in `rebar3', as well as
+%%                 https://rebar3.org/docs/tutorials/building_plugins/ for documentation on
+%%                 creating plugins.
+%%
+%%  Example global config within rebar.config :
+%%
+%%  `{hex, {doc, #{provider => edoc}}}.'
+%%
+%%  Example repo specific config:
+%%  ```
+%%  {hex, [
+%%        {repos, [
+%%                 #{name => <<"my_private_hex">>,
+%%                   repo_url => <<"https://my_private_hex.foo">>,
+%%                   doc => #{provider => edoc}
+%%                  }
+%%                ]
+%%         }
+%%       ]
+%%   }.
+%%   '''
+maybe_gen_docs(State, Repo) ->
+    case doc_opts(State, Repo) of
+        {ok, #{provider := PrvName}} ->
+            case providers:get_provider(PrvName, rebar_state:providers(State)) of
+                not_found ->
+                    rebar_api:error("No provider found for ~ts", [PrvName]);
+                Prv ->
+                    gen_docs(State, Prv)
+            end;
+        _ ->
+            Msg = "No valid hex docs configuration found. Docs will will not be generated",
+            rebar_api:error(Msg, [])
+    end.
+
+doc_opts(State, Repo) ->
+    case Repo of
+      #{doc := DocOpts} when is_map(DocOpts) ->
+            {ok, DocOpts};
+      _ ->
+        Opts = rebar_state:opts(State),
+        case proplists:get_value(doc, rebar_opts:get(Opts, hex), undefined) of
+            DocOpts when is_map(DocOpts) -> {ok, DocOpts};
+            _ -> undefined
+        end
+    end.
+
+gen_docs(State, Prv) ->
+    case providers:do(Prv, State) of
+        {ok, State} ->
+            {ok, State};
+        Err ->
+            ?PRV_ERROR({publish, Err})
+    end.
 
 -spec assert_doc_dir(string()) -> true.
 assert_doc_dir(DocDir) ->

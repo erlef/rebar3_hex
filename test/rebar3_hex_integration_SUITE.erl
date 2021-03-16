@@ -119,7 +119,8 @@ docs_test(Config) ->
     P = #{app => "valid", mocks => [docs]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     Command = ["docs"],
-    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, Repo, State),
+    RepoConfig =  [{repos,[Repo]}],
+    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, RepoConfig, State),
     {ok, NewState} = rebar_prv_edoc:do(DocState),
     ?assertMatch({ok, NewState}, rebar3_hex_docs:do(NewState)).
 
@@ -127,14 +128,16 @@ docs_dir_error_test(Config) ->
     P = #{app => "valid", mocks => [docs]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     Command = ["docs"],
-    {ok, NewState} = test_utils:mock_command(rebar3_hex_docs, Command, Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, NewState} = test_utils:mock_command(rebar3_hex_docs, Command, RepoConfig, State),
     ?assertThrow(rebar_abort, rebar3_hex_docs:do(NewState)).
 
 docs_revert_test(Config) ->
     P = #{app => "valid", mocks => [docs]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     Command = ["revert", "0.1.1"],
-    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, Repo, State),
+    RepoConfig =  [{repos,[Repo]}],
+    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, RepoConfig, State),
     {ok, NewState} = rebar_prv_edoc:do(DocState),
     ?assertMatch({ok, NewState}, rebar3_hex_docs:do(NewState)).
 
@@ -148,7 +151,8 @@ docs_revert_auth_error_test(Config) ->
          },
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     Command = ["revert", "0.1.1"],
-    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, RepoConfig, State),
     %ExpError = {error,{rebar3_hex_docs,{revert,{unauthorized,#{}}}}},
     ExpError = {error,{rebar3_hex_docs,{publish,{error,#{}}}}},
     {ok, NewState} = rebar_prv_edoc:do(DocState),
@@ -164,7 +168,8 @@ docs_auth_error_test(Config) ->
          },
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     Command = [],
-    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, Repo, State),
+    RepoConfig =  [{repos,[Repo]}],
+    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, RepoConfig, State),
     {ok, NewState} = rebar_prv_edoc:do(DocState),
     ExpError = {error,{rebar3_hex_docs,{publish,{error,#{}}}}},
     ?assertMatch(ExpError , rebar3_hex_docs:do(NewState)).
@@ -179,7 +184,8 @@ docs_invalid_repo_test(Config) ->
 
          },
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, ["-r", "hexpm:valid"], Repo, State),
+    RepoConfig =  [{repos,[Repo]}],
+    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, ["-r", "hexpm:valid"], RepoConfig, State),
     {ok, NewState} = rebar_prv_edoc:do(DocState),
 
     ExpError = {error,{rebar3_hex_docs,{not_valid_repo,"hexpm:valid"}}},
@@ -191,7 +197,8 @@ docs_no_write_key_test(Config) ->
           repo_config => #{write_key => undefined}
          },
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, [], Repo, State),
+    RepoConfig =  [{repos,[Repo]}],
+    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, [], RepoConfig, State),
     {ok, NewState} = rebar_prv_edoc:do(DocState),
 
     ExpError = {error,{rebar3_hex_docs,no_write_key}},
@@ -223,8 +230,8 @@ register_user_test(Config) ->
           email => <<"jlundegaard@gustafson-mortors.com">>
          },
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-
-    {ok, RegState} = test_utils:mock_command(rebar3_hex_user, ["register"], Repo, State),
+    RepoConfig =  [{repos,[Repo]}],
+    {ok, RegState} = test_utils:mock_command(rebar3_hex_user, ["register"], RepoConfig, State),
     ?assertMatch({ok, RegState}, rebar3_hex_user:do(RegState)).
 
 register_existing_user_test(Config) ->
@@ -236,8 +243,8 @@ register_existing_user_test(Config) ->
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
     ExpErr1 = {error, {rebar3_hex_user, {registration_failure, <<"email already in use">>}}},
-
-    {ok, RegState} = test_utils:mock_command(rebar3_hex_user, ["register"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, RegState} = test_utils:mock_command(rebar3_hex_user, ["register"], RepoConfig, State),
     ?assertMatch(ExpErr1, rebar3_hex_user:do(RegState)).
 
 register_empty_password_test(Config) ->
@@ -246,7 +253,8 @@ register_empty_password_test(Config) ->
           password => <<>>
          },
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["register"], Repo, State),
+    RepoConfig =  [{repos,[Repo]}],
+    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["register"], RepoConfig, State),
 
     ?assertMatch(error, rebar3_hex_user:do(AuthState)).
 
@@ -254,7 +262,8 @@ register_error_test(Config) ->
     meck:expect(hex_api_user, create, fun(_,_,_,_) -> {error, meh} end),
     P = #{app => "valid", mocks => [register]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["register"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["register"], RepoConfig, State),
 
     ExpErr = {error,{rebar3_hex_user,{registration_failure,["meh"]}}},
     ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState)).
@@ -263,7 +272,8 @@ register_password_mismatch_test(Config) ->
     P = #{app => "valid", mocks => [register], password_confirmation => <<"special_shoes0">>},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
-    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["register"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["register"], RepoConfig, State),
 
     ExpErr = {error,{rebar3_hex_user,{error,"passwords do not match"}}},
     ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState)).
@@ -272,14 +282,16 @@ auth_test(Config) ->
     P = #{app => "valid", mocks => [first_auth]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
-    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["auth"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["auth"], RepoConfig, State),
     ?assertMatch({ok, AuthState}, rebar3_hex_user:do(AuthState)).
 
 auth_bad_local_password_test(Config) ->
     P = #{app => "valid", mocks => [first_auth], password_confirmation => <<"oops">>},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
-    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["auth"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["auth"], RepoConfig, State),
     ?assertThrow({error,{rebar3_hex_user,no_match_local_password}}, rebar3_hex_user:do(AuthState)).
 
 auth_password_24_char_test(Config) ->
@@ -287,7 +299,8 @@ auth_password_24_char_test(Config) ->
     P = #{app => "valid", mocks => [first_auth], password => Pass, password_confirmation => Pass},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
-    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["auth"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["auth"], RepoConfig, State),
     ?assertMatch({ok, AuthState}, rebar3_hex_user:do(AuthState)).
 
 auth_password_32_char_test(Config) ->
@@ -295,7 +308,8 @@ auth_password_32_char_test(Config) ->
     P = #{app => "valid", mocks => [first_auth], password => Pass, password_confirmation => Pass},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
-    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["auth"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["auth"], RepoConfig, State),
     ?assertMatch({ok, AuthState}, rebar3_hex_user:do(AuthState)).
 
 auth_unhandled_test(Config) ->
@@ -306,7 +320,8 @@ auth_unhandled_test(Config) ->
 
     P = #{app => "valid", mocks => [first_auth]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["auth"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["auth"], RepoConfig, State),
 
     ExpErr = {error,{rebar3_hex_user,{generate_key,<<"eh?">>}}},
     ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState)),
@@ -319,7 +334,8 @@ auth_error_test(Config) ->
 
     P = #{app => "valid", mocks => [first_auth]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["auth"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, AuthState} = test_utils:mock_command(rebar3_hex_user, ["auth"], RepoConfig, State),
 
     ExpErr = {error,{rebar3_hex_user,{generate_key,["meh"]}}},
     ?assertMatch(ExpErr, rebar3_hex_user:do(AuthState)),
@@ -328,14 +344,16 @@ auth_error_test(Config) ->
 whoami_test(Config) ->
     P = #{app => "valid", mocks => [whoami]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, WhoamiState} = test_utils:mock_command(rebar3_hex_user, ["whoami"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, WhoamiState} = test_utils:mock_command(rebar3_hex_user, ["whoami"], RepoConfig, State),
 
     ?assertMatch({ok, WhoamiState}, rebar3_hex_user:do(WhoamiState)).
 
 whoami_unknown_test(Config) ->
     P = #{app => "valid", mocks => [whoami], repo_config => #{read_key => <<"eh?">>}},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, WhoamiState} = test_utils:mock_command(rebar3_hex_user, ["whoami"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, WhoamiState} = test_utils:mock_command(rebar3_hex_user, ["whoami"], RepoConfig, State),
 
     ExpErr = {error,{rebar3_hex_user,{whoami_failure,<<"huh?">>}}},
     ?assertMatch(ExpErr, rebar3_hex_user:do(WhoamiState)).
@@ -356,7 +374,8 @@ whoami_api_error_test(Config) ->
     meck:expect(hex_api_user, me, fun(_) -> {error, meh} end),
     P = #{app => "valid", mocks => [whoami], repo_config => #{read_key => <<"!">>}},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, WhoamiState} = test_utils:mock_command(rebar3_hex_user, ["whoami"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, WhoamiState} = test_utils:mock_command(rebar3_hex_user, ["whoami"], RepoConfig, State),
 
     ExpErr = {error,{rebar3_hex_user,{whoami_failure,["meh"]}}},
     ?assertMatch(ExpErr, rebar3_hex_user:do(WhoamiState)).
@@ -365,7 +384,8 @@ whoami_error_test(Config) ->
     meck:expect(hex_api_user, me, fun(_) -> {error, meh} end),
     P = #{app => "valid", mocks => [whoami]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, WhoamiState} = test_utils:mock_command(rebar3_hex_user, ["whoami"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, WhoamiState} = test_utils:mock_command(rebar3_hex_user, ["whoami"], RepoConfig, State),
 
     ExpErr = {error,{rebar3_hex_user,{whoami_failure,["meh"]}}},
     ?assertMatch(ExpErr, rebar3_hex_user:do(WhoamiState)).
@@ -375,7 +395,8 @@ whoami_not_authed_test(Config) ->
     expects_output([Str]),
     P = #{app => "valid", mocks => [whoami], repo_config => #{read_key => undefined}},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, WhoamiState } = test_utils:mock_command(rebar3_hex_user, ["whoami"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, WhoamiState } = test_utils:mock_command(rebar3_hex_user, ["whoami"], RepoConfig, State),
 
     ExpErr = {error,"Not authenticated as any user currently for this repository"},
     ?assertMatch(ExpErr, rebar3_hex_user:do(WhoamiState)),
@@ -384,7 +405,8 @@ whoami_not_authed_test(Config) ->
 reset_password_test(Config) ->
     P = #{app => "valid", mocks => [reset_password], username => "mr_pockets"},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, ResetState} = test_utils:mock_command(rebar3_hex_user, ["reset_password"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, ResetState} = test_utils:mock_command(rebar3_hex_user, ["reset_password"], RepoConfig, State),
 
     ?assertMatch({ok, ResetState}, rebar3_hex_user:do(ResetState)).
 
@@ -392,7 +414,8 @@ reset_password_test(Config) ->
 reset_password_api_error_test(Config) ->
     P = #{app => "valid", mocks => [reset_password], username => "eh?", repo_config => #{username => "eh?"}},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, ResetState} = test_utils:mock_command(rebar3_hex_user, ["reset_password"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, ResetState} = test_utils:mock_command(rebar3_hex_user, ["reset_password"], RepoConfig, State),
 
     ExpErr = {error,{rebar3_hex_user,{reset_failure,<<"huh?">>}}},
     ?assertMatch(ExpErr, rebar3_hex_user:do(ResetState)).
@@ -412,7 +435,8 @@ reset_password_error_test(Config) ->
     meck:expect(hex_api_user, reset_password, fun(_,_) -> {error, meh} end),
     P = #{app => "valid", mocks => [reset_password], username => "mr_pockets"},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, ResetState} = test_utils:mock_command(rebar3_hex_user, ["reset_password"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, ResetState} = test_utils:mock_command(rebar3_hex_user, ["reset_password"], RepoConfig, State),
 
     ExpErr = {error,{rebar3_hex_user,{reset_failure,["meh"]}}},
     ?assertMatch(ExpErr, rebar3_hex_user:do(ResetState)).
@@ -420,14 +444,16 @@ reset_password_error_test(Config) ->
 deauth_test(Config) ->
     P = #{app => "valid", mocks => [deauth]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, DeauthState} = test_utils:mock_command(rebar3_hex_user, ["deauth"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, DeauthState} = test_utils:mock_command(rebar3_hex_user, ["deauth"], RepoConfig, State),
 
     ?assertMatch({ok, DeauthState}, rebar3_hex_user:do(DeauthState)).
 
 publish_test(Config) ->
     P = #{app => "valid", mocks => [publish]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, [], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, [], RepoConfig, State),
     {ok, _} = rebar_prv_edoc:do(PubState),
 
     ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
@@ -440,7 +466,8 @@ publish_test(Config) ->
 publish_replace_test(Config) ->
     P = #{app => "valid", mocks => [publish]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["--replace"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["--replace"], RepoConfig, State),
     {ok, _} = rebar_prv_edoc:do(PubState),
 
     ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
@@ -448,7 +475,8 @@ publish_replace_test(Config) ->
 publish_revert_test(Config) ->
     P = #{app => "valid", mocks => [publish_revert], version => "1.0.0"},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["--revert", "1.0.0", "--package", "valid"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["--revert", "1.0.0", "--package", "valid"], RepoConfig, State),
 
     ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
 
@@ -463,7 +491,8 @@ publish_org_test(Config) ->
                           }
          },
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["-r", "hexpm:valid"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["-r", "hexpm:valid"], RepoConfig, State),
     {ok, _} = rebar_prv_edoc:do(PubState),
 
     ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
@@ -471,7 +500,8 @@ publish_org_test(Config) ->
 publish_org_error_test(Config) ->
     P = #{app => "valid", mocks => [publish], repo_config => #{repo => <<"hexpm:foo">>, name => <<"hexpm:foo">>}},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["-r", "hexpm:bar"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["-r", "hexpm:bar"], RepoConfig, State),
 
     ExpError = {error,{rebar3_hex_publish,{not_valid_repo,"hexpm:bar"}}},
     ?assertMatch(ExpError, rebar3_hex_publish:do(PubState)).
@@ -479,13 +509,15 @@ publish_org_error_test(Config) ->
 publish_org_requires_repo_arg_test(Config) ->
     P = #{app => "valid", mocks => [publish], repo_config => #{repo => <<"hexpm:valid">>, name => <<"hexpm:valid">>}},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, [], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, [], RepoConfig, State),
     ?assertMatch({error,{rebar3_hex_publish,{required,repo}}}, rebar3_hex_publish:do(PubState)).
 
 publish_error_test(Config) ->
     P = #{app => "valid", mocks => [publish], repo_config => #{write_key => undefined}},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, [], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, [], RepoConfig, State),
 
     ?assertMatch({error,{rebar3_hex_publish,no_write_key}}, rebar3_hex_publish:do(PubState)).
 
@@ -496,7 +528,8 @@ publish_unauthorized_test(Config) ->
           repo_config => #{write_key => WriteKey, repo => <<"hexpm:valid">>, name => <<"hexpm:valid">>}
          },
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["-r", "hexpm:valid"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["-r", "hexpm:valid"], RepoConfig, State),
     Exp = {error,
            {rebar3_hex_publish,
             {publish,
@@ -508,35 +541,40 @@ publish_unauthorized_test(Config) ->
 key_list_test(Config) ->
     P = #{app => "valid", mocks => []},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, ListState} = test_utils:mock_command(rebar3_hex_key, ["list"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, ListState} = test_utils:mock_command(rebar3_hex_key, ["list"], RepoConfig, State),
 
     ?assertMatch({ok, ListState}, rebar3_hex_key:do(ListState)).
 
 key_get_test(Config) ->
     P = #{app => "valid", mocks => []},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, GetState} = test_utils:mock_command(rebar3_hex_key, ["fetch", "-k", "key"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, GetState} = test_utils:mock_command(rebar3_hex_key, ["fetch", "-k", "key"], RepoConfig, State),
 
     ?assertMatch({ok, GetState}, rebar3_hex_key:do(GetState)).
 
 key_add_test(Config) ->
     P = #{app => "valid", mocks => [key_mutation]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, AddState} = test_utils:mock_command(rebar3_hex_key, ["generate", "-k", "foo"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, AddState} = test_utils:mock_command(rebar3_hex_key, ["generate", "-k", "foo"], RepoConfig, State),
 
     ?assertMatch({ok, AddState}, rebar3_hex_key:do(AddState)).
 
 key_delete_test(Config) ->
     P = #{app => "valid", mocks => [key_mutation]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, AddState} = test_utils:mock_command(rebar3_hex_key, ["revoke", "-k", "key"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, AddState} = test_utils:mock_command(rebar3_hex_key, ["revoke", "-k", "key"], RepoConfig, State),
 
     ?assertMatch({ok, AddState}, rebar3_hex_key:do(AddState)).
 
 key_delete_all_test(Config) ->
     P = #{app => "valid", mocks => [key_mutation]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
-    {ok, AddState} = test_utils:mock_command(rebar3_hex_key, ["revoke", "--all"], Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, AddState} = test_utils:mock_command(rebar3_hex_key, ["revoke", "--all"], RepoConfig, State),
 
     ?assertMatch({ok, AddState}, rebar3_hex_key:do(AddState)).
 
@@ -545,7 +583,8 @@ owner_add_test(Config) ->
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
     Command = ["add", "truecoat", "wade@foo.bar"],
-    {ok, AddState} = test_utils:mock_command(rebar3_hex_owner, Command, Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, AddState} = test_utils:mock_command(rebar3_hex_owner, Command, RepoConfig, State),
 
     ?assertMatch({ok, AddState}, rebar3_hex_owner:do(AddState)).
 
@@ -554,7 +593,8 @@ owner_transfer_test(Config) ->
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
     Command = ["transfer", "truecoat", "gustafson_motors", "-r", "hexpm"],
-    {ok, AddState} = test_utils:mock_command(rebar3_hex_owner, Command, Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, AddState} = test_utils:mock_command(rebar3_hex_owner, Command, RepoConfig, State),
 
     ?assertMatch({ok, AddState}, rebar3_hex_owner:do(AddState)).
 
@@ -563,7 +603,8 @@ owner_remove_test(Config) ->
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
     Command = ["remove", "truecoat", "wade@foo.bar"],
-    {ok, RemoveState} = test_utils:mock_command(rebar3_hex_owner, Command, Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, RemoveState} = test_utils:mock_command(rebar3_hex_owner, Command, RepoConfig, State),
 
     ?assertMatch({ok, RemoveState}, rebar3_hex_owner:do(RemoveState)).
 
@@ -572,7 +613,8 @@ owner_list_test(Config) ->
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
     Command = ["list", "truecoat"],
-    {ok, ListState} = test_utils:mock_command(rebar3_hex_owner, Command, Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, ListState} = test_utils:mock_command(rebar3_hex_owner, Command, RepoConfig, State),
 
     ?assertMatch({ok, ListState}, rebar3_hex_owner:do(ListState)).
 
@@ -580,7 +622,8 @@ bad_command_test(Config) ->
     P = #{app => "valid", mocks => [deauth]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     Command = ["bad_command"],
-    {ok, BadcommandState} = test_utils:mock_command(rebar3_hex_user, Command, Repo, State),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, BadcommandState} = test_utils:mock_command(rebar3_hex_user, Command, RepoConfig, State),
 
     ?assertThrow({error,{rebar3_hex_user,bad_command}}, rebar3_hex_user:do(BadcommandState)).
 
