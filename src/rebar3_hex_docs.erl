@@ -98,7 +98,7 @@ handle_command(App, State, Repo) ->
     end.
 
 do_publish(App, State, Repo) ->
-    maybe_gen_docs(State),
+    maybe_gen_docs(State, Repo),
     AppDir = rebar_app_info:dir(App),
     DocDir = resolve_doc_dir(App),
     assert_doc_dir(filename:join(AppDir, DocDir)),
@@ -161,7 +161,11 @@ resolve_doc_dir(AppInfo) ->
 %%
 %% This function will generate docs according to the following configuration:
 %%
-%%   - `{doc, Options}' where `Options' is a map.
+%%   - `{doc, Options}' as part of your global hex config, where `Options' is a map.
+%%   - `#{doc => Options}' as part of a specific repo configuration, where `Options' is a map
+%%
+%%  Repo specific config will always override global hex config if the repo in question is
+%%  the context in which rebar3_hex is operating in.
 %%
 %%  Supported options:
 %%
@@ -172,12 +176,25 @@ resolve_doc_dir(AppInfo) ->
 %%                 https://rebar3.org/docs/tutorials/building_plugins/ for documentation on
 %%                 creating plugins.
 %%
-%%  Example config :
+%%  Example global config within rebar.config :
 %%
-%%  `{doc, #{provider => edoc}}'
+%%  `{hex, {doc, #{provider => edoc}}}.'
 %%
-maybe_gen_docs(State) ->
-    case doc_opts(State) of
+%%  Example repo specific config:
+%%  ```
+%%  {hex, [
+%%        {repos, [
+%%                 #{name => <<"my_private_hex">>,
+%%                   repo_url => <<"https://my_private_hex.foo">>,
+%%                   doc => #{provider => edoc}
+%%                  }
+%%                ]
+%%         }
+%%       ]
+%%   }.
+%%   '''
+maybe_gen_docs(State, Repo) ->
+    case doc_opts(State, Repo) of
         {ok, #{provider := PrvName}} ->
             case providers:get_provider(PrvName, rebar_state:providers(State)) of
                 not_found ->
@@ -186,14 +203,20 @@ maybe_gen_docs(State) ->
                     gen_docs(State, Prv)
             end;
         _ ->
-            rebar_api:error("No valid hex docs configuration found", [])
+            Msg = "No valid hex docs configuration found. Docs will will not be generated",
+            rebar_api:error(Msg, [])
     end.
 
-doc_opts(State) ->
-    Opts = rebar_state:opts(State),
-    case proplists:get_value(doc, rebar_opts:get(Opts, hex), undefined) of
-        DocOpts when is_map(DocOpts) -> {ok, DocOpts};
-        _ -> undefined
+doc_opts(State, Repo) ->
+    case Repo of
+      #{doc := DocOpts} when is_map(DocOpts) ->
+            {ok, DocOpts};
+      _ ->
+        Opts = rebar_state:opts(State),
+        case proplists:get_value(doc, rebar_opts:get(Opts, hex), undefined) of
+            DocOpts when is_map(DocOpts) -> {ok, DocOpts};
+            _ -> undefined
+        end
     end.
 
 gen_docs(State, Prv) ->
