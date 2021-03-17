@@ -24,6 +24,7 @@
                      , has_maintainers
                      , has_description
                      , has_licenses
+                     , has_unstable_deps
                      ]).
 
 -ifdef(TEST).
@@ -110,11 +111,18 @@ format_error({has_maintainers, AppName}) ->
 format_error({has_contributors, AppName}) ->
     Err = "~ts.app.src : deprecated field contributors found",
     io_lib:format(Err, [AppName]);
+format_error({has_unstable_deps, Deps}) ->
+    MainMsg = "The following pre-release dependencies were found : ",
+    DepList = [[Pkg] ++ " - " ++ [Ver] || {Pkg, Ver} <- Deps],
+    Msg = ["In the future packages with pre-release dependencies will be considered unstable ",
+           "and will be prevented from being published. ",
+           "We recommend you upgrade your these dependencies as soon as possible"],
+    io_lib:format("~s~n~n~s~n~n~s~n", [MainMsg, DepList, Msg]);
 format_error(no_write_key) ->
     "No write key found for user. Be sure to authenticate first with:"
     ++ " rebar3 hex user auth";
 
-format_error({publish, {error, {tarball, _} = Err}}) -> 
+format_error({publish, {error, {tarball, _} = Err}}) ->
     hex_tarball:format_error(Err);
 format_error({publish, {error, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
     ErrorString = errors_to_string(Errors),
@@ -155,7 +163,7 @@ publish(App, HexConfig, State) ->
     Deps = rebar_state:get(State, {locks, default}, []),
     {TopLevel, Excluded} = gather_deps(Deps),
 
-    case is_valid_app({App, Name, ResolvedVersion, AppDetails}) of
+    case is_valid_app({App, Name, ResolvedVersion, AppDetails, Deps}) of
         ok ->
             publish(App, Name, ResolvedVersion, TopLevel,
                     Excluded, AppDetails, HexConfig, State);
@@ -270,14 +278,14 @@ maybe_say_coc(_) ->
 
 create_and_publish(Opts, Metadata, PackageFiles, HexConfig) ->
     case hex_tarball:create(Metadata, PackageFiles) of
-         {ok, #{tarball := Tarball, inner_checksum := _Checksum}} -> 
+         {ok, #{tarball := Tarball, inner_checksum := _Checksum}} ->
             case rebar3_hex_client:publish(HexConfig, Tarball, Opts) of
                 {ok, _Res} ->
                     ok;
                 Error ->
                     ?PRV_ERROR({publish, Error})
             end;
-         Error -> 
+         Error ->
             ?PRV_ERROR({publish, Error})
     end.
 
@@ -326,7 +334,7 @@ include_files(Name, AppDir, AppDetails) ->
     lists:keystore(AppFileSrc, 1, WithIncludes, {AppFileSrc, AppSrcBinary}).
 
 
-is_valid_app({_App, _Name, _Version, _AppDetails} = A) ->
+is_valid_app({_App, _Name, _Version, _AppDetails, _Deps} = A) ->
     F = fun(K, Acc) ->
             case validate_app(K, A) of
                 ok ->
@@ -342,14 +350,30 @@ is_valid_app({_App, _Name, _Version, _AppDetails} = A) ->
             {error, Errors}
     end.
 
-validate_app(has_semver, {_, Name, Ver, _}) ->
+validate_app(has_unstable_deps, {_, _, _, _, Deps}) ->
+    Pred = fun({_, {pkg, Pkg, Ver, _, _}, _}, Acc) ->
+                   case verl:parse(Ver) of
+                       {ok, #{pre := Pre}} when Pre =/= [] ->
+                           [{Pkg, Ver}|Acc];
+                       _ ->
+                           Acc
+                   end
+           end,
+    case lists:foldl(Pred, [], Deps) of
+        [] ->
+            ok;
+        PreDeps ->
+            rebar_log:log(warn, format_error({has_unstable_deps, PreDeps}), []),
+            ok
+    end;
+validate_app(has_semver, {_, Name, Ver, _, _}) ->
     case verl:parse(rebar_utils:to_binary(Ver)) of
         {error, invalid_version} ->
             {error, {invalid_semver, Name, Ver}};
         _ ->
          ok
     end;
-validate_app(has_contributors, {_, Name, _, AppDetails}) ->
+validate_app(has_contributors, {_, Name, _, AppDetails, _}) ->
     case proplists:is_defined(contributors, AppDetails) of
         true ->
             rebar_log:log(warn, format_error({has_contributors, Name}), []),
@@ -357,7 +381,7 @@ validate_app(has_contributors, {_, Name, _, AppDetails}) ->
         false ->
             ok
     end;
-validate_app(has_maintainers, {_, Name, _, AppDetails}) ->
+validate_app(has_maintainers, {_, Name, _, AppDetails, _}) ->
     case proplists:is_defined(maintainers, AppDetails) of
         true ->
             rebar_log:log(warn, format_error({has_maintainers, Name}), []),
@@ -365,14 +389,14 @@ validate_app(has_maintainers, {_, Name, _, AppDetails}) ->
         false ->
             ok
     end;
-validate_app(has_description, {_, Name, _, AppDetails}) ->
+validate_app(has_description, {_, Name, _, AppDetails, _}) ->
     case is_empty_prop(description, AppDetails) of
         true ->
             {error, {no_description, Name}};
         false ->
             ok
     end;
-validate_app(has_licenses, {_, Name, _, AppDetails}) ->
+validate_app(has_licenses, {_, Name, _, AppDetails, _}) ->
     case is_empty_prop(licenses, AppDetails)  of
         true ->
           {error, {no_license, Name}};
