@@ -29,6 +29,7 @@ init(State) ->
                                 {short_desc, "Publish documentation for the current project and version"},
                                 {desc, ""},
                                 {opts, [{revert, undefined, "revert", string, "Revert given version."},
+                                        {dry_run, undefined, "dry-run", {boolean, false}, help(dry_run)},
                                         rebar3_hex:repo_opt()]},
                                 {profiles, [docs]}]),
     State1 = rebar_state:add_provider(State, Provider),
@@ -74,6 +75,9 @@ format_error(Reason) ->
 %% Internal Functions
 %% ===================================================================
 
+help(dry_run) ->
+    "Generates docs (if configured) but does not publish the docs. Useful for inspecting docs before publishing.".
+
 publish_apps(Apps, State) ->
     lists:foldl(fun(App, {ok, StateAcc}) ->
                         case handle_command(App, StateAcc) of
@@ -116,12 +120,19 @@ do_publish(App, State, Repo) ->
 
     {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
 
-    case rebar3_hex_client:publish_docs(Config, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn), Tar) of
-        {ok, _} ->
-            rebar_api:info("Published docs for ~ts ~ts", [PkgName, Vsn]),
+    {Args, _} = rebar_state:command_parsed_args(State),
+    case proplists:get_bool(dry_run, Args) of
+        true ->
+            rebar_api:info("--dry-run enabled : will not publish docs.", []),
             {ok, State};
-        Reason ->
-            ?PRV_ERROR({publish, Reason})
+        false ->
+            case rebar3_hex_client:publish_docs(Config, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn), Tar) of
+            {ok, _} ->
+                rebar_api:info("Published docs for ~ts ~ts", [PkgName, Vsn]),
+                {ok, State};
+            Reason ->
+                ?PRV_ERROR({publish, Reason})
+            end
     end.
 
 vsn_string(<<Vsn/binary>>) ->
