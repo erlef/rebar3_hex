@@ -240,13 +240,17 @@ gen_docs(State, Prv) ->
 
 -spec assert_doc_dir(string()) -> true.
 assert_doc_dir(DocDir) ->
-    filelib:is_dir(DocDir) orelse
-        rebar_api:abort( "Docs were not published since they "
+    case {filelib:is_dir(DocDir), filelib:find_file("index.html", DocDir)} of
+         {true, {ok,_}} ->
+            true;
+         _ ->
+            rebar_api:abort( "Docs were not published since they "
                          "couldn't be found in '~s'. "
                          "Please build the docs and then run "
                          "`rebar3 hex docs` to publish them."
                        , [DocDir]
-                       ).
+                       )
+    end.
 
 file_list(Files, DocDir) ->
     [{drop_path(ShortName, [DocDir]), FullName} || {ShortName, FullName} <- Files].

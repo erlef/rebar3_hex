@@ -15,6 +15,7 @@ all() ->
     , docs_test
     , docs_auth_error_test
     , docs_dir_error_test
+    , docs_dir_without_file_test
     , docs_dry_run_test
     , docs_invalid_repo_test
     , docs_no_write_key_test
@@ -133,6 +134,14 @@ docs_dir_error_test(Config) ->
     RepoConfig = [{repos,[Repo]}],
     {ok, NewState} = test_utils:mock_command(rebar3_hex_docs, Command, RepoConfig, State),
     ?assertThrow(rebar_abort, rebar3_hex_docs:do(NewState)).
+
+docs_dir_without_file_test(Config) ->
+    P = #{app => "doc_dir_missing_index", mocks => [docs]},
+    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
+    Command = ["docs"],
+    RepoConfig = [{repos,[Repo]}],
+    {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, RepoConfig, State),
+    ?assertThrow(rebar_abort, rebar3_hex_docs:do(DocState)).
 
 docs_dry_run_test(Config) ->
     P = #{app => "valid", mocks => [docs]},
