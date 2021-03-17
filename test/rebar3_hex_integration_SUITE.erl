@@ -49,6 +49,7 @@ all() ->
     , publish_org_requires_repo_arg_test
     , publish_error_test
     , publish_unauthorized_test
+    , publish_without_docs_test
     , key_list_test
     , key_get_test
     , key_add_test
@@ -547,6 +548,13 @@ publish_unauthorized_test(Config) ->
               #{<<"message">> =>
                 <<"account not authorized for this action">>}}}}},
     ?assertMatch(Exp, rebar3_hex_publish:do(PubState)).
+
+publish_without_docs_test(Config) ->
+    P = #{app => "valid", mocks => [publish]},
+    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["--without-docs"], RepoConfig, State),
+    ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
 
 key_list_test(Config) ->
     P = #{app => "valid", mocks => []},

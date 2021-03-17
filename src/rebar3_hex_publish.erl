@@ -49,7 +49,8 @@ init(State) ->
                                          {yes, $y, "yes", {boolean, false}, help(yes)},
                                          {replace, undefined, "replace", {boolean, false}, help(replace)},
                                          {package, $p, "package", string, help(package)},
-                                         {revert, undefined, "revert", string, help(revert)}]}]),
+                                         {revert, undefined, "revert", string, help(revert)},
+                                         {without_docs, undefined, "without-docs", {boolean, false}, help(without_docs)}]}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
@@ -114,7 +115,7 @@ format_error(no_write_key) ->
     "No write key found for user. Be sure to authenticate first with:"
     ++ " rebar3 hex user auth";
 
-format_error({publish, {error, {tarball, _} = Err}}) -> 
+format_error({publish, {error, {tarball, _} = Err}}) ->
     hex_tarball:format_error(Err);
 format_error({publish, {error, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
     ErrorString = errors_to_string(Errors),
@@ -248,8 +249,14 @@ publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, 
             case create_and_publish(HexOpts, Metadata, PackageFiles, HexConfig1) of
                 ok ->
                     rebar_api:info("Published ~s ~s", [Name, Version]),
-                    rebar3_hex_docs:publish(App, State, HexConfig1),
-                    {ok, State};
+                    case proplists:get_bool(without_docs, Args) of
+                        true ->
+                            rebar_api:info("--without-docs is enabled : will not publish docs", []),
+                            {ok, State};
+                        false ->
+                            rebar3_hex_docs:publish(App, State, HexConfig1),
+                            {ok, State}
+                    end;
                 Error={error, _} ->
                     Error
             end;
@@ -270,14 +277,14 @@ maybe_say_coc(_) ->
 
 create_and_publish(Opts, Metadata, PackageFiles, HexConfig) ->
     case hex_tarball:create(Metadata, PackageFiles) of
-         {ok, #{tarball := Tarball, inner_checksum := _Checksum}} -> 
+         {ok, #{tarball := Tarball, inner_checksum := _Checksum}} ->
             case rebar3_hex_client:publish(HexConfig, Tarball, Opts) of
                 {ok, _Res} ->
                     ok;
                 Error ->
                     ?PRV_ERROR({publish, Error})
             end;
-         Error -> 
+         Error ->
             ?PRV_ERROR({publish, Error})
     end.
 
@@ -500,7 +507,9 @@ help(replace) ->
     "packages can always be overwritten, publicpackages can only be "
     "overwritten within one hour after they were initially published.";
 help(yes) ->
-    "Publishes the package without any confirmation prompts".
+    "Publishes the package without any confirmation prompts";
+help(without_docs) ->
+    "Publishing a package without publishing documentation that may be automatically generated".
 
 support() ->
     "Publishes a new version of a package with options to revert and replace existing packages~n~n"
