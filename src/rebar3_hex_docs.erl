@@ -123,7 +123,7 @@ do_publish(App, State, Repo) ->
     {Args, _} = rebar_state:command_parsed_args(State),
     case proplists:get_bool(dry_run, Args) of
         true ->
-            rebar_api:info("Dry run mode enabled, will not publish docs.", []),
+            rebar_api:info("--dry-run enabled : will not publish docs.", []),
             {ok, State};
         false ->
             case rebar3_hex_client:publish_docs(Config, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn), Tar) of
