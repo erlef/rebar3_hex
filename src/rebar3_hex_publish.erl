@@ -251,6 +251,7 @@ publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, 
                     rebar_api:info("Published ~s ~s", [Name, Version]),
                     case proplists:get_bool(without_docs, Args) of
                         true ->
+                            rebar_api:info("--without-docs is enabled : will not publish docs", []),
                             {ok, State};
                         false ->
                             rebar3_hex_docs:publish(App, State, HexConfig1),
