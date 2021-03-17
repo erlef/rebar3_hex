@@ -240,8 +240,8 @@ gen_docs(State, Prv) ->
 
 -spec assert_doc_dir(string()) -> true.
 assert_doc_dir(DocDir) ->
-    case filelib:find_file("index.html", DocDir) of
-        {ok, _} ->
+    case rebar_utils:find_files(DocDir, "index.html") of
+        [_] ->
             true;
          _ ->
             rebar_api:abort( "Docs were not published since they "
