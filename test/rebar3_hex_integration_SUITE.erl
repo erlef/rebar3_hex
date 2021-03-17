@@ -136,11 +136,12 @@ docs_dir_error_test(Config) ->
     ?assertThrow(rebar_abort, rebar3_hex_docs:do(NewState)).
 
 docs_dir_without_file_test(Config) ->
-    P = #{app => "doc_dir_missing_index", mocks => [docs]},
-    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
+    P = #{app => "valid", mocks => [docs]},
+    {ok, #{app_state := App, rebar_state := State, repo := Repo}} = setup_state(P, Config),
     Command = ["docs"],
     RepoConfig = [{repos,[Repo]}],
     {ok, DocState} = test_utils:mock_command(rebar3_hex_docs, Command, RepoConfig, State),
+    ok = rebar_file_utils:rm_rf(filename:join(rebar_app_info:dir(App), "doc/index.html")),
     ?assertThrow(rebar_abort, rebar3_hex_docs:do(DocState)).
 
 docs_dry_run_test(Config) ->
