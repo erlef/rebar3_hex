@@ -113,7 +113,7 @@ format_error({has_contributors, AppName}) ->
     io_lib:format(Err, [AppName]);
 format_error({has_unstable_deps, Deps}) ->
     MainMsg = "The following pre-release dependencies were found : ",
-    DepList = [[Pkg] ++ " - " ++ [Ver] || {Pkg, Ver} <- Deps],
+    DepList = [io_lib:format("~s - ~s ", [Pkg, Ver]) || {Pkg, Ver} <- Deps],
     Msg = ["In the future packages with pre-release dependencies will be considered unstable ",
            "and will be prevented from being published. ",
            "We recommend you upgrade your these dependencies as soon as possible"],
