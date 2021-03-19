@@ -54,11 +54,17 @@ handle_command(State, Repo) ->
                 undefined ->
                     ?PRV_ERROR(version_required);
                 Version ->
-                    case revert(PkgName, rebar_utils:to_binary(Version), Repo, State) of
-                        ok ->
-                            {ok, State};
-                        Error ->
-                            Error
+                    case verl:parse(rebar_utils:to_binary(Version)) of
+                        {ok, _} ->
+                            case revert(PkgName, rebar_utils:to_binary(Version), Repo, State) of
+                                ok ->
+                                    {ok, State};
+                                Error ->
+                                    Error
+                            end;
+                        _ ->
+                            Msg = "The version argument provided \"~s\" is not a valid semantic version.",
+                            rebar_api:abort(Msg, [Version])
                     end
             end
     end.
