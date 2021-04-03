@@ -224,7 +224,7 @@ doc_opts(State, Repo) ->
             {ok, DocOpts};
       _ ->
         Opts = rebar_state:opts(State),
-        case proplists:get_value(doc, rebar_opts:get(Opts, hex), undefined) of
+        case proplists:get_value(doc, rebar_opts:get(Opts, hex, []), undefined) of
             DocOpts when is_map(DocOpts) -> {ok, DocOpts};
             _ -> undefined
         end
