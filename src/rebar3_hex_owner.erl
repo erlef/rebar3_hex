@@ -69,7 +69,7 @@ handle_command(State, Repo) ->
             case  rebar3_hex_config:hex_config_write(Repo) of
                 {ok, Config} ->
                     {ok, State} = add(Config, Package, UsernameOrEmail, <<"full">>, true, State),
-                    ok = rebar3_hex_io:say("Transfered ~ts to ~ts", [UsernameOrEmail, Package]),
+                    ok = rebar3_hex_io:say("Transfered ~ts to ~ts", [Package, UsernameOrEmail]),
                     {ok, State};
                 Err ->
                     ?PRV_ERROR(Err)

@@ -28,6 +28,7 @@ init(State) ->
                                 {short_desc, "Publish documentation for the current project and version"},
                                 {desc, ""},
                                 {opts, [{revert, undefined, "revert", string, "Revert given version."},
+                                        {dry_run, undefined, "dry-run", {boolean, false}, help(dry_run)},
                                         rebar3_hex:repo_opt()]},
                                 {profiles, [docs]}]),
     State1 = rebar_state:add_provider(State, Provider),
@@ -73,6 +74,9 @@ format_error(Reason) ->
 %% Internal Functions
 %% ===================================================================
 
+help(dry_run) ->
+    "Generates docs (if configured) but does not publish the docs. Useful for inspecting docs before publishing.".
+
 publish_apps(Apps, State) ->
     lists:foldl(fun(App, {ok, StateAcc}) ->
                         case handle_command(App, StateAcc) of
@@ -97,6 +101,7 @@ handle_command(App, State, Repo) ->
     end.
 
 do_publish(App, State, Repo) ->
+    maybe_gen_docs(State, Repo),
     AppDir = rebar_app_info:dir(App),
     DocDir = resolve_doc_dir(App),
     assert_doc_dir(filename:join(AppDir, DocDir)),
@@ -114,12 +119,19 @@ do_publish(App, State, Repo) ->
 
     {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
 
-    case rebar3_hex_client:publish_docs(Config, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn), Tar) of
-        {ok, _} ->
-            rebar_api:info("Published docs for ~ts ~ts", [PkgName, Vsn]),
+    {Args, _} = rebar_state:command_parsed_args(State),
+    case proplists:get_bool(dry_run, Args) of
+        true ->
+            rebar_api:info("--dry-run enabled : will not publish docs.", []),
             {ok, State};
-        Reason ->
-            ?PRV_ERROR({publish, Reason})
+        false ->
+            case rebar3_hex_client:publish_docs(Config, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn), Tar) of
+            {ok, _} ->
+                rebar_api:info("Published docs for ~ts ~ts", [PkgName, Vsn]),
+                {ok, State};
+            Reason ->
+                ?PRV_ERROR({publish, Reason})
+            end
     end.
 
 vsn_string(<<Vsn/binary>>) ->
@@ -155,15 +167,88 @@ resolve_doc_dir(AppInfo) ->
     Dir = proplists:get_value(dir, EdocOpts, ?DEFAULT_DOC_DIR),
     proplists:get_value(doc, AppDetails, Dir).
 
+%% @doc Generates docs based on configuration
+%%
+%% This function will generate docs according to the following configuration:
+%%
+%%   - `{doc, Options}' as part of your global hex config, where `Options' is a map.
+%%   - `#{doc => Options}' as part of a specific repo configuration, where `Options' is a map
+%%
+%%  Repo specific config will always override global hex config if the repo in question is
+%%  the context in which rebar3_hex is operating in.
+%%
+%%  Supported options:
+%%
+%%  - `provider' - This value of this option should be the name of a valid doc
+%%                 provider, such as `edoc'. Note that only `edoc' is supported out of
+%%                 the box with rebar3. Refer to `src/rebar_prv_edoc.erl' as an example
+%%                 of a docs provider in `rebar3', as well as
+%%                 https://rebar3.org/docs/tutorials/building_plugins/ for documentation on
+%%                 creating plugins.
+%%
+%%  Example global config within rebar.config :
+%%
+%%  `{hex, {doc, #{provider => edoc}}}.'
+%%
+%%  Example repo specific config:
+%%  ```
+%%  {hex, [
+%%        {repos, [
+%%                 #{name => <<"my_private_hex">>,
+%%                   repo_url => <<"https://my_private_hex.foo">>,
+%%                   doc => #{provider => edoc}
+%%                  }
+%%                ]
+%%         }
+%%       ]
+%%   }.
+%%   '''
+maybe_gen_docs(State, Repo) ->
+    case doc_opts(State, Repo) of
+        {ok, #{provider := PrvName}} ->
+            case providers:get_provider(PrvName, rebar_state:providers(State)) of
+                not_found ->
+                    rebar_api:error("No provider found for ~ts", [PrvName]);
+                Prv ->
+                    gen_docs(State, Prv)
+            end;
+        _ ->
+            Msg = "No valid hex docs configuration found. Docs will will not be generated",
+            rebar_api:error(Msg, [])
+    end.
+
+doc_opts(State, Repo) ->
+    case Repo of
+      #{doc := DocOpts} when is_map(DocOpts) ->
+            {ok, DocOpts};
+      _ ->
+        Opts = rebar_state:opts(State),
+        case proplists:get_value(doc, rebar_opts:get(Opts, hex, []), undefined) of
+            DocOpts when is_map(DocOpts) -> {ok, DocOpts};
+            _ -> undefined
+        end
+    end.
+
+gen_docs(State, Prv) ->
+    case providers:do(Prv, State) of
+        {ok, State} ->
+            {ok, State};
+        Err ->
+            ?PRV_ERROR({publish, Err})
+    end.
+
 -spec assert_doc_dir(string()) -> true.
 assert_doc_dir(DocDir) ->
-    filelib:is_dir(DocDir) orelse
-        rebar_api:abort( "Docs were not published since they "
-                         "couldn't be found in '~s'. "
-                         "Please build the docs and then run "
-                         "`rebar3 hex docs` to publish them."
-                       , [DocDir]
-                       ).
+    filelib:is_file(DocDir ++ "/index.html") orelse missing_doc_abort(DocDir).
+
+missing_doc_abort(DocDir) ->
+    rebar_api:abort( "Docs were not published since they "
+                     "couldn't be found in '~s'. "
+                     "Please build the docs and then run "
+                     "`rebar3 hex docs` to publish them."
+                     , [DocDir]
+                   ).
+
 
 file_list(Files, DocDir) ->
     [{drop_path(ShortName, [DocDir]), FullName} || {ShortName, FullName} <- Files].
