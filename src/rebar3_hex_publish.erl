@@ -19,6 +19,13 @@
 -define(PROVIDER, publish).
 -define(DEPS, [{default, lock}]).
 
+-define(DEFAULT_FILES, ["src", "c_src", "include", "rebar.config.script"
+                       ,"priv", "rebar.config", "rebar.lock"
+                       ,"CHANGELOG*", "changelog*"
+                       ,"README*", "readme*"
+                       ,"LICENSE*", "license*"
+                       ,"NOTICE"]).
+
 -define(VALIDATIONS, [ has_semver
                      , has_contributors
                      , has_maintainers

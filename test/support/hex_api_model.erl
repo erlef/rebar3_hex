@@ -16,7 +16,6 @@
             <<"application/vnd.hex+erlang">>  => erlang
          }).
 
--define(JSON_MIME, {<<"Content-type">>, <<"application/json; charset=ISO-8859-1">>}).
 -define(BASE_USER_URL, <<"https://127.0.0.1:3000/api/users/">>).
 
 handle(Req, _Args) ->
