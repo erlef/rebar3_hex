@@ -10,7 +10,6 @@
 -define(PROVIDER, docs).
 -define(DEPS, [{default, lock}]).
 
--define(ENDPOINT, "packages").
 -define(DEFAULT_DOC_DIR, "doc").
 
 %% ===================================================================

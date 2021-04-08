@@ -24,8 +24,6 @@ str_split(Str, Pattern) ->
 -endif.
 -include("rebar3_hex.hrl").
 
--define(OP_PUTC, 0).
-
 select_apps([App]) ->
     [App];
 select_apps(Apps) ->
