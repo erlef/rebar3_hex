@@ -365,15 +365,7 @@ is_valid_app({_App, _Name, _Version, _AppDetails, _Deps} = A) ->
     end.
 
 validate_app(has_unstable_deps, {_, _, _, _, Deps}) ->
-    Pred = fun({_, {pkg, Pkg, Ver, _, _}, _}, Acc) ->
-                   case verl:parse(Ver) of
-                       {ok, #{pre := Pre}} when Pre =/= [] ->
-                           [{Pkg, Ver}|Acc];
-                       _ ->
-                           Acc
-                   end
-           end,
-    case lists:foldl(Pred, [], Deps) of
+    case lists:foldl(fun(Dep, Acc) -> is_unstable_dep(Dep, Acc) end, [], Deps) of
         [] ->
             ok;
         PreDeps ->
@@ -426,6 +418,19 @@ is_empty_prop(K, PropList) ->
         _ ->
           false
     end.
+
+is_unstable_dep({_, {pkg, Pkg, Ver, _, _}, _}, Acc) -> 
+    case verl:parse(Ver) of
+        {ok, #{pre := Pre}} when Pre =/= [] ->
+            [{Pkg, Ver}|Acc];
+        _ -> 
+          Acc
+    end;
+
+%% TODO: Resolve in an issue whether git deps should be classified as unstable. 
+%% For now and in the interest of keeping things working, we do not classify as unstable. 
+is_unstable_dep(_, Acc) -> 
+    Acc.
 
 %% TODO: Modify hex cut so we can deprecate this?
 validate_app_details(AppDetails) ->
