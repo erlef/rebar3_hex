@@ -27,13 +27,13 @@ str_split(Str, Pattern) ->
 select_apps([App]) ->
     [App];
 select_apps(Apps) ->
-    io:format("Select application(s):", []),
+    io:format("Select application(s):~n", []),
     lists:foldl(fun(App, Idx) ->
-                        io:format("~p) ~s", [Idx, rebar_app_info:name(App)]),
+                        io:format("~p) ~s~n", [Idx, rebar_app_info:name(App)]),
                         Idx+1
                 end, 1, Apps),
-    io:format("------------", []),
-    io:format("A) All", []),
+    io:format("------------~n", []),
+    io:format("A) All~n", []),
     case ask(io_lib:format("[1-~p] or (A)ll ", [length(Apps)]), string, "A") of
         "A" ->
             Apps;
