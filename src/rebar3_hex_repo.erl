@@ -31,7 +31,9 @@ init(State) ->
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
--spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
+-spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, {?MODULE, auth_no_key
+                                                                     | no_repo
+                                                                     | {bad_command, string()}}}.
 do(State) ->
     {Args, _} = rebar_state:command_parsed_args(State),
     case proplists:get_value(subcmd, Args, undefined) of
