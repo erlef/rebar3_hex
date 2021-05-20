@@ -116,7 +116,7 @@ whoami(#{name := Name} = Repo, State) ->
         undefined ->
             {error, "Not authenticated as any user currently for this repository"};
         ReadKey ->
-            case hex_api_user:me(Repo#{api_key => ReadKey}) of
+            case hex_api_user:me(maps:remove(name, Repo#{api_key => ReadKey})) of
                 {ok, {200, _Headers, #{<<"username">> := Username,
                                        <<"email">> := Email}}} ->
                     rebar3_hex_io:say("~ts : ~ts (~ts)", [Name, Username, Email]),
@@ -184,7 +184,7 @@ create_user(Username, Email, Password, Repo, State) ->
             rebar3_hex_io:say("You are required to confirm your email to access your account, "
                         "a confirmation email has been sent to ~s", [Email]),
             rebar3_hex_io:say("Then run `rebar3 hex auth -r ~ts` to create and configure api tokens locally.",
-                        [maps:get(name, Repo)]),
+                        [maps:get(repo_name, Repo)]),
             {ok, State};
         {ok, {_Status, _Headers, #{<<"errors">> := Errors}}} ->
             ?PRV_ERROR({registration_failure,
@@ -212,7 +212,7 @@ generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
 
     %% write key
     WriteKeyName = api_key_name(),
-    WritePermissions = [#{<<"domain">> => <<"api">>}],
+    WritePermissions = [#{domain => api}],
     case generate_key(RepoConfig0, WriteKeyName, WritePermissions) of
         {ok, WriteKey} ->
 
