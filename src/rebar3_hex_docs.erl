@@ -146,7 +146,7 @@ do_revert(App, State, Repo, Vsn) ->
     Name = rebar_utils:to_list(rebar_app_info:name(App)),
     PkgName = rebar_utils:to_list(proplists:get_value(pkg_name, AppDetails, Name)),
     case rebar3_hex_client:delete_docs(Config, rebar_utils:to_binary(PkgName), rebar_utils:to_binary(Vsn)) of
-        {modified, _Body} ->
+        {ok, _} ->
             rebar_api:info("Successfully deleted docs for ~ts ~ts", [Name, Vsn]),
             {ok, State};
         Reason ->

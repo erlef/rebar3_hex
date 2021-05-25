@@ -126,7 +126,7 @@ maybe_env_val(K, {_, {Type, Default}}) ->
     end.
 
 set_http_adapter(Repo) ->
-    Repo#{http_adapter => {hex_http_httpc, #{profile => rebar}}}.
+    Repo#{http_adapter => {rebar3_hex_httpc_adapter, #{profile => rebar}}}.
 
 to_bool("0") -> false;
 to_bool("false") -> false;
