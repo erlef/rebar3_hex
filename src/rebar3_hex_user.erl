@@ -63,7 +63,7 @@ do(State) ->
     end.
 
 
-
+-dialyzer({[no_return, no_match], handle/2}).
 handle(whoami, State) ->
     {ok, Parents} = rebar3_hex_config:parent_repos(State),
     lists:foreach(fun(R) -> case whoami(R, State) of
@@ -110,6 +110,7 @@ hex_register(Repo, State) ->
             end
     end.
 
+-dialyzer({no_fail_call, whoami/2}).
 whoami(#{name := Name} = Repo, State) ->
     case maps:get(read_key, Repo, undefined) of
         undefined ->
@@ -127,6 +128,7 @@ whoami(#{name := Name} = Repo, State) ->
             end
     end.
 
+ -dialyzer({no_return, auth/2}).
 auth(Repo, State) ->
     Username = list_to_binary(rebar3_hex_io:ask("Username:", string, "")),
     Password = get_account_password(),
@@ -175,6 +177,7 @@ get_account_password() ->
 get_account_password(confirm) ->
     rebar3_hex_io:get_password(<<"Account Password (confirm): ">>).
 
+-dialyzer({no_fail_call, create_user/5}).
 create_user(Username, Email, Password, Repo, State) ->
     case hex_api_user:create(Repo, Username, Password, Email) of
         {ok, {201, _Headers, _Body}} ->
@@ -200,6 +203,7 @@ pad(Binary) ->
             <<Binary/binary, 0:((32 - Size) * 8)>>
     end.
 
+-dialyzer({no_return, generate_all_keys/5}).
 generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
     rebar3_hex_io:say("Generating all keys..."),
 
