@@ -26,7 +26,7 @@ init(State) ->
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
--spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
+-spec do(rebar_state:t()) -> {ok, rebar_state:t()}.
 do(State) ->
     {Args, _} = rebar_state:command_parsed_args(State),
     Term = proplists:get_value(term, Args, ""),

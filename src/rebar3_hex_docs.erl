@@ -34,7 +34,7 @@ init(State) ->
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
--spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
+-spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, {?MODULE, any()}}.
 do(State) ->
      Apps = rebar3_hex_io:select_apps(rebar_state:project_apps(State)),
      try publish_apps(Apps, State) of

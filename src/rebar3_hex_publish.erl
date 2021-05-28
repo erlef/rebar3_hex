@@ -419,17 +419,17 @@ is_empty_prop(K, PropList) ->
           false
     end.
 
-is_unstable_dep({_, {pkg, Pkg, Ver, _, _}, _}, Acc) -> 
+is_unstable_dep({_, {pkg, Pkg, Ver, _, _}, _}, Acc) ->
     case verl:parse(Ver) of
         {ok, #{pre := Pre}} when Pre =/= [] ->
             [{Pkg, Ver}|Acc];
-        _ -> 
+        _ ->
           Acc
     end;
 
-%% TODO: Resolve in an issue whether git deps should be classified as unstable. 
-%% For now and in the interest of keeping things working, we do not classify as unstable. 
-is_unstable_dep(_, Acc) -> 
+%% TODO: Resolve in an issue whether git deps should be classified as unstable.
+%% For now and in the interest of keeping things working, we do not classify as unstable.
+is_unstable_dep(_, Acc) ->
     Acc.
 
 %% TODO: Modify hex cut so we can deprecate this?
@@ -504,7 +504,7 @@ binarify(Term) ->
     Term.
 
 %% via ec_cnv
--spec to_atom(atom() | list() | binary() | integer() | float()) ->
+-spec to_atom(atom() | string() | binary() | integer() | float()) ->
                      atom().
 to_atom(X)
   when erlang:is_atom(X) ->

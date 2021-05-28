@@ -14,6 +14,9 @@
 
 -include("rebar3_hex.hrl").
 
+-type repo_error() :: {not_valid_repo, string()} | no_repo_in_state | {required, repo}.
+-export_type([repo_error/0]).
+
 -spec api_key_name(binary()) -> binary().
 api_key_name(Key) ->
     Prefix = key_name_prefix(Key),
@@ -50,6 +53,7 @@ key_name_prefix(Key) -> Key.
 update_auth_config(Config, State) ->
     rebar_hex_repos:update_auth_config(Config, State).
 
+-spec repo(rebar_state:t()) -> {ok, map()} | {error, repo_error()}.
 repo(State) ->
     {Args, _} = rebar_state:command_parsed_args(State),
     Resources = rebar_state:resources(State),
