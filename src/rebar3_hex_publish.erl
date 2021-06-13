@@ -538,8 +538,6 @@ to_list(X)
   when erlang:is_list(X) ->
     X.
 
-help(package) ->
-    "Specifies the package to use with the publish command, currently only utilized in a revert operation";
 help(revert) ->
     "Revert given version, if the last version is reverted the package is removed";
 help(replace) ->
@@ -547,22 +545,22 @@ help(replace) ->
     "packages can always be overwritten, publicpackages can only be "
     "overwritten within one hour after they were initially published.";
 help(yes) ->
-    "Publishes the package without any confirmation prompts";
-help(without_docs) ->
-    "Publishing a package without publishing documentation that may be automatically generated".
+    "Publishes the package without any confirmation prompts".
 
 support() ->
     "Publishes a new version of a package with options to revert and replace existing packages~n~n"
     "Supported commmand combinations:~n~n"
     "  rebar3 hex publish~n~n"
+    "  rebar3 hex publish package"
     "  rebar3 hex publish --yes~n~n"
+    "  rebar3 hex publish package"
+    "  rebar3 hex publish docs"
     "  rebar3 hex publish --repo <repo>~n~n"
     "  rebar3 hex publish --repo <repo> --yes~n~n"
-    "  rebar3 hex publish --revert <version> --package <package>~n~n"
-    "  rebar3 hex publish --revert <version> --package <package> --yes~n~n"
+    "  rebar3 hex publish --revert <version>~n~n"
+    "  rebar3 hex publish --revert <version> --yes~n~n"
     "  rebar3 hex publish --replace~n~n"
     "  rebar3 hex publish --replace --yes~n~n"
     "Argument descriptions:~n~n"
     "  <repo>    - a valid repository, only required when multiple repositories are configured~n~n"
-    "  <version> - a valid version string, currently only utilized with --revert switch~n~n"
-    "  <package> - a valid package name, currently only utilized with --revert switch~n~n".
+    "  <version> - a valid version string, currently only utilized with --revert switch~n~n".
