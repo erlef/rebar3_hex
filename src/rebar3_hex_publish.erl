@@ -56,38 +56,34 @@ init(State) ->
                                  {opts, [rebar3_hex:repo_opt(),
                                          {yes, $y, "yes", {boolean, false}, help(yes)},
                                          {replace, undefined, "replace", {boolean, false}, help(replace)},
-                                         {package, $p, "package", string, help(package)},
-                                         {revert, undefined, "revert", string, help(revert)},
-                                         {without_docs, undefined, "without-docs", {boolean, false}, help(without_docs)}]}]),
+                                         {revert, undefined, "revert", string, help(revert)}]}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    case rebar3_hex_config:repo(State) of
-        {ok, Repo} ->
-            OptMap = rebar3_hex:gather_opts([revert, package], State),
-            handle_command(OptMap, State, Repo);
-        {error, Reason} ->
+    case rebar3_hex:command_state(State) of
+        {ok, #{repo := Repo} = Cmd} -> 
+            handle_command(Cmd, State, Repo);
+        {error, Reason} -> 
             ?PRV_ERROR(Reason)
-        end.
+    end.
 
-handle_command(#{revert := Vsn, package := Pkg}, State, Repo) ->
-    ok = rebar3_hex_revert:revert(binarify(Pkg), binarify(Vsn), Repo, State),
+handle_command(#{revert := undefined}, _State, _Repo) ->
+    {error, "--revert requires an app version"};
+
+handle_command(#{revert := Vsn}, State, Repo) ->
+    App = rebar_state:current_app(State),
+    Name = rebar_app_info:name(App),
+    ok = rebar3_hex_revert:revert(binarify(Name), binarify(Vsn), Repo, State),
     {ok, State};
-
-handle_command(#{revert := _Vsn}, _State, _Repo) ->
-    {error, "--revert requires a package name"};
 
 handle_command(_Args, State, Repo) ->
         case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
             undefined ->
                 ?PRV_ERROR(no_write_key);
             _ ->
-                Apps = rebar3_hex_io:select_apps(rebar_state:project_apps(State)),
-                lists:foldl(fun(App, {ok, StateAcc}) ->
-                                    publish(App, Repo, StateAcc)
-                            end, {ok, State}, Apps)
+                publish(rebar_state:current_app(State), Repo, State)
         end.
 
 -spec format_error(any()) -> iolist().
@@ -261,19 +257,27 @@ publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, 
     HexOpts = hex_opts(Args),
     case rebar3_hex_config:hex_config_write(HexConfig) of
         {ok, HexConfig1} ->
-            case create_and_publish(HexOpts, Metadata, PackageFiles, HexConfig1) of
-                ok ->
-                    rebar_api:info("Published ~s ~s", [Name, Version]),
-                    case proplists:get_bool(without_docs, Args) of
-                        true ->
-                            rebar_api:info("--without-docs is enabled : will not publish docs", []),
-                            {ok, State};
-                        false ->
-                            rebar3_hex_docs:publish(App, State, HexConfig1),
-                            {ok, State}
+            case proplists:get_value(task, Args, undefined) of
+                "package" -> 
+                    rebar_api:info("package argument given, will not publish docs", []),
+                    case create_and_publish(HexOpts, Metadata, PackageFiles, HexConfig1) of
+                        ok -> 
+                          rebar_api:info("Published ~s ~s", [Name, Version]),
+                          {ok, State};
+                        Error ->
+                          Error
                     end;
-                Error={error, _} ->
-                    Error
+                "docs" -> 
+                    rebar_api:info("docs argument given, will not publish package", []),
+                    rebar3_hex_docs:publish(App, State, HexConfig1);
+                _ -> 
+                    case create_and_publish(HexOpts, Metadata, PackageFiles, HexConfig1) of
+                        ok -> 
+                          rebar_api:info("Published ~s ~s", [Name, Version]),
+                          rebar3_hex_docs:publish(App, State, HexConfig1);
+                        Error ->
+                          Error
+                    end
             end;
         Error={error, _} ->
             Error
