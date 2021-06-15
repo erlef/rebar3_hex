@@ -1,11 +1,11 @@
 -module(rebar3_hex).
 
 -export([ init/1
-        , task_state/1
-        , get_opts/1
+        , get_args/1
         , gather_opts/2
         , get_required/2
         , task_args/1
+        , task_state/1
         , repo_opt/0
         , help_opt/0
         ]).
@@ -67,8 +67,8 @@ task_state(State) ->
             Err
      end.
 
--spec get_opts(rebar_state:t()) -> map().
-get_opts(State) -> 
+-spec get_args(rebar_state:t()) -> map().
+get_args(State) -> 
     {Opts, Args} = rebar_state:command_parsed_args(State),
     Opts1 = lists:foldl(fun (Arg, Acc) ->
                                 case is_atom(Arg) of

@@ -26,10 +26,10 @@ task_state_test(_Config) ->
     State = rebar_state:new(),
     CmdArgs = {[{task, "thing"}, {foo,"bar"}, {count, 42}], ["bar"]},
     State1 = rebar_state:command_parsed_args(State, CmdArgs),
-    ?assertMatch(#{count := 42, foo := "bar", task := thing, bar := true}, rebar3_hex:get_opts(State1)),
+    ?assertMatch(#{count := 42, foo := "bar", task := thing, bar := true}, rebar3_hex:get_args(State1)),
     CmdArgs2 = {[{foo,false}, {count, 42}], []},
     State2 = rebar_state:command_parsed_args(State, CmdArgs2),
-    ?assertMatch(#{count := 42, foo := false}, rebar3_hex:get_opts(State2)).
+    ?assertMatch(#{count := 42, foo := false}, rebar3_hex:get_args(State2)).
 
 repo_opt(_Config) ->
     ?assertEqual({repo,114,"repo",string,
