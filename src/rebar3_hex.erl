@@ -10,6 +10,10 @@
         , help_opt/0
         ]).
 
+-type task() :: #{args := map(), repo := map(), state := rebar_state:t()}.
+
+-export_type([task/0]).
+
 init(State) ->
     lists:foldl(fun provider_init/2, {ok, State}, [rebar3_hex_user,
                                                    rebar3_hex_cut,
@@ -53,15 +57,17 @@ task_args(State) ->
             {Task, proplists:delete(task, Opts)}
     end.
 
+-spec task_state(rebar_state:t()) -> {ok, task()} | {error, term()}.
 task_state(State) ->
      case rebar3_hex_config:repo(State) of
          {ok, Repo} -> 
              Opts = get_opts(State),
-             {ok, maps:put(repo, Repo, Opts)};
-         {error, _Reason} = Err -> 
-             Err
+             {ok, #{args => Opts, repo => Repo, state => State}};
+         Err -> 
+            Err
      end.
 
+-spec get_opts(rebar_state:t()) -> map().
 get_opts(State) -> 
     {Opts, Args} = rebar_state:command_parsed_args(State),
     Opts1 = lists:foldl(fun (Arg, Acc) ->

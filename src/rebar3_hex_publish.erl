@@ -60,25 +60,25 @@ init(State) ->
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
--spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
+-spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, term()}.
 do(State) ->
     case rebar3_hex:task_state(State) of
-        {ok, #{repo := Repo} = Cmd} -> 
-            handle_task(Cmd, State, Repo);
+        {ok, Task} -> 
+            handle_task(Task);
         {error, Reason} -> 
             ?PRV_ERROR(Reason)
     end.
 
-handle_task(#{revert := undefined}, _State, _Repo) ->
+handle_task(#{args := #{revert := undefined}}) ->
     {error, "--revert requires an app version"};
 
-handle_task(#{revert := Vsn}, State, Repo) ->
+handle_task(#{args := #{revert := Vsn}, repo := Repo, state := State}) ->
     App = rebar_state:current_app(State),
     Name = rebar_app_info:name(App),
     ok = rebar3_hex_revert:revert(binarify(Name), binarify(Vsn), Repo, State),
     {ok, State};
 
-handle_task(_Args, State, Repo) ->
+handle_task(#{repo := Repo, state := State}) ->
         case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
             undefined ->
                 ?PRV_ERROR(no_write_key);
