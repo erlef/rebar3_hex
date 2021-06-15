@@ -64,21 +64,21 @@ init(State) ->
 do(State) ->
     case rebar3_hex:task_state(State) of
         {ok, #{repo := Repo} = Cmd} -> 
-            handle_command(Cmd, State, Repo);
+            handle_task(Cmd, State, Repo);
         {error, Reason} -> 
             ?PRV_ERROR(Reason)
     end.
 
-handle_command(#{revert := undefined}, _State, _Repo) ->
+handle_task(#{revert := undefined}, _State, _Repo) ->
     {error, "--revert requires an app version"};
 
-handle_command(#{revert := Vsn}, State, Repo) ->
+handle_task(#{revert := Vsn}, State, Repo) ->
     App = rebar_state:current_app(State),
     Name = rebar_app_info:name(App),
     ok = rebar3_hex_revert:revert(binarify(Name), binarify(Vsn), Repo, State),
     {ok, State};
 
-handle_command(_Args, State, Repo) ->
+handle_task(_Args, State, Repo) ->
         case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
             undefined ->
                 ?PRV_ERROR(no_write_key);
