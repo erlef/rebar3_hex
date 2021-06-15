@@ -1,7 +1,7 @@
 -module(rebar3_hex).
 
 -export([ init/1
-        , command_state/1
+        , task_state/1
         , gather_opts/2
         , get_required/2
         , task_args/1
@@ -52,7 +52,7 @@ task_args(State) ->
             {Task, proplists:delete(task, Opts)}
     end.
 
-command_state(State) ->
+task_state(State) ->
      case rebar3_hex_config:repo(State) of
          {ok, Repo} -> 
              Opts = get_opts(State),

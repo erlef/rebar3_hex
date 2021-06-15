@@ -62,7 +62,7 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-    case rebar3_hex:command_state(State) of
+    case rebar3_hex:task_state(State) of
         {ok, #{repo := Repo} = Cmd} -> 
             handle_command(Cmd, State, Repo);
         {error, Reason} -> 
