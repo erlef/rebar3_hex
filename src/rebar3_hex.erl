@@ -61,7 +61,7 @@ task_args(State) ->
 task_state(State) ->
      case rebar3_hex_config:repo(State) of
          {ok, Repo} -> 
-             Opts = get_opts(State),
+             Opts = get_args(State),
              {ok, #{args => Opts, repo => Repo, state => State}};
          Err -> 
             Err
