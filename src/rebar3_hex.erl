@@ -2,6 +2,7 @@
 
 -export([ init/1
         , task_state/1
+        , get_opts/1
         , gather_opts/2
         , get_required/2
         , task_args/1
@@ -70,7 +71,7 @@ get_opts(State) ->
                                     _ ->
                                         case Arg of
                                             {task, Task} ->
-                                                [{list_to_atom(Task), true} | Acc];
+                                                [{task, list_to_atom(Task)} | Acc];
                                              _ -> 
                                               [Arg | Acc]
                                         end
