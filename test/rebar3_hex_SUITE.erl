@@ -47,7 +47,6 @@ help_test(_Config) ->
     Checks = [
                 {rebar3_hex_publish, publish},
                 {rebar3_hex_revert, revert},
-                {rebar3_hex_cut, cut},
                 {rebar3_hex_key, key},
                 {rebar3_hex_owner, owner},
                 {rebar3_hex_repo, repo},
