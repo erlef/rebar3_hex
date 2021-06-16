@@ -51,6 +51,7 @@ all() ->
     , publish_error_test
     , publish_unauthorized_test
     , publish_without_docs_test
+    , publish_only_docs_test
     , key_list_test
     , key_get_test
     , key_add_test
@@ -498,7 +499,7 @@ publish_revert_test(Config) ->
     P = #{app => "valid", mocks => [publish_revert], version => "1.0.0"},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     RepoConfig = [{repos,[Repo]}],
-    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["--revert", "1.0.0", "--package", "valid"], RepoConfig, State),
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["--revert", "1.0.0"], RepoConfig, State),
 
     ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
 
@@ -564,8 +565,16 @@ publish_without_docs_test(Config) ->
     P = #{app => "valid", mocks => [publish]},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     RepoConfig = [{repos,[Repo]}],
-    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["--without-docs"], RepoConfig, State),
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["package"], RepoConfig, State),
     ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
+
+publish_only_docs_test(Config) ->
+    P = #{app => "valid", mocks => [publish]},
+    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
+    RepoConfig = [{repos,[Repo]}], 
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["docs"], RepoConfig, State), 
+    {ok, NewState} = rebar_prv_edoc:do(PubState),
+    ?assertMatch({ok, PubState}, rebar3_hex_publish:do(NewState)).
 
 key_list_test(Config) ->
     P = #{app => "valid", mocks => []},

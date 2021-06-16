@@ -56,38 +56,34 @@ init(State) ->
                                  {opts, [rebar3_hex:repo_opt(),
                                          {yes, $y, "yes", {boolean, false}, help(yes)},
                                          {replace, undefined, "replace", {boolean, false}, help(replace)},
-                                         {package, $p, "package", string, help(package)},
-                                         {revert, undefined, "revert", string, help(revert)},
-                                         {without_docs, undefined, "without-docs", {boolean, false}, help(without_docs)}]}]),
+                                         {revert, undefined, "revert", string, help(revert)}]}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
--spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
+-spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, term()}.
 do(State) ->
-    case rebar3_hex_config:repo(State) of
-        {ok, Repo} ->
-            OptMap = rebar3_hex:gather_opts([revert, package], State),
-            handle_command(OptMap, State, Repo);
-        {error, Reason} ->
+    case rebar3_hex:task_state(State) of
+        {ok, Task} -> 
+            handle_task(Task);
+        {error, Reason} -> 
             ?PRV_ERROR(Reason)
-        end.
+    end.
 
-handle_command(#{revert := Vsn, package := Pkg}, State, Repo) ->
-    ok = rebar3_hex_revert:revert(binarify(Pkg), binarify(Vsn), Repo, State),
+handle_task(#{args := #{revert := undefined}}) ->
+    {error, "--revert requires an app version"};
+
+handle_task(#{args := #{revert := Vsn}, repo := Repo, state := State}) ->
+    App = rebar_state:current_app(State),
+    Name = rebar_app_info:name(App),
+    ok = rebar3_hex_revert:revert(binarify(Name), binarify(Vsn), Repo, State),
     {ok, State};
 
-handle_command(#{revert := _Vsn}, _State, _Repo) ->
-    {error, "--revert requires a package name"};
-
-handle_command(_Args, State, Repo) ->
+handle_task(#{repo := Repo, state := State}) ->
         case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
             undefined ->
                 ?PRV_ERROR(no_write_key);
             _ ->
-                Apps = rebar3_hex_io:select_apps(rebar_state:project_apps(State)),
-                lists:foldl(fun(App, {ok, StateAcc}) ->
-                                    publish(App, Repo, StateAcc)
-                            end, {ok, State}, Apps)
+                publish(rebar_state:current_app(State), Repo, State)
         end.
 
 -spec format_error(any()) -> iolist().
@@ -261,19 +257,27 @@ publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, 
     HexOpts = hex_opts(Args),
     case rebar3_hex_config:hex_config_write(HexConfig) of
         {ok, HexConfig1} ->
-            case create_and_publish(HexOpts, Metadata, PackageFiles, HexConfig1) of
-                ok ->
-                    rebar_api:info("Published ~s ~s", [Name, Version]),
-                    case proplists:get_bool(without_docs, Args) of
-                        true ->
-                            rebar_api:info("--without-docs is enabled : will not publish docs", []),
-                            {ok, State};
-                        false ->
-                            rebar3_hex_docs:publish(App, State, HexConfig1),
-                            {ok, State}
+            case proplists:get_value(task, Args, undefined) of
+                "package" -> 
+                    rebar_api:info("package argument given, will not publish docs", []),
+                    case create_and_publish(HexOpts, Metadata, PackageFiles, HexConfig1) of
+                        ok -> 
+                          rebar_api:info("Published ~s ~s", [Name, Version]),
+                          {ok, State};
+                        Error ->
+                          Error
                     end;
-                Error={error, _} ->
-                    Error
+                "docs" -> 
+                    rebar_api:info("docs argument given, will not publish package", []),
+                    rebar3_hex_docs:publish(App, State, HexConfig1);
+                _ -> 
+                    case create_and_publish(HexOpts, Metadata, PackageFiles, HexConfig1) of
+                        ok -> 
+                          rebar_api:info("Published ~s ~s", [Name, Version]),
+                          rebar3_hex_docs:publish(App, State, HexConfig1);
+                        Error ->
+                          Error
+                    end
             end;
         Error={error, _} ->
             Error
@@ -534,8 +538,6 @@ to_list(X)
   when erlang:is_list(X) ->
     X.
 
-help(package) ->
-    "Specifies the package to use with the publish command, currently only utilized in a revert operation";
 help(revert) ->
     "Revert given version, if the last version is reverted the package is removed";
 help(replace) ->
@@ -543,22 +545,22 @@ help(replace) ->
     "packages can always be overwritten, publicpackages can only be "
     "overwritten within one hour after they were initially published.";
 help(yes) ->
-    "Publishes the package without any confirmation prompts";
-help(without_docs) ->
-    "Publishing a package without publishing documentation that may be automatically generated".
+    "Publishes the package without any confirmation prompts".
 
 support() ->
     "Publishes a new version of a package with options to revert and replace existing packages~n~n"
     "Supported commmand combinations:~n~n"
     "  rebar3 hex publish~n~n"
+    "  rebar3 hex publish package~n~n"
     "  rebar3 hex publish --yes~n~n"
+    "  rebar3 hex publish package~n~n"
+    "  rebar3 hex publish docs~n~n"
     "  rebar3 hex publish --repo <repo>~n~n"
     "  rebar3 hex publish --repo <repo> --yes~n~n"
-    "  rebar3 hex publish --revert <version> --package <package>~n~n"
-    "  rebar3 hex publish --revert <version> --package <package> --yes~n~n"
+    "  rebar3 hex publish --revert <version>~n~n"
+    "  rebar3 hex publish --revert <version> --yes~n~n"
     "  rebar3 hex publish --replace~n~n"
     "  rebar3 hex publish --replace --yes~n~n"
     "Argument descriptions:~n~n"
     "  <repo>    - a valid repository, only required when multiple repositories are configured~n~n"
-    "  <version> - a valid version string, currently only utilized with --revert switch~n~n"
-    "  <package> - a valid package name, currently only utilized with --revert switch~n~n".
+    "  <version> - a valid version string, currently only utilized with --revert switch~n~n".

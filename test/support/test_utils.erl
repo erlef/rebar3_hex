@@ -26,7 +26,8 @@ mock_app(AppName, DataDir, Repo) ->
     State = rebar_state:new(), 
     {ok, App} = rebar_app_info:discover(Src, State),
     State1 = rebar_state:project_apps(rebar_state(Repo), [App]),
-    {ok, App, State1}.
+    State2 = rebar_state:current_app(State1, App),
+    {ok, App, State2}.
 
 mock_command(ProviderName, Command, RepoConfig, State0) ->
     State1 = rebar_state:add_resource(State0, {pkg, rebar_pkg_resource}),

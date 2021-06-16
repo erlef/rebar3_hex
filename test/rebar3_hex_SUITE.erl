@@ -5,8 +5,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 all() ->
-    [task_args_test, gather_opts_test, init_test, help_test, repo_opt].
-
+    [task_args_test, task_state_test, gather_opts_test, init_test, help_test, repo_opt].
 
 gather_opts_test(_Config) ->
     State = rebar_state:new(),
@@ -22,6 +21,15 @@ task_args_test(_Config) ->
     CmdArgs2 = {[{foo,"bar"}, {count, 42}], []},
     State2 = rebar_state:command_parsed_args(State, CmdArgs2),
     ?assertMatch({undefined,[{foo,"bar"},{count,42}]}, rebar3_hex:task_args(State2)).
+
+task_state_test(_Config) ->
+    State = rebar_state:new(),
+    CmdArgs = {[{task, "thing"}, {foo,"bar"}, {count, 42}], ["bar"]},
+    State1 = rebar_state:command_parsed_args(State, CmdArgs),
+    ?assertMatch(#{count := 42, foo := "bar", task := thing, bar := true}, rebar3_hex:get_args(State1)),
+    CmdArgs2 = {[{foo,false}, {count, 42}], []},
+    State2 = rebar_state:command_parsed_args(State, CmdArgs2),
+    ?assertMatch(#{count := 42, foo := false}, rebar3_hex:get_args(State2)).
 
 repo_opt(_Config) ->
     ?assertEqual({repo,114,"repo",string,
