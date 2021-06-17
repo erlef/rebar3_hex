@@ -436,6 +436,7 @@ is_unstable_dep({_, {pkg, Pkg, Ver, _, _}, _}, Acc) ->
 is_unstable_dep(_, Acc) ->
     Acc.
 
+%% TODO: Modify hex cut so we can deprecate this?
 validate_app_details(AppDetails) ->
     case proplists:is_defined(contributors, AppDetails) of
         true ->
