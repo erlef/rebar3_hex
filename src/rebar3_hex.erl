@@ -1,18 +1,12 @@
 -module(rebar3_hex).
 
 -export([ init/1
-        , get_args/1
         , gather_opts/2
         , get_required/2
         , task_args/1
-        , task_state/1
         , repo_opt/0
         , help_opt/0
         ]).
-
--type task() :: #{args := map(), repo := map(), state := rebar_state:t()}.
-
--export_type([task/0]).
 
 init(State) ->
     lists:foldl(fun provider_init/2, {ok, State}, [rebar3_hex_user,
@@ -56,47 +50,6 @@ task_args(State) ->
         Task ->
             {Task, proplists:delete(task, Opts)}
     end.
-
--spec task_state(rebar_state:t()) -> {ok, task()} | {error, term()}.
-task_state(State) ->
-     case rebar3_hex_config:repo(State) of
-         {ok, Repo} -> 
-             Opts = get_args(State),
-             {ok, #{args => Opts, repo => Repo, state => State}};
-         Err -> 
-            Err
-     end.
-
--spec get_args(rebar_state:t()) -> map().
-get_args(State) -> 
-    {Opts, Args} = rebar_state:command_parsed_args(State),
-    Opts1 = lists:foldl(fun (Arg, Acc) ->
-                                case is_atom(Arg) of
-                                    true ->
-                                        [{Arg, true} | Acc];
-                                    _ ->
-                                        case Arg of
-                                            {task, Task} ->
-                                                [{task, list_to_atom(Task)} | Acc];
-                                             _ -> 
-                                              [Arg | Acc]
-                                        end
-                                end
-                        end,
-                        [],
-                        Opts),
-    
-    Opts2 = lists:foldl(fun (Arg, Acc) ->
-                                case is_atom(Arg) of
-                                    true ->
-                                        [{Arg, true} | Acc];
-                                    _ ->
-                                     [{list_to_atom(Arg), true} | Acc]
-                                end
-                        end,
-                        Opts1,
-                        Args),
-    maps:from_list(Opts2).
 
 repo_opt() ->
   {repo, $r, "repo", string, "Repository to use for this command."}.
