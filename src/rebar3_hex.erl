@@ -62,7 +62,13 @@ task_state(State) ->
      case rebar3_hex_config:repo(State) of
          {ok, Repo} -> 
              Opts = get_args(State),
-             {ok, #{args => Opts, repo => Repo, state => State}};
+             case rebar_state:project_apps(State) of 
+                 [App] ->
+                     State1 = rebar_state:current_app(State, App),
+                    {ok, #{args => Opts, repo => Repo, state => State1, multi_project => false}};
+                 [_|_] -> 
+                    {ok, #{args => Opts, repo => Repo, state => State, multi_project => true}}
+             end;
          Err -> 
             Err
      end.

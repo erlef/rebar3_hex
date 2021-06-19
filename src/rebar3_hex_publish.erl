@@ -34,10 +34,6 @@
                      , has_unstable_deps
                      ]).
 
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
-
 %% ===================================================================
 %% Public API
 %% ===================================================================
@@ -55,6 +51,7 @@ init(State) ->
                                  {desc, support()},
                                  {opts, [rebar3_hex:repo_opt(),
                                          {yes, $y, "yes", {boolean, false}, help(yes)},
+                                         {app, $a, "app", string, help(app)},
                                          {replace, undefined, "replace", {boolean, false}, help(replace)},
                                          {revert, undefined, "revert", string, help(revert)}]}]),
     State1 = rebar_state:add_provider(State, Provider),
@@ -69,21 +66,45 @@ do(State) ->
             ?PRV_ERROR(Reason)
     end.
 
+%% Revert cases 
 handle_task(#{args := #{revert := undefined}}) ->
     {error, "--revert requires an app version"};
 
-handle_task(#{args := #{revert := Vsn}, repo := Repo, state := State}) ->
+handle_task(#{args := #{revert := Vsn}, multi_project := false} = Task) ->
+    #{repo := Repo, state := State} = Task,
     App = rebar_state:current_app(State),
     Name = rebar_app_info:name(App),
     ok = rebar3_hex_revert:revert(binarify(Name), binarify(Vsn), Repo, State),
     {ok, State};
 
-handle_task(#{repo := Repo, state := State}) ->
+handle_task(#{args := #{revert := Vsn, app := AppName}, multi_project := true} = Task) ->
+    #{repo := Repo, state := State} = Task,
+    ok = rebar3_hex_revert:revert(binarify(AppName), binarify(Vsn), Repo, State),
+    {ok, State};
+
+handle_task(#{args := #{revert := _}, multi_project := true}) ->
+    {error, "--app required when reverting in a release with multiple projects"};
+
+%% Publish 
+
+handle_task(#{repo := Repo, state := State, is_release := false}) -> 
+    case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
+            undefined ->
+                ?PRV_ERROR(no_write_key);
+            _ ->
+                App = rebar_state:current_app(State),
+                publish(App, Repo, State)
+        end.
+
+handle_task(#{repo := Repo, state := State, is_release := true}) ->
         case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
             undefined ->
                 ?PRV_ERROR(no_write_key);
             _ ->
-                publish(rebar_state:current_app(State), Repo, State)
+                Apps = rebar3_hex_io:select_apps(rebar_state:project_apps(State)),
+                lists:foldl(fun(App, {ok, StateAcc}) ->
+                                    publish(App, Repo, StateAcc)
+                            end, {ok, State}, Apps)
         end.
 
 -spec format_error(any()) -> iolist().
@@ -538,6 +559,11 @@ to_list(X)
   when erlang:is_list(X) ->
     X.
 
+
+
+help(app) ->
+    "Specifies the app to use with the publish command, currently only utilized for publish and revert operations"
+    "Note the app switch and value only has to be provided if you are publishing within a release (umbrella).";
 help(revert) ->
     "Revert given version, if the last version is reverted the package is removed";
 help(replace) ->
@@ -559,6 +585,8 @@ support() ->
     "  rebar3 hex publish --repo <repo> --yes~n~n"
     "  rebar3 hex publish --revert <version>~n~n"
     "  rebar3 hex publish --revert <version> --yes~n~n"
+    "  rebar3 hex publish --revert <version> --app <app>~n~n"
+    "  rebar3 hex publish --revert <version> --app <app> --yes~n~n"
     "  rebar3 hex publish --replace~n~n"
     "  rebar3 hex publish --replace --yes~n~n"
     "Argument descriptions:~n~n"
