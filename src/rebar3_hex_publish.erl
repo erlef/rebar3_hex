@@ -87,16 +87,16 @@ handle_task(#{args := #{revert := _}, multi_project := true}) ->
 
 %% Publish 
 
-handle_task(#{repo := Repo, state := State, is_release := false}) -> 
+handle_task(#{repo := Repo, state := State, multi_project := false}) -> 
     case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
             undefined ->
                 ?PRV_ERROR(no_write_key);
             _ ->
                 App = rebar_state:current_app(State),
                 publish(App, Repo, State)
-        end.
+        end;
 
-handle_task(#{repo := Repo, state := State, is_release := true}) ->
+handle_task(#{repo := Repo, state := State, multi_project := true}) ->
         case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
             undefined ->
                 ?PRV_ERROR(no_write_key);
