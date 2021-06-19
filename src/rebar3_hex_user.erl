@@ -212,7 +212,7 @@ generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
 
     %% write key
     WriteKeyName = api_key_name(),
-    WritePermissions = [#{domain => api}],
+    WritePermissions = [#{domain => <<"api">>}],
     case generate_key(RepoConfig0, WriteKeyName, WritePermissions) of
         {ok, WriteKey} ->
 
