@@ -70,24 +70,24 @@ do(State) ->
 handle_task(#{args := #{revert := undefined}}) ->
     {error, "--revert requires an app version"};
 
-handle_task(#{args := #{revert := Vsn}, multi_project := false} = Task) ->
+handle_task(#{args := #{revert := Vsn}, multi_app := false} = Task) ->
     #{repo := Repo, state := State} = Task,
     App = rebar_state:current_app(State),
     Name = rebar_app_info:name(App),
     ok = rebar3_hex_revert:revert(binarify(Name), binarify(Vsn), Repo, State),
     {ok, State};
 
-handle_task(#{args := #{revert := Vsn, app := AppName}, multi_project := true} = Task) ->
+handle_task(#{args := #{revert := Vsn, app := AppName}, multi_app := true} = Task) ->
     #{repo := Repo, state := State} = Task,
     ok = rebar3_hex_revert:revert(binarify(AppName), binarify(Vsn), Repo, State),
     {ok, State};
 
-handle_task(#{args := #{revert := _}, multi_project := true}) ->
+handle_task(#{args := #{revert := _}, multi_app := true}) ->
     {error, "--app required when reverting in a release with multiple projects"};
 
 %% Publish 
 
-handle_task(#{repo := Repo, state := State, multi_project := false}) -> 
+handle_task(#{repo := Repo, state := State, multi_app := false}) -> 
     case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
             undefined ->
                 ?PRV_ERROR(no_write_key);
@@ -96,7 +96,7 @@ handle_task(#{repo := Repo, state := State, multi_project := false}) ->
                 publish(App, Repo, State)
         end;
 
-handle_task(#{repo := Repo, state := State, multi_project := true}) ->
+handle_task(#{repo := Repo, state := State, multi_app := true}) ->
         case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
             undefined ->
                 ?PRV_ERROR(no_write_key);

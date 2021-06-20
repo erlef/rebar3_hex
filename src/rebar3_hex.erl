@@ -65,9 +65,9 @@ task_state(State) ->
              case rebar_state:project_apps(State) of 
                  [App] ->
                      State1 = rebar_state:current_app(State, App),
-                    {ok, #{args => Opts, repo => Repo, state => State1, multi_project => false}};
+                    {ok, #{args => Opts, repo => Repo, state => State1, multi_app => false}};
                  [_|_] -> 
-                    {ok, #{args => Opts, repo => Repo, state => State, multi_project => true}}
+                    {ok, #{args => Opts, repo => Repo, state => State, multi_app => true}}
              end;
          Err -> 
             Err
