@@ -83,7 +83,7 @@ handle_task(#{args := #{revert := Vsn, app := AppName}, multi_app := true} = Tas
     {ok, State};
 
 handle_task(#{args := #{revert := _}, multi_app := true}) ->
-    {error, "--app required when reverting in a release with multiple projects"};
+    {error, "--app required when reverting in a umbrella with multiple apps"};
 
 %% Publish 
 
