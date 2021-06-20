@@ -203,7 +203,7 @@ pad(Binary) ->
             <<Binary/binary, 0:((32 - Size) * 8)>>
     end.
 
--dialyzer({no_return, generate_all_keys/5}).
+-dialyzer({nowarn_function, generate_all_keys/5}).
 generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
     rebar3_hex_io:say("Generating all keys..."),
 
@@ -212,7 +212,7 @@ generate_all_keys(Username, Password, LocalPassword, Repo, State) ->
 
     %% write key
     WriteKeyName = api_key_name(),
-    WritePermissions = [#{domain => api}],
+    WritePermissions = [#{domain => <<"api">>}],
     case generate_key(RepoConfig0, WriteKeyName, WritePermissions) of
         {ok, WriteKey} ->
 
@@ -289,6 +289,7 @@ cipher(Key) when byte_size(Key) == 24  -> aes_192_gcm;
 cipher(Key) when byte_size(Key) == 32  -> aes_256_gcm.
 -endif.
 
+-dialyzer({nowarn_function, generate_key/3}).
 generate_key(RepoConfig, KeyName, Permissions) ->
     case hex_api_key:add(RepoConfig, KeyName, Permissions) of
         {ok, {201, _Headers, #{<<"secret">> := Secret}}} ->
@@ -306,9 +307,11 @@ hostname() ->
 api_key_name() ->
     list_to_binary(hostname()).
 
+-dialyzer({nowarn_function, api_key_name/1}).
 api_key_name(Postfix) ->
     list_to_binary([hostname(), "-api-", Postfix]).
 
+-dialyzer({nowarn_function, repos_key_name/0}).
 repos_key_name() ->
     list_to_binary([hostname(), "-repositories"]).
 
