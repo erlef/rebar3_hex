@@ -10,7 +10,7 @@
         , help_opt/0
         ]).
 
--type task() :: #{args := map(), repo := map(), state := rebar_state:t(), multi_project := boolean()}.
+-type task() :: #{args := map(), repo := map(), state := rebar_state:t(), multi_app := boolean()}.
 
 -export_type([task/0]).
 
