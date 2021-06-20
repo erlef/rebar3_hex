@@ -563,7 +563,7 @@ to_list(X)
 
 help(app) ->
     "Specifies the app to use with the publish command, currently only utilized for publish and revert operations"
-    "Note the app switch and value only has to be provided if you are publishing within a release (umbrella).";
+    "Note that the app switch and value only have to be provided if you are publishing within a release (umbrella).";
 help(revert) ->
     "Revert given version, if the last version is reverted the package is removed";
 help(replace) ->
