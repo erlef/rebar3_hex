@@ -10,7 +10,7 @@
         , help_opt/0
         ]).
 
--type task() :: #{args := map(), repo := map(), state := rebar_state:t()}.
+-type task() :: #{args := map(), repo := map(), state := rebar_state:t(), multi_app := boolean()}.
 
 -export_type([task/0]).
 
@@ -62,7 +62,13 @@ task_state(State) ->
      case rebar3_hex_config:repo(State) of
          {ok, Repo} -> 
              Opts = get_args(State),
-             {ok, #{args => Opts, repo => Repo, state => State}};
+             case rebar_state:project_apps(State) of 
+                 [App] ->
+                     State1 = rebar_state:current_app(State, App),
+                    {ok, #{args => Opts, repo => Repo, state => State1, multi_app => false}};
+                 [_|_] -> 
+                    {ok, #{args => Opts, repo => Repo, state => State, multi_app => true}}
+             end;
          Err -> 
             Err
      end.
