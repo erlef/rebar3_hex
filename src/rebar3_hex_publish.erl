@@ -235,11 +235,16 @@ publish(App, Name, Version,  Deps, [], AppDetails, HexConfig, State) ->
     rebar3_hex_io:say("  Build tools: ~ts", [format_build_tools(BuildTools)]),
     maybe_say_coc(HexConfig),
     {Args, _} = rebar_state:command_parsed_args(State),
+    MaybeWithWarnings =
+        case has_checkouts_for(AppDir) of
+            {false, _} -> "";
+            {true, _} -> " (with warnings)"
+        end,
     case proplists:get_bool(yes, Args) of
         true ->
             publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, State);
         false ->
-            case rebar3_hex_io:ask("Proceed?", boolean, "Y") of
+            case rebar3_hex_io:ask("Proceed" ++ MaybeWithWarnings ++ "?", boolean, "Y") of
                 true ->
                     publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, State);
                 _ ->
@@ -351,6 +356,8 @@ to_map(List) when is_list(List) ->
     maps:from_list(List).
 
 include_files(Name, AppDir, AppDetails) ->
+    _ = maybe_print_checkouts_warnings(AppDir),
+
     AppSrc = {application, to_atom(Name), AppDetails},
     FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
     IncludeFilePaths = proplists:get_value(include_files, AppDetails, []),
@@ -372,6 +379,14 @@ include_files(Name, AppDir, AppDetails) ->
     AppSrcBinary = rebar_utils:to_binary(lists:flatten(io_lib:format("~tp.\n", [AppSrc]))),
     lists:keystore(AppFileSrc, 1, WithIncludes, {AppFileSrc, AppSrcBinary}).
 
+maybe_print_checkouts_warnings(AppDir) ->
+    {HasCheckouts, Checkouts} = has_checkouts_for(AppDir),
+    HasCheckouts andalso
+        rebar_log:log(warn, "~p directory found; this might interfere with publishing", [Checkouts]).
+
+has_checkouts_for(AppDir) ->
+    Checkouts = filename:join(AppDir, "_checkouts"),
+    {filelib:is_dir(Checkouts), Checkouts}.
 
 is_valid_app({_App, _Name, _Version, _AppDetails, _Deps} = A) ->
     F = fun(K, Acc) ->
