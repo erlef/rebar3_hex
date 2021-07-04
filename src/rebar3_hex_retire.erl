@@ -47,15 +47,24 @@ do(State) ->
 
 handle_command(State, Repo) ->
     {Args, _} = rebar_state:command_parsed_args(State),
-    Name = rebar3_hex:get_required(pkg, Args),
+    Name = get_required_or_raise(pkg, Args),
+    Version = get_required_or_raise(vsn, Args),
+    Reason = get_required_or_raise(reason, Args),
+    Message = get_required_or_raise(message, Args),
     PkgName = rebar_utils:to_binary(Name),
-    Version = rebar3_hex:get_required(vsn, Args),
-    Reason = rebar3_hex:get_required(reason, Args),
-    Message = rebar3_hex:get_required(message, Args),
     retire(PkgName, rebar_utils:to_binary(Version), Repo,
            rebar_utils:to_binary(Reason),
            rebar_utils:to_binary(Message),
            State).
+
+
+get_required_or_raise(Key, Args) ->
+    case rebar3_hex:get_required(Key, Args) of
+            {error, Err} ->
+                erlang:error(?PRV_ERROR(Err));
+            Res ->
+                Res
+    end.
 
 errors_to_string(Value) when is_binary(Value) ->
     Value;

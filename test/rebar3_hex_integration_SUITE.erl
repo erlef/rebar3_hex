@@ -52,6 +52,7 @@ all() ->
     , publish_unauthorized_test
     , publish_without_docs_test
     , publish_only_docs_test
+    , retire_test
     , key_list_test
     , key_get_test
     , key_add_test
@@ -576,6 +577,21 @@ publish_only_docs_test(Config) ->
     {ok, NewState} = rebar_prv_edoc:do(PubState),
     ?assertMatch({ok, PubState}, rebar3_hex_publish:do(NewState)).
 
+retire_test(Config) ->
+    P = #{app => "valid", mocks => [retire]},
+    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, RetState} = test_utils:mock_command(rebar3_hex_retire, [], RepoConfig, State),
+    ?assertError({error,{rebar3_hex_retire,{required,pkg}}}, rebar3_hex_retire:do(RetState)),
+    {ok, RetState1} = test_utils:mock_command(rebar3_hex_retire, ["pkg_name"], RepoConfig, State),
+    ?assertError({error,{rebar3_hex_retire,{required,vsn}}}, rebar3_hex_retire:do(RetState1)),
+    {ok, RetState2} = test_utils:mock_command(rebar3_hex_retire, ["pkg_name", "1.1.1"], RepoConfig, State),
+    ?assertError({error,{rebar3_hex_retire,{required,reason}}}, rebar3_hex_retire:do(RetState2)),
+    {ok, RetState3} = test_utils:mock_command(rebar3_hex_retire, ["pkg_name", "1.1.1", "reason"], RepoConfig, State),
+    ?assertError({error,{rebar3_hex_retire,{required,message}}}, rebar3_hex_retire:do(RetState3)),
+    {ok, RetState4} = test_utils:mock_command(rebar3_hex_retire, ["pkg_name", "1.1.1", "reason", "msg"], RepoConfig, State),
+    ?assertMatch({ok, _Retstate4}, rebar3_hex_retire:do(RetState4)).
+
 key_list_test(Config) ->
     P = #{app => "valid", mocks => []},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
@@ -864,6 +880,20 @@ setup_mocks_for(publish_revert, #{username := Username,
              boolean,"N", {returns, false}}
            ],
     expects_prompts(Exps);
+
+setup_mocks_for(retire, #{username := Username,
+                           password := Password,
+                           password_confirmation := PasswordConfirm,
+                           repo := Repo}) ->
+
+    Fun = fun(Cfg, State) ->
+                  Rname = maps:get(name, Repo),
+                  Skey = maps:get(repo_key, Repo),
+                  [Rname] = maps:keys(Cfg),
+                  #{repo_key := Skey, username := Username} = maps:get(Rname, Cfg),
+                  {ok, State} end,
+    meck:expect(rebar3_hex_config, update_auth_config, Fun),
+    expect_local_password_prompt(Password, PasswordConfirm);
 
 setup_mocks_for(register, #{username := Username,
                             email := Email,

@@ -139,6 +139,16 @@ handle('POST', [<<"repos">>, _Repo, <<"publish">>], Req) ->
            respond_with(401, Req, #{})
    end;
 
+handle('POST', [<<"packages">>,_Name,<<"releases">>,_Ver,<<"retire">>], Req) ->
+    case authenticate(Req) of
+       {ok, #{username := _Username, email := _Email}} ->
+            {204, [{<<"Content-type">>, "text/plain"}], <<>>};
+       unauthorized ->
+            respond_with(403, Req, #{<<"message">> => <<"account not authorized for this action">>});
+        error ->
+           respond_with(401, Req, #{})
+   end;
+
 handle('POST', [<<"keys">>], Req) ->
     Data     = body_to_terms(Req),
     _Name = maps:get(<<"name">>, Data),
@@ -263,7 +273,7 @@ handle('DELETE', [<<"keys">>, <<"key">>], Req) ->
     Res = #{<<"secret">> => <<"repo_key">>},
     respond_with(200, Req, Res);
 
-handle(_, _Path, Req) ->
+handle(_Method, _Path, Req) ->
     respond_with(404, Req, #{}).
 
 handle_event(_Event, _Data, _Args) ->
