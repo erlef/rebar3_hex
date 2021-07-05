@@ -146,7 +146,7 @@ handle('POST', [<<"packages">>,_Name,<<"releases">>,_Ver,<<"retire">>], Req) ->
        unauthorized ->
             respond_with(403, Req, #{<<"message">> => <<"account not authorized for this action">>});
         error ->
-           respond_with(401, Req, #{})
+            respond_with(401, Req, #{})
    end;
 
 handle('POST', [<<"keys">>], Req) ->
