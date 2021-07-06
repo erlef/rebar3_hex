@@ -8,10 +8,6 @@
         , format_error/1
         ]).
 
--ifdef(TEST).
--export([assert_valid_app/2, build_package/3]).
--endif.
-
 -export([
          publish/4,
          publish_package/4
