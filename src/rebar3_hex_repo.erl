@@ -127,9 +127,17 @@ list_repos(State) ->
 printable_public_key(PubKey) ->
     [Pem] = public_key:pem_decode(PubKey),
     Public =  public_key:pem_entry_decode(Pem),
-    Hash = crypto:hash(sha256, public_key:ssh_encode(Public, ssh2_pubkey)),
+    Hash = crypto:hash(sha256, ssh_encode(Public)),
     Encoded = string:substr(base64:encode_to_string(Hash), 1, 43),
     "SHA256:" ++ Encoded.
+
+-ifdef(POST_OTP_22).
+ssh_encode(InData) ->
+    ssh_file:encode(InData, ssh2_pubkey).
+-else.
+ssh_encode(InData) ->
+    public_key:ssh_encode(InData, ssh2_pubkey).
+-endif.
 
 maybe_org_url(undefined, Url) -> binary_to_list(Url);
 maybe_org_url(Org, Url) -> binary_to_list(Url) ++ "/repos/" ++ binary_to_list(Org).
