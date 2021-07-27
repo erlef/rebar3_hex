@@ -43,6 +43,7 @@ all() ->
     , whoami_unhandled_test
     , deauth_test
     , publish_test
+    , publish_multi_errors_test
     , publish_replace_test
     , publish_revert_test
     , publish_org_test
@@ -482,6 +483,18 @@ publish_test(Config) ->
 
     ?assertMatch({ok, PubState}, rebar3_hex_publish:do(PubState)).
 
+publish_multi_errors_test(Config) -> 
+    P = #{app => "multi_errors", mocks => [publish]},
+    {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
+    RepoConfig = [{repos,[Repo]}],
+    {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, [], RepoConfig, State),
+    Exp = {error, {rebar3_hex_publish,
+                         {validation_errors,
+                          [{invalid_semver,
+                            {<<"multi_errors">>,"0.1b-prod"}}]}}},
+    ?assertError(Exp, rebar3_hex_publish:do(PubState)).
+
+
 %% TODO: This test currently is merely to see if we can handle the --replace switch
 %% In order for the test to be more meaningful we need to update the hex_api_model to keep
 %% track of packages that have been published and when, further we need to provide
@@ -528,14 +541,14 @@ publish_org_error_test(Config) ->
     {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, ["-r", "hexpm:bar"], RepoConfig, State),
 
     ExpError = {error,{rebar3_hex_publish,{not_valid_repo,"hexpm:bar"}}},
-    ?assertMatch(ExpError, rebar3_hex_publish:do(PubState)).
+    ?assertError(ExpError, rebar3_hex_publish:do(PubState)).
 
 publish_org_requires_repo_arg_test(Config) ->
     P = #{app => "valid", mocks => [publish], repo_config => #{repo => <<"hexpm:valid">>, name => <<"hexpm:valid">>}},
     {ok, #{rebar_state := State, repo := Repo}} = setup_state(P, Config),
     RepoConfig = [{repos,[Repo]}],
     {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, [], RepoConfig, State),
-    ?assertMatch({error,{rebar3_hex_publish,{required,repo}}}, rebar3_hex_publish:do(PubState)).
+    ?assertError({error,{rebar3_hex_publish,{required,repo}}}, rebar3_hex_publish:do(PubState)).
 
 publish_error_test(Config) ->
     P = #{app => "valid", mocks => [publish], repo_config => #{write_key => undefined}},
@@ -543,7 +556,7 @@ publish_error_test(Config) ->
     RepoConfig = [{repos,[Repo]}],
     {ok, PubState} = test_utils:mock_command(rebar3_hex_publish, [], RepoConfig, State),
 
-    ?assertMatch({error,{rebar3_hex_publish,no_write_key}}, rebar3_hex_publish:do(PubState)).
+    ?assertError({error,{rebar3_hex_publish,no_write_key}}, rebar3_hex_publish:do(PubState)).
 
 publish_unauthorized_test(Config) ->
     WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"unauthorized">>),
@@ -560,7 +573,7 @@ publish_unauthorized_test(Config) ->
              {error,
               #{<<"message">> =>
                 <<"account not authorized for this action">>}}}}},
-    ?assertMatch(Exp, rebar3_hex_publish:do(PubState)).
+    ?assertError(Exp, rebar3_hex_publish:do(PubState)).
 
 publish_without_docs_test(Config) ->
     P = #{app => "valid", mocks => [publish]},

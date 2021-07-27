@@ -10,7 +10,12 @@
         , help_opt/0
         ]).
 
--type task() :: #{args := map(), repo := map(), state := rebar_state:t(), multi_app := boolean()}.
+-type task() :: #{args := map(), 
+                  repo := map(), 
+                  apps := [rebar_app_info:t()], 
+                  state := rebar_state:t(), 
+                  multi_app := boolean()
+                 }.
 
 -export_type([task/0]).
 
@@ -63,11 +68,10 @@ task_state(State) ->
          {ok, Repo} -> 
              Opts = get_args(State),
              case rebar_state:project_apps(State) of 
-                 [App] ->
-                     State1 = rebar_state:current_app(State, App),
-                    {ok, #{args => Opts, repo => Repo, state => State1, multi_app => false}};
-                 [_|_] -> 
-                    {ok, #{args => Opts, repo => Repo, state => State, multi_app => true}}
+                 [_App] = Apps ->
+                    {ok, #{args => Opts, repo => Repo, state => State, multi_app => false, apps => Apps}};
+                 [_|_] = Apps ->
+                    {ok, #{args => Opts, repo => Repo, state => State, multi_app => true, apps => Apps}}
              end;
          Err -> 
             Err

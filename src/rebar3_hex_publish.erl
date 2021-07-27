@@ -8,10 +8,10 @@
         , format_error/1
         ]).
 
--export([ publish/3
-        , publish/8
-        , validate_app_details/1
-        , gather_deps/1
+-export([
+         publish/4,
+         publish_package/4
+        , publish_docs/4
         ]).
 
 -include("rebar3_hex.hrl").
@@ -26,19 +26,9 @@
                        ,"LICENSE*", "license*"
                        ,"NOTICE"]).
 
--define(VALIDATIONS, [ has_semver
-                     , has_contributors
-                     , has_maintainers
-                     , has_description
-                     , has_licenses
-                     , has_unstable_deps
-                     ]).
-
 %% ===================================================================
 %% Public API
 %% ===================================================================
-
-
 -spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
 init(State) ->
     Provider = providers:create([{name, ?PROVIDER},
@@ -51,7 +41,7 @@ init(State) ->
                                  {desc, support()},
                                  {opts, [rebar3_hex:repo_opt(),
                                          {yes, $y, "yes", {boolean, false}, help(yes)},
-                                         {app, $a, "app", string, help(app)},
+                                         {app, $a, "app", {string, undefined}, help(app)},
                                          {replace, undefined, "replace", {boolean, false}, help(replace)},
                                          {revert, undefined, "revert", string, help(revert)}]}]),
     State1 = rebar_state:add_provider(State, Provider),
@@ -60,52 +50,11 @@ init(State) ->
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, term()}.
 do(State) ->
     case rebar3_hex:task_state(State) of
-        {ok, Task} -> 
+        {ok, Task} ->
             handle_task(Task);
-        {error, Reason} -> 
-            ?PRV_ERROR(Reason)
+        {error, Reason} ->
+            ?RAISE(Reason)
     end.
-
-%% Revert cases 
-handle_task(#{args := #{revert := undefined}}) ->
-    {error, "--revert requires an app version"};
-
-handle_task(#{args := #{revert := Vsn}, multi_app := false} = Task) ->
-    #{repo := Repo, state := State} = Task,
-    App = rebar_state:current_app(State),
-    Name = rebar_app_info:name(App),
-    ok = rebar3_hex_revert:revert(binarify(Name), binarify(Vsn), Repo, State),
-    {ok, State};
-
-handle_task(#{args := #{revert := Vsn, app := AppName}, multi_app := true} = Task) ->
-    #{repo := Repo, state := State} = Task,
-    ok = rebar3_hex_revert:revert(binarify(AppName), binarify(Vsn), Repo, State),
-    {ok, State};
-
-handle_task(#{args := #{revert := _}, multi_app := true}) ->
-    {error, "--app required when reverting in a umbrella with multiple apps"};
-
-%% Publish 
-
-handle_task(#{repo := Repo, state := State, multi_app := false}) -> 
-    case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
-            undefined ->
-                ?PRV_ERROR(no_write_key);
-            _ ->
-                App = rebar_state:current_app(State),
-                publish(App, Repo, State)
-        end;
-
-handle_task(#{repo := Repo, state := State, multi_app := true}) ->
-        case maps:get(write_key, Repo, maps:get(api_key, Repo, undefined)) of
-            undefined ->
-                ?PRV_ERROR(no_write_key);
-            _ ->
-                Apps = rebar3_hex_io:select_apps(rebar_state:project_apps(State)),
-                lists:foldl(fun(App, {ok, StateAcc}) ->
-                                    publish(App, Repo, StateAcc)
-                            end, {ok, State}, Apps)
-        end.
 
 -spec format_error(any()) -> iolist().
 format_error(ErrList) when is_list(ErrList) ->
@@ -115,38 +64,46 @@ format_error(ErrList) when is_list(ErrList) ->
       end,
   More = "\n     Please see https://hex.pm/docs/rebar3_publish for more info.\n",
   lists:foldl(F, "Validator Errors:\n", ErrList) ++ More;
-format_error(bad_command) ->
-        "bad command";
-format_error({required, repo}) ->
-    "publish requires a repo name argument to identify the repo to publish to";
-format_error({not_valid_repo, RepoName}) ->
-    io_lib:format("No configuration for repository ~ts found.", [RepoName]);
-format_error({invalid_semver, AppName, Version}) ->
-    Err = "~ts.app.src : non-semantic version number \"~ts\" found",
-    io_lib:format(Err, [AppName, Version]);
+format_error({validation_errors, Errs}) ->
+    lists:map(fun(E) -> format_error(E) end, Errs);
+format_error({has_contributors, AppName}) ->
+    Err = "~ts.app.src : deprecated field contributors found",
+    io_lib:format(Err, [AppName]);
+format_error({has_maintainers, AppName}) ->
+    Err = "~ts.app.src : deprecated field maintainers found",
+    io_lib:format(Err, [AppName]);
 format_error({no_description, AppName}) ->
     Err = "~ts.app.src : missing or empty description property",
     io_lib:format(Err, [AppName]);
 format_error({no_license, AppName}) ->
     Err = "~ts.app.src : missing or empty licenses property",
     io_lib:format(Err, [AppName]);
-format_error({has_maintainers, AppName}) ->
-    Err = "~ts.app.src : deprecated field maintainers found",
-    io_lib:format(Err, [AppName]);
-format_error({has_contributors, AppName}) ->
-    Err = "~ts.app.src : deprecated field contributors found",
-    io_lib:format(Err, [AppName]);
+format_error({invalid_semver, {AppName, Version}}) ->
+    Err = "~ts.app.src : non-semantic version number \"~ts\" found",
+    io_lib:format(Err, [AppName, Version]);
 format_error({has_unstable_deps, Deps}) ->
     MainMsg = "The following pre-release dependencies were found : ",
     DepList = [io_lib:format("~s - ~s ", [Pkg, Ver]) || {Pkg, Ver} <- Deps],
-    Msg = ["In the future packages with pre-release dependencies will be considered unstable ",
-           "and will be prevented from being published. ",
-           "We recommend you upgrade your these dependencies as soon as possible"],
+    Msg = [
+        "In the future packages with pre-release dependencies will be considered unstable ",
+        "and will be prevented from being published. ",
+        "We recommend you upgrade your these dependencies as soon as possible"
+    ],
     io_lib:format("~s~n~n~s~n~n~s~n", [MainMsg, DepList, Msg]);
+
+format_error({app_not_found, AppName}) ->
+     io_lib:format("App ~s specified with --app switch not found in project", [AppName]);
+format_error(bad_command) ->
+        "bad command";
+format_error({app_switch_required, Msg}) ->
+    Msg;
+format_error({required, repo}) ->
+    "publish requires a repo name argument to identify the repo to publish to";
+format_error({not_valid_repo, RepoName}) ->
+    io_lib:format("No configuration for repository ~ts found.", [RepoName]);
 format_error(no_write_key) ->
     "No write key found for user. Be sure to authenticate first with:"
     ++ " rebar3 hex user auth";
-
 format_error({publish, {error, {tarball, _} = Err}}) ->
     hex_tarball:format_error(Err);
 format_error({publish, {error, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
@@ -174,38 +131,161 @@ format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
 
 %% ===================================================================
-%% Public API
+%% Private
 %% ===================================================================
 
-publish(App, HexConfig, State) ->
-    Name = rebar_app_info:name(App),
 
-    Version = rebar_app_info:original_vsn(App),
-    ResolvedVersion = rebar_utils:vcs_vsn(App, Version, State),
-    {application, _, AppDetails} = rebar3_hex_file:update_app_src(App, ResolvedVersion),
+%% ===================================================================
+%% Publish package only operations
+%% ===================================================================
+handle_task(#{args := #{task := package, app := undefined}, multi_app := true}) ->
+    ?RAISE({app_switch_required, "--app required when publishing with the package argument in a umbrella"});
 
+handle_task(#{args := #{task := package}, apps := [App]} = Task) ->
+    maybe_warn_about_single_app_args(Task),
+    #{args := Args, repo := Repo, state := State} = Task,
+    publish_package(State, Repo, App, Args);
 
-    Deps = rebar_state:get(State, {locks, default}, []),
-    {TopLevel, Excluded} = gather_deps(Deps),
+handle_task(#{args := #{task := package, app := AppName}, apps := Apps} = Task) ->
+    #{args := Args, repo := Repo, state := State} = Task,
+    case rebar3_hex_app:find(Apps, AppName) of
+        {error, app_not_found} ->
+            ?RAISE({app_not_found, AppName});
+        {ok, App} ->
+            publish_package(State, Repo, App, Args)
+    end,
+    {ok, State};
 
-    case is_valid_app({App, Name, ResolvedVersion, AppDetails, Deps}) of
-        ok ->
-            publish(App, Name, ResolvedVersion, TopLevel,
-                    Excluded, AppDetails, HexConfig, State);
-        {error, Errors} ->
-            ?PRV_ERROR(Errors)
+%% ===================================================================
+%% Publish docs only operations
+%% ===================================================================
+%% TODO: Move doc publish code into this module
+handle_task(#{args := #{task := docs, app := undefined}, multi_app := true}) ->
+    ?RAISE({app_switch_required, "--app required when running publish docs only in a umbrella"});
+
+handle_task(#{args := #{task := docs}, apps := [App]} = Task) ->
+    #{args := Args, repo := Repo, state := State} = Task,
+    publish_docs(State, Repo, App, Args),
+    {ok, State};
+
+handle_task(#{args := #{task := docs, app := AppName}, apps := Apps} = Task) ->
+    case rebar3_hex_app:find(Apps, AppName) of
+        {error, app_not_found} ->
+            ?RAISE({app_not_found, AppName});
+        {ok, App} ->
+            #{args := Args, repo := Repo, state := State} = Task,
+            publish_docs(App, State, Repo, Args),
+            {ok, State}
+    end;
+
+%% ===================================================================
+%% Revert operations
+%% ===================================================================
+%% TODO: Move revert code into this module
+handle_task(#{args := #{revert := undefined}}) ->
+    {error, "--revert requires an app version"};
+
+handle_task(#{args := #{revert := _, app := undefined}, multi_app := true}) ->
+    {error, "--app required when reverting in a umbrella with multiple apps"};
+
+handle_task(#{args := #{revert := Vsn}, apps := [App]} = Task) ->
+    #{repo := Repo, state := State} = Task,
+    AppName = rebar_app_info:name(App),
+    revert(State, Repo, AppName, Vsn);
+
+handle_task(#{args := #{revert := Vsn, app := AppName}, apps := Apps} = Task) ->
+    #{repo := Repo, state := State} = Task,
+    case rebar3_hex_app:find(Apps, AppName) of
+        {error, app_not_found} ->
+            ?RAISE({app_not_found, AppName});
+        {ok, _App} ->
+            revert(State, Repo, AppName, Vsn)
+    end;
+
+%% ===================================================================
+%% Publish package and docs (the default path)
+%% ===================================================================
+handle_task(#{args := #{app := undefined}, repo := Repo, state := State, apps := Apps} = Task) ->
+    #{args := Args} = Task,
+    maybe_warn_about_single_app_args(Task),
+    Selected = rebar3_hex_io:select_apps(Apps),
+    lists:foreach(fun(App) -> publish(State, Repo, App, Args) end, Selected),
+    {ok, State};
+
+handle_task(#{args := #{app := AppName},  apps := Apps, multi_app := true} = Task) ->
+    case rebar3_hex_app:find(Apps, AppName) of
+        {error, app_not_found} ->
+            ?RAISE({app_not_found, AppName});
+        {ok, App} ->
+            #{args := Args, repo := Repo, state := State} = Task,
+            publish(State, Repo, App, Args)
     end.
 
-publish(App, Name, Version,  Deps, [], AppDetails, HexConfig, State) ->
+maybe_warn_about_single_app_args(#{args := #{app := AppName}, apps := [_]}) when AppName =/= undefined ->
+    rebar_api:error("--app switch has no effect in single app projects", []);
+maybe_warn_about_single_app_args(_) -> ok.
+
+publish(State, Repo, App, Args) ->
+    case publish_package(State, Repo, App, Args) of 
+        abort -> 
+            {ok, State};
+        _ -> 
+            publish_docs(State, Repo, App, Args)
+    end.
+
+publish_docs(State, Repo, App, _Args) ->
+    rebar3_hex_docs:publish(App, State, Repo).
+
+publish_package(State, Repo, App, Args) ->
+    assert_valid_app(State, App),
+    Package = build_package(State, Repo, App),
+    print_package_info(Package),
+    maybe_say_coc(Repo),
+    MaybeCheckoutWarnings = maybe_checkout_warnings(App),
+    case maybe_prompt(Args, "Proceed" ++ MaybeCheckoutWarnings ++ "?") of
+        proceed ->
+            HexOpts = hex_opts(Args),
+            assert_has_write_key(Repo),
+            {ok, HexConfig} = rebar3_hex_config:hex_config_write(Repo),
+            rebar_api:info("package argument given, will not publish docs", []),
+            Tarball = create_tarball(Package),
+            case rebar3_hex_client:publish(HexConfig, Tarball, HexOpts) of
+                {ok, _Res} ->
+                    #{name := Name, version := Version} = Package,
+                        rebar_api:info("Published ~s ~s", [Name, Version]),
+                        {ok, State};
+                Error ->
+                    ?RAISE({publish, Error})
+            end;
+        abort ->
+            rebar3_hex_io:say("Goodbye..."),
+            abort
+    end.
+
+revert(State, Repo, AppName, Vsn) -> 
+    case rebar3_hex_revert:revert(binarify(AppName), binarify(Vsn), Repo, State) of
+        ok ->
+            {ok, State};
+        Err ->
+            ?RAISE(Err)
+    end.
+
+build_package(State, #{name := RepoName} = _Repo, App) ->
+    Name = rebar_app_info:name(App),
+
+    Version = rebar3_hex_app:vcs_vsn(State, App),
+
+    %% Note we should not implicitly do this IMO
+    {application, _, AppDetails} = rebar3_hex_file:update_app_src(App, Version),
+
+    Deps = rebar_state:get(State, {locks, default}, []),
+    TopLevel = gather_deps(Deps),
     AppDir = rebar_app_info:dir(App),
     Config = rebar_config:consult(AppDir),
     ConfigDeps = proplists:get_value(deps, Config, []),
-    Deps1 = update_versions(ConfigDeps, Deps),
-
+    Deps1 = update_versions(ConfigDeps, TopLevel),
     Description = proplists:get_value(description, AppDetails, ""),
-
     PackageFiles = include_files(Name, AppDir, AppDetails),
-
     Licenses = proplists:get_value(licenses, AppDetails, []),
     Links = proplists:get_value(links, AppDetails, []),
     BuildTools = proplists:get_value(build_tools, AppDetails, [<<"rebar3">>]),
@@ -225,88 +305,80 @@ publish(App, Name, Version,  Deps, [], AppDetails, HexConfig, State) ->
     OptionalFiltered = [{Key, Value} || {Key, Value} <- Optional, Value =/= []],
     Metadata = maps:from_list([{<<"name">>, PkgName}, {<<"version">>, binarify(Version)},
                                {<<"requirements">>, maps:from_list(Deps1)} | OptionalFiltered]),
+    #{name => PkgName,
+      repo_name => RepoName,
+      deps => Deps1,
+      version => Version,
+      metadata => Metadata,
+      files => PackageFiles}.
 
-    rebar3_hex_io:say("Publishing ~ts ~ts to ~ts", [PkgName, Version, maps:get(name, HexConfig)]),
-    rebar3_hex_io:say("  Description: ~ts", [Description]),
-    rebar3_hex_io:say("  Dependencies:~n    ~ts", [format_deps(Deps1)]),
-    rebar3_hex_io:say("  Included files:~n    ~ts", [string:join([F || {F, _} <- PackageFiles], "\n    ")]),
-    rebar3_hex_io:say("  Licenses: ~ts", [format_licenses(Licenses)]),
-    rebar3_hex_io:say("  Links:~n    ~ts", [format_links(Links)]),
-    rebar3_hex_io:say("  Build tools: ~ts", [format_build_tools(BuildTools)]),
-    maybe_say_coc(HexConfig),
-    {Args, _} = rebar_state:command_parsed_args(State),
-    MaybeWithWarnings =
-        case has_checkouts_for(AppDir) of
-            {false, _} -> "";
-            {true, _} -> " (with warnings)"
-        end,
-    case proplists:get_bool(yes, Args) of
+print_package_info(Package) ->
+    #{metadata := Meta, files := Files, deps := Deps, name := Name, repo_name := RepoName, version := Version} = Package,
+    rebar3_hex_io:say("Publishing ~ts ~ts to ~ts", [Name, Version, RepoName]),
+    rebar3_hex_io:say("  Description: ~ts", [rebar_utils:to_list(maps:get(<<"description">>, Meta))]),
+    rebar3_hex_io:say("  Dependencies:~n    ~ts", [format_deps(Deps)]),
+    rebar3_hex_io:say("  Included files:~n    ~ts", [string:join([F || {F, _} <- Files], "\n    ")]),
+    rebar3_hex_io:say("  Licenses: ~ts", [format_licenses(maps:get(<<"licenses">>, Meta))]),
+    rebar3_hex_io:say("  Links:~n    ~ts", [format_links(maps:get(<<"links">>, Meta))]),
+    rebar3_hex_io:say("  Build tools: ~ts", [format_build_tools(maps:get(<<"build_tools">>, Meta))]).
+
+maybe_checkout_warnings(App) ->
+    case has_checkouts_for(rebar_app_info:dir(App)) of
+        {false, _} -> "";
+        {true, _} -> " (with warnings)"
+    end.
+
+maybe_prompt(#{yes := true}, _Message) ->
+    proceed;
+
+maybe_prompt(_Args, Message) ->
+    case rebar3_hex_io:ask(Message, boolean, "Y") of
         true ->
-            publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, State);
-        false ->
-            case rebar3_hex_io:ask("Proceed" ++ MaybeWithWarnings ++ "?", boolean, "Y") of
-                true ->
-                    publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, State);
-                _ ->
-                    rebar3_hex_io:say("Goodbye..."),
-                    {ok, State}
-            end
-    end;
+            proceed;
+        _ ->
+            abort
+    end.
 
-publish(_AppDir, _Name, _Version, _Deps, Excluded, _AppDetails, _, _) ->
-    ?PRV_ERROR({non_hex_deps, Excluded}).
+create_tarball(#{metadata := Meta, files := Files}) ->
+    case hex_tarball:create(Meta, Files) of
+        {ok, #{tarball := Tarball, inner_checksum := _Checksum}} ->
+            Tarball;
+        Error ->
+            ?RAISE(Error)
+    end.
+
+assert_valid_app(State, App) ->
+    Name = rebar_app_info:name(App),
+    Version = rebar_app_info:original_vsn(App),
+    ResolvedVersion = rebar_utils:vcs_vsn(App, Version, State),
+    {application, _, AppDetails} = rebar3_hex_file:update_app_src(App, ResolvedVersion),
+    Deps = rebar_state:get(State, {locks, default}, []),
+    AppData = #{name => Name, version => ResolvedVersion, details => AppDetails, deps => Deps},
+    case rebar3_hex_app:validate(AppData) of
+        ok ->
+            {ok, State};
+       {error, #{warnings := Warnings, errors := Errors}} -> 
+            lists:foreach(fun(W) -> rebar_log:log(warn, format_error(W), []) end, Warnings),
+            case Errors of 
+                [] -> 
+                    {ok, State};
+                Errs -> 
+                    ?RAISE({validation_errors, Errs})
+            end
+    end.
 
 hex_opts(Opts) ->
-    lists:filter(fun({K, _}) -> is_hex_opt(K) end, Opts).
+    lists:filter(fun({K, _}) -> is_hex_opt(K) end, maps:to_list(Opts)).
 
 is_hex_opt(replace) -> true;
 is_hex_opt(_) -> false.
 
 gather_deps(Deps) ->
-    Top = locks_to_deps(Deps),
-    Excluded = [binary_to_list(N) || {N,{T,_,_,_},0} <- Deps, T =/= pkg],
-    Excluded1 = [binary_to_list(N) || {N,{T,_,_},0} <- Deps, T =/= pkg],
-    {Top, Excluded++Excluded1}.
-
-locks_to_deps(Deps) ->
-    lists:foldl(fun(D,Acc) -> lock_to_dep(D, Acc) end, [], Deps).
-
-lock_to_dep({A,{pkg,N,V,_, _},0}, Acc) ->
-         [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"requirement">>, V}]} | Acc];
-lock_to_dep({A, {pkg,N,V,_},0}, Acc) ->
-        [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"requirement">>, V}]} | Acc];
-lock_to_dep(_, Acc) ->
-    Acc.
-
-publish_package_and_docs(Name, Version, Metadata, PackageFiles, HexConfig, App, State) ->
-    {Args, _} = rebar_state:command_parsed_args(State),
-    HexOpts = hex_opts(Args),
-    case rebar3_hex_config:hex_config_write(HexConfig) of
-        {ok, HexConfig1} ->
-            case proplists:get_value(task, Args, undefined) of
-                "package" -> 
-                    rebar_api:info("package argument given, will not publish docs", []),
-                    case create_and_publish(HexOpts, Metadata, PackageFiles, HexConfig1) of
-                        ok -> 
-                          rebar_api:info("Published ~s ~s", [Name, Version]),
-                          {ok, State};
-                        Error ->
-                          Error
-                    end;
-                "docs" -> 
-                    rebar_api:info("docs argument given, will not publish package", []),
-                    rebar3_hex_docs:publish(App, State, HexConfig1);
-                _ -> 
-                    case create_and_publish(HexOpts, Metadata, PackageFiles, HexConfig1) of
-                        ok -> 
-                          rebar_api:info("Published ~s ~s", [Name, Version]),
-                          rebar3_hex_docs:publish(App, State, HexConfig1);
-                        Error ->
-                          Error
-                    end
-            end;
-        Error={error, _} ->
-            Error
+    case rebar3_hex_app:get_deps(Deps) of
+        {ok, Top} ->
+            Top;
+        {error, Reason} ->
+             ?RAISE(Reason)
     end.
 
 %% Internal functions
@@ -319,19 +391,6 @@ maybe_say_coc(#{name := <<"hexpm">>}) ->
     rebar3_hex_io:say("Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct", []);
 maybe_say_coc(_) ->
     ok.
-
-create_and_publish(Opts, Metadata, PackageFiles, HexConfig) ->
-    case hex_tarball:create(Metadata, PackageFiles) of
-         {ok, #{tarball := Tarball, inner_checksum := _Checksum}} ->
-            case rebar3_hex_client:publish(HexConfig, Tarball, Opts) of
-                {ok, _Res} ->
-                    ok;
-                Error ->
-                    ?PRV_ERROR({publish, Error})
-            end;
-         Error ->
-            ?PRV_ERROR({publish, Error})
-    end.
 
 known_exclude_file(Path, ExcludeRe) ->
     KnownExcludes = [
@@ -348,6 +407,15 @@ known_exclude_file(Path, ExcludeRe) ->
 exclude_file(Path, ExcludeFiles, ExcludeRe) ->
     lists:keymember(Path, 2, ExcludeFiles) orelse
         known_exclude_file(Path, ExcludeRe).
+
+assert_has_write_key(Repo) ->
+    MaybeApiKey = maps:get(api_key, Repo, undefined),
+    case maps:get(write_key, Repo, MaybeApiKey) of
+        undefined ->
+            ?RAISE(no_write_key);
+        _ ->
+            ok
+    end.
 
 %% allows us to support lists of tuples or maps for metadata the user writes in .app.src
 to_map(Map) when is_map(Map) ->
@@ -375,7 +443,7 @@ include_files(Name, AppDir, AppDetails) ->
                                   end, AllFiles),
     WithIncludes = lists:ukeymerge(2, FilterExcluded, IncludeFiles),
 
-    AppFileSrc = filename:join("src", to_list(Name)++".app.src"),
+    AppFileSrc = filename:join("src", rebar_utils:to_list(Name)++".app.src"),
     AppSrcBinary = rebar_utils:to_binary(lists:flatten(io_lib:format("~tp.\n", [AppSrc]))),
     lists:keystore(AppFileSrc, 1, WithIncludes, {AppFileSrc, AppSrcBinary}).
 
@@ -388,107 +456,17 @@ has_checkouts_for(AppDir) ->
     Checkouts = filename:join(AppDir, "_checkouts"),
     {filelib:is_dir(Checkouts), Checkouts}.
 
-is_valid_app({_App, _Name, _Version, _AppDetails, _Deps} = A) ->
-    F = fun(K, Acc) ->
-            case validate_app(K, A) of
-                ok ->
-                    Acc;
-                {error, Error} ->
-                    Acc ++ [Error]
-            end
-        end,
-    case lists:foldl(F, [], ?VALIDATIONS) of
-        [] ->
-            ok;
-        Errors ->
-            {error, Errors}
-    end.
-
-validate_app(has_unstable_deps, {_, _, _, _, Deps}) ->
-    case lists:foldl(fun(Dep, Acc) -> is_unstable_dep(Dep, Acc) end, [], Deps) of
-        [] ->
-            ok;
-        PreDeps ->
-            rebar_log:log(warn, format_error({has_unstable_deps, PreDeps}), []),
-            ok
-    end;
-validate_app(has_semver, {_, Name, Ver, _, _}) ->
-    case verl:parse(rebar_utils:to_binary(Ver)) of
-        {error, invalid_version} ->
-            {error, {invalid_semver, Name, Ver}};
-        _ ->
-         ok
-    end;
-validate_app(has_contributors, {_, Name, _, AppDetails, _}) ->
-    case proplists:is_defined(contributors, AppDetails) of
-        true ->
-            rebar_log:log(warn, format_error({has_contributors, Name}), []),
-            ok;
-        false ->
-            ok
-    end;
-validate_app(has_maintainers, {_, Name, _, AppDetails, _}) ->
-    case proplists:is_defined(maintainers, AppDetails) of
-        true ->
-            rebar_log:log(warn, format_error({has_maintainers, Name}), []),
-            ok;
-        false ->
-            ok
-    end;
-validate_app(has_description, {_, Name, _, AppDetails, _}) ->
-    case is_empty_prop(description, AppDetails) of
-        true ->
-            {error, {no_description, Name}};
-        false ->
-            ok
-    end;
-validate_app(has_licenses, {_, Name, _, AppDetails, _}) ->
-    case is_empty_prop(licenses, AppDetails)  of
-        true ->
-          {error, {no_license, Name}};
-        _ ->
-          ok
-    end.
-
-is_empty_prop(K, PropList) ->
-    Prop = proplists:get_value(K, PropList),
-    case Prop of
-        Empty when Empty =:= [] orelse Empty =:= undefined ->
-          true;
-        _ ->
-          false
-    end.
-
-is_unstable_dep({_, {pkg, Pkg, Ver, _, _}, _}, Acc) ->
-    case verl:parse(Ver) of
-        {ok, #{pre := Pre}} when Pre =/= [] ->
-            [{Pkg, Ver}|Acc];
-        _ ->
-          Acc
-    end;
-
-%% TODO: Resolve in an issue whether git deps should be classified as unstable.
-%% For now and in the interest of keeping things working, we do not classify as unstable.
-is_unstable_dep(_, Acc) ->
-    Acc.
-
-%% TODO: Modify hex cut so we can deprecate this?
-validate_app_details(AppDetails) ->
-    case proplists:is_defined(contributors, AppDetails) of
-        true ->
-            {error, {rebar3_hex_publish, has_contributors}};
-        false ->
-            ok
-    end.
-
 format_deps(Deps) ->
-    string:join([binary_to_list(<<N/binary, " ", V/binary>>) || {N, #{<<"requirement">> := V}} <- Deps], "\n    ").
+    Res = [rebar_utils:to_list(<<N/binary, " ", V/binary>>) || {N, #{<<"requirement">> := V}} <- Deps],
+    string:join(Res, "\n    ").
 
 format_licenses(Licenses) ->
-    string:join(Licenses, ", ").
+    string:join([rebar_utils:to_list(L) || L <- Licenses], ", ").
 
 format_links(Links) ->
-    string:join([lists:flatten([Name, ": ", Url]) || {Name, Url} <- Links], "\n    ").
+    Links1 = maps:to_list(Links),
+    LinksList = [lists:flatten([rebar_utils:to_list(Name), ": ", rebar_utils:to_list(Url)]) || {Name, Url} <- Links1],
+    string:join(LinksList, "\n    ").
 
 format_build_tools(BuildTools) ->
     string:join([io_lib:format("~s", [Tool]) || Tool <- BuildTools], ", ").
@@ -497,13 +475,16 @@ update_versions(ConfigDeps, Deps) ->
     [begin
          case lists:keyfind(binary_to_atom(N, utf8), 1, ConfigDeps) of
              {_, V} when is_binary(V) ->
-                 {N, maps:from_list(lists:keyreplace(<<"requirement">>, 1, M, {<<"requirement">>, V}))};
+                 Req =  {<<"requirement">>, V},
+                 {N, maps:from_list(lists:keyreplace(<<"requirement">>, 1, M, Req))};
              {_, V} when is_list(V) ->
-                 {N, maps:from_list(lists:keyreplace(<<"requirement">>, 1, M, {<<"requirement">>, list_to_binary(V)}))};
+                 Req = {<<"requirement">>, rebar_utils:to_binary(V)},
+                 {N, maps:from_list(lists:keyreplace(<<"requirement">>, 1, M, Req))};
              _ ->
                  %% using version from lock. prepend ~> to make it looser
                  {_, Version} = lists:keyfind(<<"requirement">>, 1, M),
-                 {N, maps:from_list(lists:keyreplace(<<"requirement">>, 1, M, {<<"requirement">>, <<"~>", Version/binary>>}))}
+                 Req = {<<"requirement">>, <<"~>", Version/binary>>},
+                 {N, maps:from_list(lists:keyreplace(<<"requirement">>, 1, M, Req))}
          end
      end || {N, M} <- Deps].
 
@@ -543,37 +524,14 @@ binarify({Key, Value}) ->
 binarify(Term) ->
     Term.
 
-%% via ec_cnv
 -spec to_atom(atom() | string() | binary() | integer() | float()) ->
                      atom().
-to_atom(X)
-  when erlang:is_atom(X) ->
+to_atom(X) when erlang:is_atom(X) ->
     X;
-to_atom(X)
-  when erlang:is_list(X) ->
-    erlang:list_to_existing_atom(X);
+to_atom(X) when erlang:is_list(X) ->
+    list_to_existing_atom(X);
 to_atom(X) ->
-    to_atom(to_list(X)).
-
-
--spec to_list(atom() | list() | binary() | integer() | float()) ->
-                     list().
-to_list(X)
-  when erlang:is_float(X) ->
-    erlang:float_to_list(X);
-to_list(X)
-  when erlang:is_integer(X) ->
-    erlang:integer_to_list(X);
-to_list(X)
-  when erlang:is_binary(X) ->
-    erlang:binary_to_list(X);
-to_list(X)
-  when erlang:is_atom(X) ->
-    erlang:atom_to_list(X);
-to_list(X)
-  when erlang:is_list(X) ->
-    X.
-
+    to_atom(rebar_utils:to_list(X)).
 
 
 help(app) ->

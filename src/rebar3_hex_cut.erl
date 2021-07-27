@@ -24,47 +24,39 @@ init(State) ->
                                 {example, "rebar3 hex cut"},
                                 {short_desc, "Increment version number and publish package"},
                                 {desc, ""},
-                                {opts, [{increment, $i, "increment", string,
+                                {opts, [{increment, $i, "increment", {string, undefined},
                                          "Type of semver increment: major, minor or patch"},
                                         rebar3_hex:repo_opt()]}
                                 ]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
--spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, {?MODULE, rebar3_hex_config:repo_error()}}.
+
+-spec do(rebar_state:t()) -> {ok, rebar_state:t()}.
 do(State) ->
-    case rebar3_hex_config:repo(State) of
-        {ok, Repo} ->
-            handle_command(State, Repo);
+    case rebar3_hex:task_state(State) of
+        {ok, Task} ->
+            handle_task(Task);
         {error, Reason} ->
-            ?PRV_ERROR(Reason)
+            ?RAISE(Reason)
     end.
 
-handle_command(State, Repo) ->
-    {Args, _} = rebar_state:command_parsed_args(State),
-    case proplists:get_value(increment, Args, undefined) of
-        undefined ->
-            Apps = rebar3_hex_io:select_apps(rebar_state:project_apps(State)),
-            lists:foldl(fun(App, {ok, StateAcc}) ->
-                                do_(App, Repo, StateAcc)
-                        end, {ok, State}, Apps);
-        Type ->
-            case string_to_bump(Type) of
-                error ->
-                    {error, {?MODULE, {bad_increment, Type}}};
-                Bump ->
-                    Apps = rebar3_hex_io:select_apps(rebar_state:project_apps(State)),
-                    lists:foldl(fun(App, {ok, StateAcc}) ->
-                                        do_(Bump, App, Repo, StateAcc)
-                                end, {ok, State}, Apps)
-            end
-    end.
+%% default path - maybe tag, maybe commit, maybe push commit,  publish, maybe push tag
+
+handle_task(#{args := Args} = Task) ->
+    #{repo := Repo, state := State, apps := Apps} = Task,
+    Selected = rebar3_hex_io:select_apps(Apps),
+    lists:foreach(fun(App) -> cut(State, Repo, App, Args) end, Selected),
+    {ok, State}.
 
 -spec format_error(any()) -> iolist().
 format_error({no_write_key, RepoName}) ->
     io_lib:format("No api key with permissions to write to the repository ~ts was found.", [RepoName]);
 format_error({bad_increment, Type}) ->
     io_lib:format("Increment must be major, minor or patch. ~s is not valid.", [Type]);
+format_error({invalid_semver, Version}) ->
+    Err = "non-semantic version number \"~ts\" found",
+    io_lib:format(Err, [Version]);
 format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
 
@@ -72,68 +64,94 @@ format_error(Reason) ->
 %% Public API
 %% ===================================================================
 
-do_(App, HexConfig, State) ->
-    Version = rebar_app_info:original_vsn(App),
-    ResolvedVersion = rebar_utils:vcs_vsn(Version,
-                                          rebar_app_info:dir(App),
-                                          rebar_state:resources(State)),
-    Type = get_increment(ResolvedVersion),
-    do_(Type, App, HexConfig, State).
-
-do_(Type, App, HexConfig, State) ->
-    Version = rebar_app_info:original_vsn(App),
-    ResolvedVersion = rebar_utils:vcs_vsn(Version,
-                                          rebar_app_info:dir(App),
-                                          rebar_state:resources(State)),
-    {ok, Ver} = verl:parse(rebar_utils:to_binary(ResolvedVersion)),
-    NewVersion = increment(Type, Ver),
+cut(State, Repo, App, #{increment := MaybeType} = Args) ->
+    {Version, ResolvedVersion} = version_info(State, App),
+    Type = get_increment(MaybeType, ResolvedVersion),
+    NewVersion = increment_version(Type, ResolvedVersion),
     AppSrcFile = rebar_app_info:app_file_src(App),
 
     case Version of
         _Git when Version =:= git orelse Version =:= "git" ->
-            rebar_api:info("Creating new tag v~s...", [NewVersion]),
-            rebar_utils:sh(io_lib:format("git tag v~s", [NewVersion]), []),
+            create_tag(NewVersion),
 
-            {application, _, AppDetails} = rebar3_hex_file:update_app_src(App, NewVersion),
-
-            case rebar3_hex_publish:validate_app_details(AppDetails) of
-                ok ->
-                    Name = rebar_app_info:name(App),
-                    Deps = rebar_state:get(State, {locks, default}, []),
-                    {TopLevel, Excluded} = rebar3_hex_publish:gather_deps(Deps),
-                    case rebar3_hex_publish:publish(App, Name, NewVersion, TopLevel,
-                                                    Excluded, AppDetails, HexConfig, State) of
-                        {ok, _State} ->
-                            case rebar3_hex_io:ask("Push new tag to origin?", boolean, "Y") of
-                                true ->
-                                    rebar_api:info("Pushing new tag v~s...", [NewVersion]),
-                                    rebar_utils:sh(io_lib:format("git push origin v~s", [NewVersion]), []),
-                                    {ok, State};
-                                false ->
-                                    {ok, State}
-                            end;
-                        {error, _} = Error ->
-                            rebar_api:info("Deleting new tag v~s...", [NewVersion]),
-                            rebar_utils:sh(io_lib:format("git tag -d v~s", [NewVersion]), []),
-                            Error
+            case try_publish(State, Repo, App, Args) of
+                {ok, _State} ->
+                    case rebar3_hex_io:ask("Push new tag to origin?", boolean, "Y") of
+                        true ->
+                            maybe_push_tag(Version),
+                            {ok, State};
+                        false ->
+                            {ok, State}
                     end;
-                Error ->
-                    Error
+                _ ->
+                    delete_tag(NewVersion),
+                   {ok, State}
             end;
         _ ->
             Spec = rebar3_hex_file:update_app_src(App, NewVersion),
             NewAppSrcFile = io_lib:format("~tp.\n", [Spec]),
             ok = rebar_file_utils:write_file_if_contents_differ(AppSrcFile, NewAppSrcFile),
             ask_commit_and_push(NewVersion),
-            case rebar3_hex_publish:publish(rebar_app_info:original_vsn(App, NewVersion), HexConfig, State) of
-                {ok, _State} ->
+            case try_publish(State, Repo, rebar_app_info:original_vsn(App, NewVersion), Args) of
+                {ok, _} ->
+                    maybe_create_and_push_tag(NewVersion),
                     {ok, State};
-                {error, _} = Error ->
-                    Error
+                {error, publish_failed} ->
+                    delete_tag(NewVersion),
+                    {ok, State}
             end
+
     end.
 
-get_increment(Version) ->
+maybe_create_and_push_tag(Version) ->
+    PromptStr = io_lib:format("Create new git tag v~s?", [Version]),
+    case rebar3_hex_io:ask(PromptStr, boolean, "Y") of
+        true ->
+            create_tag(Version),
+            maybe_push_tag(Version);
+        false ->
+            ok
+    end.
+
+create_tag(Version) ->
+    rebar_api:info("Creating new tag v~s...", [Version]),
+    rebar_utils:sh(io_lib:format("git tag v~s", [Version]), []).
+
+maybe_push_tag(Version) ->
+    case rebar3_hex_io:ask("Push new tag to origin?", boolean, "Y") of
+        true ->
+            push_tag(Version);
+        false ->
+            ok
+    end.
+
+push_tag(Version) ->
+    rebar_api:info("Pushing new tag v~s...", [Version]),
+    rebar_utils:sh(io_lib:format("git push origin v~s", [Version]), []).
+
+delete_tag(Version) ->
+    rebar_api:info("Deleting new tag v~s...", [Version]),
+    rebar_utils:sh(io_lib:format("git tag -d v~s", [Version]), []).
+
+try_publish(State, Repo, App, Args) ->
+ try rebar3_hex_publish:publish(State, Repo, App, Args) of
+    {ok, _} ->
+        {ok, State}
+    catch
+        error:{error, {rebar3_hex_publish, Err}} ->
+        ErrStr  = rebar3_hex_publish:format_error(Err),
+        rebar_api:error(ErrStr, []),
+        {error, publish_failed}
+  end.
+
+increment_version(Type, VersionStr) when is_list(VersionStr) orelse is_binary(VersionStr) ->
+    Parsed = parse_version(VersionStr),
+    increment_version(Type, Parsed);
+
+increment_version(Type, Version) ->
+    rebar3_hex_version:format(rebar3_hex_version:increment(Type, Version)).
+
+get_increment(undefined, Version) ->
     rebar3_hex_io:say("Select semver increment or other (Current ~s):", [Version]),
     rebar3_hex_io:say("1) patch", []),
     rebar3_hex_io:say("2) minor", []),
@@ -142,36 +160,40 @@ get_increment(Version) ->
     case rebar3_hex_io:ask("[1-4] ", number) of
         4 ->
             rebar3_hex_io:ask("New Version ", string);
-        Type ->
-            int_to_bump(Type)
+        TypeInt ->
+            case int_to_increment(TypeInt) of
+                error ->
+                    rebar_api:error("Invalid number given, try again~n", []),
+                    get_increment(undefined, Version);
+                Type ->
+                    Type
+            end
+    end;
+
+get_increment(Type, _) -> normalize_increment(Type).
+
+parse_version(Version) ->
+    case rebar3_hex_version:parse(Version) of
+        {ok, Parsed} ->
+            Parsed;
+        _Err ->
+         ?RAISE({invalid_semver, Version})
     end.
 
-increment(patch, #{major := Maj, minor := Min, patch := Patch}) ->
-    ver_format(#{major => Maj, minor => Min, patch => Patch + 1});
-increment(minor, #{major := Maj, minor := Min}) ->
-     ver_format(#{major => Maj, minor => Min + 1, patch => 0});
-increment(major, #{major := Maj}) ->
-    ver_format(#{major => Maj + 1, minor => 0, patch => 0});
-increment(Version, _) when is_list(Version) ->
-    rebar_utils:to_binary(Version).
+int_to_increment(1) -> patch;
+int_to_increment(2) -> minor;
+int_to_increment(3) -> major;
+int_to_increment(_) -> error.
 
-%% TODO: Support pre and build
-ver_format(#{major := Maj, minor := Min, patch := Patch}) ->
-    MajBin = integer_to_binary(Maj),
-    MinBin = integer_to_binary(Min),
-    PatchBin =  integer_to_binary(Patch),
-    DotBin = <<".">>,
-    <<MajBin/binary, DotBin/binary, MinBin/binary, DotBin/binary, PatchBin/binary>>.
+version_info(State, App) ->
+    Version = rebar_app_info:original_vsn(App),
+    Resolved = rebar3_hex_app:vcs_vsn(State, App),
+    {Version, Resolved}.
 
-int_to_bump(1) -> patch;
-int_to_bump(2) -> minor;
-int_to_bump(3) -> major;
-int_to_bump(_) -> error.
-
-string_to_bump("patch") -> patch;
-string_to_bump("minor") -> minor;
-string_to_bump("major") -> major;
-string_to_bump(_) -> error.
+normalize_increment("patch") -> patch;
+normalize_increment("minor") -> minor;
+normalize_increment("major") -> major;
+normalize_increment(_) -> error.
 
 ask_commit_and_push(NewVersion) ->
     case rebar3_hex_io:ask(io_lib:format("Create 'v~s' commit?", [NewVersion]), boolean, "Y") of
