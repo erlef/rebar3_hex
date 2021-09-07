@@ -86,6 +86,8 @@ format_error({generate_key, Reason}) ->
     io_lib:format("Failure generating authentication tokens: ~ts", [Reason]);
 format_error(no_match_local_password) ->
     "Password confirmation failed. The passwords must match.";
+format_error(local_password_too_big) ->
+    "Local passwords can not exceed 32 characters.";
 format_error(bad_command) ->
     "Command must be one of register, whoami, auth, deauth or reset_password";
 format_error(Reason) ->
@@ -137,14 +139,37 @@ auth(Repo, State) ->
                 "Hex requires you to have a local password that applies only to this machine for security "
                 "purposes. Please enter it."),
 
-    LocalPassword = rebar3_hex_io:get_password(<<"Local Password: ">>),
-    ConfirmLocalPassword = rebar3_hex_io:get_password(<<"Local Password (confirm): ">>),
 
-    case LocalPassword =:= ConfirmLocalPassword of
-        true ->
-            generate_all_keys(Username, Password, LocalPassword, Repo, State);
-        false ->
-            throw(?PRV_ERROR(no_match_local_password))
+    MaxRetries = 3,
+    LocalPassword = get_local_password(<<"Local Password: ">>, MaxRetries),
+    ok = confirm_local_password(<<"Local Password (confirm): ">>, LocalPassword, MaxRetries),
+    generate_all_keys(Username, Password, LocalPassword, Repo, State).
+
+
+get_local_password(_Prompt, 0) -> 
+    throw(?PRV_ERROR(local_password_too_big));
+
+get_local_password(Prompt, MaxRetries) ->
+    case rebar3_hex_io:get_password(Prompt) of
+        Pw when byte_size(Pw) > 32 ->
+            Warn = "Local passwords can not be greater than 32 characters, please try again",
+            rebar_log:log(warn, Warn, []),
+            get_local_password(Prompt, MaxRetries - 1);
+        Pw -> 
+            Pw
+    end.
+
+confirm_local_password(_Prompt, _ExpectedPw, 0) ->
+   throw(?PRV_ERROR(no_match_local_password)); 
+
+confirm_local_password(Prompt, ExpectedPw, MaxRetries) -> 
+     case rebar3_hex_io:get_password(Prompt) of
+        Pw when Pw =:= ExpectedPw ->
+            ok;
+        _ ->
+          Warn = "Passwords do not match, please try again",
+          rebar_log:log(warn, Warn, []),
+          confirm_local_password(Prompt, ExpectedPw, MaxRetries - 1)
     end.
 
 deauth(#{username := Username, name := RepoName}, State) ->
