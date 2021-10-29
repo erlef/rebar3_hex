@@ -385,7 +385,7 @@ whoami_unknown_test(Config) ->
 
 % TODO: We should definitely handle this case in the code at this point.
 whoami_unhandled_test(_Config) ->
-    %% Double check this is still relevent
+    %% Double check this is still relevant
     ok.
 % Repo = test_utils:repo_config(),
 % setup_mocks_for(whoami, {<<"mr_pockets">>, <<"foo@bar.baz">>, <<"special_shoes">>, Repo}),
