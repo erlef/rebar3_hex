@@ -437,7 +437,7 @@ include_files(Name, AppDir, AppDetails) ->
     ExcludeFiles = lists:ukeysort(2, rebar3_hex_file:expand_paths(ExcludeFilePaths, AppDir)),
 
     %% We filter first and then include, that way glob excludes can be
-    %% overwritten be explict includes
+    %% overwritten be explicit includes
     FilterExcluded = lists:filter(fun ({_, Path}) ->
                                       not exclude_file(Path, ExcludeFiles, ExcludeRes)
                                   end, AllFiles),
@@ -548,7 +548,7 @@ help(yes) ->
 
 support() ->
     "Publishes a new version of a package with options to revert and replace existing packages~n~n"
-    "Supported commmand combinations:~n~n"
+    "Supported command combinations:~n~n"
     "  rebar3 hex publish~n~n"
     "  rebar3 hex publish package~n~n"
     "  rebar3 hex publish --yes~n~n"

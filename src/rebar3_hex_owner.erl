@@ -69,7 +69,7 @@ handle_command(State, Repo) ->
             case  rebar3_hex_config:hex_config_write(Repo) of
                 {ok, Config} ->
                     {ok, State} = add(Config, Package, UsernameOrEmail, <<"full">>, true, State),
-                    ok = rebar3_hex_io:say("Transfered ~ts to ~ts", [Package, UsernameOrEmail]),
+                    ok = rebar3_hex_io:say("Transferred ~ts to ~ts", [Package, UsernameOrEmail]),
                     {ok, State};
                 Err ->
                     ?PRV_ERROR(Err)
@@ -120,7 +120,7 @@ support() ->
     "Adds, removes or lists package owners.~n~n"
     "Package owners have full permissions to the package. They can "
     "publish and revert releases and even remove other package owners.~n~n"
-    "Supported commmand combinations: ~n~n"
+    "Supported command combinations: ~n~n"
     "  rebar3 hex owner add <package> <username>~n~n"
     "  rebar3 hex owner add <package> <username> <level>~n~n"
     "  rebar3 hex owner add <package> <username> <level> <transfer>~n~n"
