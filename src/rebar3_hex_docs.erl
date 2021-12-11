@@ -101,10 +101,11 @@ handle_command(App, State, Repo) ->
     end.
 
 do_publish(App, State, Repo) ->
-    maybe_gen_docs(State, Repo),
     AppDir = rebar_app_info:dir(App),
     DocDir = resolve_doc_dir(App),
-    assert_doc_dir(filename:join(AppDir, DocDir)),
+    AbsDocDir = filename:join(AppDir, DocDir),
+    maybe_gen_docs(State, Repo, AbsDocDir),
+    assert_doc_dir(AbsDocDir),
     Files = rebar3_hex_file:expand_paths([DocDir], AppDir),
     AppDetails = rebar_app_info:app_details(App),
     Name = binary_to_list(rebar_app_info:name(App)),
@@ -203,7 +204,7 @@ resolve_doc_dir(AppInfo) ->
 %%       ]
 %%   }.
 %%   '''
-maybe_gen_docs(State, Repo) ->
+maybe_gen_docs(State, Repo, DocDir) ->
     case doc_opts(State, Repo) of
         {ok, #{provider := PrvName}} ->
             case providers:get_provider(PrvName, rebar_state:providers(State)) of
@@ -213,8 +214,10 @@ maybe_gen_docs(State, Repo) ->
                     gen_docs(State, Prv)
             end;
         _ ->
-            Msg = "No valid hex docs configuration found. Docs will will not be generated",
-            rebar_api:error(Msg, [])
+            %%% In rebar3 hex 6.11.x docs may be pre-generated, thus we should not warn if 
+            %%% the presence of docs are detected but there is no provider configured. 
+            Msg = "No valid hex docs configuration found. Docs will will not be generated.",
+            docs_detected(DocDir) orelse rebar_api:error(Msg, [])
     end.
 
 doc_opts(State, Repo) ->
@@ -239,7 +242,10 @@ gen_docs(State, Prv) ->
 
 -spec assert_doc_dir(string()) -> true.
 assert_doc_dir(DocDir) ->
-    filelib:is_file(DocDir ++ "/index.html") orelse missing_doc_abort(DocDir).
+    docs_detected(DocDir) orelse missing_doc_abort(DocDir).
+
+docs_detected(DocDir) -> 
+    filelib:is_file(DocDir ++ "/index.html").
 
 missing_doc_abort(DocDir) ->
     rebar_api:abort( "Docs were not published since they "
