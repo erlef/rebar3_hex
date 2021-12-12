@@ -46,7 +46,6 @@ help_test(_Config) ->
     meck:expect(io_lib, format, 2, fun(_,_) -> "" end),
     Checks = [
                 {rebar3_hex_publish, publish},
-                {rebar3_hex_revert, revert},
                 {rebar3_hex_cut, cut},
                 {rebar3_hex_key, key},
                 {rebar3_hex_owner, owner},
