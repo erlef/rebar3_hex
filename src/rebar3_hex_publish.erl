@@ -259,7 +259,7 @@ publish_package(State, Repo, App, Args) ->
             case rebar3_hex_client:publish(Repo, Tarball, HexOpts) of
                 {ok, _Res} ->
                     #{name := Name, version := Version} = Package,
-                    rebar_api:info("Published ~s ~s", [Name, Version]),
+                    rebar_api:info("Published ~ts ~ts", [Name, Version]),
                     {ok, State};
                 Error ->
                     ?RAISE({publish, Error})
@@ -288,7 +288,7 @@ print_package_info(Package) ->
     rebar3_hex_io:say("  Build tools: ~ts", [format_build_tools(maps:get(<<"build_tools">>, Meta))]).
 
 format_build_tools(BuildTools) ->
-    string:join([io_lib:format("~s", [Tool]) || Tool <- BuildTools], ", ").
+    string:join([io_lib:format("~ts", [Tool]) || Tool <- BuildTools], ", ").
 
 format_deps(Deps) ->
     Res = [rebar_utils:to_list(<<N/binary, " ", V/binary>>) || {N, #{<<"requirement">> := V}} <- Deps],
@@ -377,10 +377,10 @@ revert_package(State, Repo, AppName, Vsn) ->
     case rebar3_hex_client:delete_release(HexConfig, BinAppName, BinVsn) of
         {ok, _} -> 
             rebar_api:info("Successfully deleted package ~ts ~ts", [AppName, Vsn]),
-            Prompt = io_lib:format("Also delete tag v~s?", [Vsn]),
+            Prompt = io_lib:format("Also delete tag v~ts?", [Vsn]),
             case rebar3_hex_io:ask(Prompt, boolean, "N") of
                 true ->
-                    rebar_utils:sh(io_lib:format("git tag -d v~s", [Vsn]), []);
+                    rebar_utils:sh(io_lib:format("git tag -d v~ts", [Vsn]), []);
                 _ ->
                     {ok, State}
             end;
