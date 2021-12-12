@@ -73,7 +73,7 @@ create_package(State, #{name := RepoName} = _Repo, App) ->
                 metadata => Metadata,
                 files => PackageFiles,
                 tarball => Tarball,
-                has_checkouts => has_checkouts_for(AppDir)
+                has_checkouts => has_checkouts(State)
             },
             {ok, Package};
         {error, _} = Err ->
@@ -150,9 +150,8 @@ known_exclude_file(Path, ExcludeRe) ->
     ).
 
 %% Note that we return a list
-has_checkouts_for(AppDir) ->
-    Checkouts = filename:join(AppDir, "_checkouts"),
-    filelib:is_dir(Checkouts).
+has_checkouts(State) ->
+    filelib:is_dir(rebar_dir:checkouts_dir(State)).
 
 -dialyzer({nowarn_function, create_docs/3}).
 create_docs(State, Repo, App) ->
