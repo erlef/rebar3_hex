@@ -1,6 +1,6 @@
 -module(rebar3_hex_build).
 
--export([create_package/3, create_docs/3]).
+-export([create_package/3, create_docs/3, create_docs/4]).
 
 -include("rebar3_hex.hrl").
 
@@ -153,19 +153,17 @@ known_exclude_file(Path, ExcludeRe) ->
 has_checkouts(State) ->
     filelib:is_dir(rebar_dir:checkouts_dir(State)).
 
--dialyzer({nowarn_function, create_docs/3}).
 create_docs(State, Repo, App) ->
-    case maybe_gen_docs(State, Repo) of
-        {ok, _State1} ->
-            AppDir = rebar_app_info:dir(App),
-            AppOpts = rebar_app_info:opts(App),
-            EdocOpts = rebar_opts:get(AppOpts, edoc_opts, []),
-            AppDetails = rebar_app_info:app_details(App),
-            Dir = proplists:get_value(dir, EdocOpts, ?DEFAULT_DOC_DIR),
-            DocDir = proplists:get_value(doc, AppDetails, Dir),
-            IndexFile = filename:join(AppDir, DocDir) ++ "/index.html",
-            case filelib:is_file(IndexFile) of
+    create_docs(State, Repo, App, #{doc_dir => undefined}).
+
+-dialyzer({nowarn_function, create_docs/4}).
+create_docs(State, Repo, App, Args) ->
+    case maybe_gen_docs(State, Repo, App, Args) of
+        {ok, DocDir} ->
+            case docs_detected(DocDir) of
                 true ->
+                    AppDir = rebar_app_info:dir(App),
+                    AppDetails = rebar_app_info:app_details(App),
                     Files = rebar3_hex_file:expand_paths([DocDir], AppDir),
                     Name = rebar_utils:to_list(rebar_app_info:name(App)),
                     PkgName = rebar_utils:to_list(proplists:get_value(pkg_name, AppDetails, Name)),
@@ -194,32 +192,53 @@ create_docs(State, Repo, App) ->
             {error, Err}
     end.
 
-maybe_gen_docs(State, Repo) ->
+maybe_gen_docs(_State, _Repo, App, #{doc_dir := DocDir}) when is_list(DocDir) ->
+    AppDir = rebar_app_info:dir(App),
+    {ok, filename:absname(filename:join(AppDir, DocDir))};
+maybe_gen_docs(State, Repo, App, _Args) ->
     case doc_opts(State, Repo) of
-        {ok, #{provider := PrvName}} ->
+        {ok, PrvName} ->
             case providers:get_provider(PrvName, rebar_state:providers(State)) of
                 not_found ->
-                    {error, doc_provider_not_found};
+                    {error, {doc_provider_not_found, PrvName}};
                 Prv ->
                     case providers:do(Prv, State) of
-                        {ok, State1} ->
-                            {ok, State1};
+                        {ok, _State1} ->
+                            {ok, resolve_dir(App, PrvName)};
                         _ ->
-                            {error, doc_provider_failed}
+                            {error, {doc_provider_failed, PrvName}}
                     end
             end;
         _ ->
             {error, no_doc_config}
     end.
 
+resolve_dir(App, PrvName) ->
+    AppDir = rebar_app_info:dir(App),
+    AppOpts = rebar_app_info:opts(App),
+    DocOpts =
+        case PrvName of
+            edoc ->
+                rebar_opts:get(AppOpts, edoc_opts, []);
+            _ ->
+                rebar_opts:get(AppOpts, PrvName, [])
+        end,
+    DocDir = proplists:get_value(dir, DocOpts, ?DEFAULT_DOC_DIR),
+    filename:absname(filename:join(AppDir, DocDir)).
+
+docs_detected(DocDir) ->
+    filelib:is_file(DocDir ++ "/index.html").
+
 doc_opts(State, Repo) ->
     case Repo of
-        #{doc := DocOpts} when is_map(DocOpts) ->
-            {ok, DocOpts};
+        #{doc := #{provider := PrvName}} when is_atom(PrvName) ->
+            {ok, PrvName};
         _ ->
             Opts = rebar_state:opts(State),
             case proplists:get_value(doc, rebar_opts:get(Opts, hex, []), undefined) of
-                DocOpts when is_map(DocOpts) -> {ok, DocOpts};
+                undefined -> undefined;
+                PrvName when is_atom(PrvName) -> {ok, PrvName};
+                #{provider := PrvName} -> {ok, PrvName};
                 _ -> undefined
             end
     end.
