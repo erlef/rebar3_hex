@@ -105,6 +105,19 @@ validate_test(_Config) ->
     ?assertMatch(
         Exp5, rebar3_hex_app:validate(AppData5)
     ),
+
+    AppData6 = #{
+        name => some_app,
+        version => "0.a.1b..0.-foo",
+        details => [{licenses, ["Eh?"]} | app_details(no_licenses)],
+        deps => []
+    },
+
+    Exp6 = {error,#{errors => [{invalid_semver,{some_app,"0.a.1b..0.-foo"}}],
+                     warnings => [{invalid_licenses,["Eh?"], some_app}]}},
+
+    ?assertMatch(Exp6, rebar3_hex_app:validate(AppData6)),
+
     ok.
 
 app_details(bad_semver) ->
@@ -131,6 +144,6 @@ base_app_details() ->
         {applications, [kernel, stdlib]},
         {env, []},
         {modules, []},
-        {licenses, ["Apache 2.0"]},
+        {licenses, ["Apache-2.0"]},
         {links, []}
     ].

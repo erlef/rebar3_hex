@@ -10,7 +10,7 @@
     has_contributors,
     has_maintainers,
     has_description,
-    has_licenses,
+    has_valid_licenses,
     has_unstable_deps
 ]).
 
@@ -117,12 +117,18 @@ validate_app(has_description, #{name := Name, details := AppDetails}) ->
         false ->
             ok
     end;
-validate_app(has_licenses, #{name := Name, details := AppDetails}) ->
+validate_app(has_valid_licenses, #{name := Name, details := AppDetails}) ->
     case is_empty_prop(licenses, AppDetails) of
         true ->
             {warn, {no_license, Name}};
         _ ->
-            ok
+            Licenses = proplists:get_value(licenses, AppDetails),
+            case lists:filter(fun(L) -> not hex_licenses:valid(rebar_utils:to_binary(L)) end,  Licenses) of
+                [] -> 
+                    ok;
+                [_|_] = Invalids -> 
+                    {warn, {invalid_licenses, Invalids, Name}}
+            end
     end.
 
 is_empty_prop(K, PropList) ->
