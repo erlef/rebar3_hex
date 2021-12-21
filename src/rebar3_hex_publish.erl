@@ -114,7 +114,7 @@ format_error({no_license, AppName}) ->
     Err = "~ts.app.src : missing or empty licenses property",
     io_lib:format(Err, [AppName]);
 format_error({invalid_licenses, Invalids, AppName}) ->
-    InvalidLicenses = string:join(Invalids, ", "),
+    InvalidLicenses = string:join([ "'" ++ L ++ "'" || L <- Invalids], ", "),
     Url = "See https://spdx.org/licenses/ for a list of valid license identifiers",
     Err = "~ts.app.src : invalid license types detected - ~ts~n~5c~ts",
     io_lib:format(Err, [AppName, InvalidLicenses, 32, Url]);
