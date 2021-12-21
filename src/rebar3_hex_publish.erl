@@ -113,6 +113,11 @@ format_error({no_description, AppName}) ->
 format_error({no_license, AppName}) ->
     Err = "~ts.app.src : missing or empty licenses property",
     io_lib:format(Err, [AppName]);
+format_error({invalid_licenses, Invalids, AppName}) ->
+    InvalidLicenses = string:join(Invalids, ", "),
+    Url = "See https://spdx.org/licenses/ for a list of valid license identifiers",
+    Err = "~ts.app.src : invalid license types detected - ~ts~n~ts",
+    io_lib:format(Err, [AppName, InvalidLicenses, Url]);
 format_error({has_maintainers, AppName}) ->
     Err = "~ts.app.src : deprecated field maintainers found",
     io_lib:format(Err, [AppName]);
@@ -407,7 +412,14 @@ validate_app(has_licenses, {_, Name, _, AppDetails, _}) ->
         true ->
           {error, {no_license, Name}};
         _ ->
-          ok
+            Licenses = proplists:get_value(licenses, AppDetails),
+            case lists:filter(fun(L) -> not hex_licenses:valid(rebar_utils:to_binary(L)) end,  Licenses) of
+                [] ->
+                    ok;
+                [_|_] = Invalids ->
+                    rebar_log:log(warn, format_error({invalid_licenses, Invalids, Name}), []),
+                    ok
+            end
     end.
 
 is_empty_prop(K, PropList) ->
