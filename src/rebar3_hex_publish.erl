@@ -35,7 +35,8 @@ init(State) ->
                                  {opts, [rebar3_hex:repo_opt(),
                                          {yes, $y, "yes", {boolean, false}, help(yes)},
                                          {app, $a, "app", {string, undefined}, help(app)},
-                                         {dry_run, undefined, "dry-run", {boolean, false}, help(dry_run)}, 
+                                         {doc_dir, undefined, "doc-dir", {string, undefined}, help(yes)},
+                                         {dry_run, undefined, "dry-run", {boolean, false}, help(dry_run)},
                                          {replace, undefined, "replace", {boolean, false}, help(replace)},
                                          {revert, undefined, "revert", string, help(revert)}]}]),
     State1 = rebar_state:add_provider(State, Provider),
@@ -80,7 +81,7 @@ format_error({invalid_licenses, Invalids, AppName}) ->
 format_error({invalid_semver, {AppName, Version}}) ->
     Err = "~ts.app.src : non-semantic version number \"~ts\" found",
     io_lib:format(Err, [AppName, Version]);
-format_error({invalid_semver_arg, Vsn}) -> 
+format_error({invalid_semver_arg, Vsn}) ->
     io_lib:format("The version argument provided \"~s\" is not a valid semantic version.", [Vsn]);
 format_error({has_unstable_deps, Deps}) ->
     MainMsg = "The following pre-release dependencies were found : ",
@@ -96,11 +97,11 @@ format_error({app_not_found, AppName}) ->
      io_lib:format("App ~s specified with --app switch not found in project", [AppName]);
 format_error(bad_command) ->
         "bad command";
-format_error({publish_package, app_switch_required}) -> 
+format_error({publish_package, app_switch_required}) ->
     "--app required when publishing with the package argument in a umbrella";
-format_error({publish_docs, app_switch_required}) -> 
+format_error({publish_docs, app_switch_required}) ->
     "--app required when publishing with the docs argument in a umbrella";
-format_error({revert, app_switch_required}) -> 
+format_error({revert, app_switch_required}) ->
     "--app required when reverting in a umbrella with multiple apps";
 format_error({required, repo}) ->
     "publish requires a repo name argument to identify the repo to publish to";
@@ -116,6 +117,8 @@ format_error({publish, {error, #{<<"errors">> := Errors, <<"message">> := Messag
     io_lib:format("Failed to publish package: ~ts~n\t~ts", [Message, ErrorString]);
 format_error({publish, {error, #{<<"message">> := Message}}}) ->
     io_lib:format("Failed to publish package: ~ts", [Message]);
+format_error({create_docs, {error, {doc_provider_not_found, PrvName}}}) ->
+   io_lib:format("The ~ts documentation provider could not be found", [PrvName]);
 format_error({non_hex_deps, Excluded}) ->
     Err = "Can not publish package because the following deps are not available"
          ++ " in hex: ~s",
@@ -236,10 +239,10 @@ handle_task(#{args := #{app := AppName},  apps := Apps, multi_app := true} = Tas
 -dialyzer({nowarn_function, publish/4}).
 publish(State, Repo, App, Args) ->
     {ok, HexConfig} = write_config(Repo),
-    case publish_package(State, HexConfig, App, Args) of 
-        abort -> 
+    case publish_package(State, HexConfig, App, Args) of
+        abort ->
             {ok, State};
-        _ -> 
+        _ ->
             publish_docs(State, HexConfig, App, Args)
     end.
 
@@ -260,7 +263,7 @@ publish_package(State, Repo, App, Args) ->
         proceed ->
             HexOpts = hex_opts(Args),
             rebar_api:info("package argument given, will not publish docs", []),
-            #{tarball := Tarball} = Package, 
+            #{tarball := Tarball} = Package,
             case rebar3_hex_client:publish(Repo, Tarball, HexOpts) of
                 {ok, _Res} ->
                     #{name := Name, version := Version} = Package,
@@ -274,11 +277,11 @@ publish_package(State, Repo, App, Args) ->
             abort
     end.
 
-create_package(State, Repo, App) -> 
+create_package(State, Repo, App) ->
     case rebar3_hex_build:create_package(State, Repo, App) of
-        {ok, Package} -> 
+        {ok, Package} ->
             Package;
-        Err -> 
+        Err ->
             ?RAISE({create_package, Err})
     end.
 
@@ -338,7 +341,7 @@ maybe_prompt(_Args, Message) ->
 
 hex_opts(Opts) ->
     lists:filter(fun({replace, _}) -> true;
-                    ({_,_}) -> false 
+                    ({_,_}) -> false
                  end,
                  maps:to_list(Opts)).
 
@@ -347,7 +350,7 @@ hex_opts(Opts) ->
 %%% ===================================================================
 
 publish_docs(State, Repo, App, Args) ->
-    #{tarball := Tar, name := Name, vsn := Vsn} = create_docs(State, Repo, App),
+    #{tarball := Tar, name := Name, vsn := Vsn} = create_docs(State, Repo, App, Args),
     case Args of
         #{dry_run := true} ->
             rebar_api:info("--dry-run enabled : will not publish docs.", []),
@@ -362,11 +365,11 @@ publish_docs(State, Repo, App, Args) ->
             end
     end.
 
-create_docs(State, Repo, App) -> 
-    case rebar3_hex_build:create_docs(State, Repo, App) of 
+create_docs(State, Repo, App, Args) ->
+    case rebar3_hex_build:create_docs(State, Repo, App, Args) of
         {ok, Docs} ->
             Docs;
-        Err -> 
+        Err ->
             ?RAISE({create_docs, Err})
     end.
 
@@ -380,7 +383,7 @@ revert_package(State, Repo, AppName, Vsn) ->
     assert_valid_version_arg(BinVsn),
     {ok, HexConfig} = write_config(Repo),
     case rebar3_hex_client:delete_release(HexConfig, BinAppName, BinVsn) of
-        {ok, _} -> 
+        {ok, _} ->
             rebar_api:info("Successfully deleted package ~ts ~ts", [AppName, Vsn]),
             Prompt = io_lib:format("Also delete tag v~ts?", [Vsn]),
             case rebar3_hex_io:ask(Prompt, boolean, "N") of
@@ -429,19 +432,19 @@ assert_valid_app(State, App) ->
     case rebar3_hex_app:validate(AppData) of
         ok ->
             {ok, State};
-       {error, #{warnings := Warnings, errors := Errors}} -> 
+       {error, #{warnings := Warnings, errors := Errors}} ->
             lists:foreach(fun(W) -> rebar_log:log(warn, format_error(W), []) end, Warnings),
-            case Errors of 
-                [] -> 
+            case Errors of
+                [] ->
                     {ok, State};
-                Errs -> 
+                Errs ->
                     ?RAISE({validation_errors, Errs})
             end
     end.
 
-assert_valid_version_arg(Vsn) -> 
+assert_valid_version_arg(Vsn) ->
     case verl:parse(Vsn) of
-        {ok, _} -> 
+        {ok, _} ->
             ok;
         _ ->
             ?RAISE({invalid_semver_arg, Vsn})
@@ -500,6 +503,6 @@ support() ->
     "  <repo>    - a valid repository, only required when multiple repositories are configured~n~n"
     "  <version> - a valid version string, currently only utilized with --revert switch~n~n".
 
-write_config(Repo) -> 
+write_config(Repo) ->
     assert_has_write_key(Repo),
     rebar3_hex_config:hex_config_write(Repo).

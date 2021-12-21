@@ -1,6 +1,6 @@
 -module(test_utils).
 
--export([make_stub/1, stub_app/1, mock_command/4, repo_config/0, repo_config/1]).
+-export([mkdir_p/1, make_stub/1, stub_app/1, mock_command/4, repo_config/0, repo_config/1]).
 
 -define(REPO_CONFIG, maps:merge(hex_core:default_config(), #{
                                   name        => <<"hexpm">>,
@@ -42,7 +42,6 @@ make_stub(#{type := app, name := Name, dir := Dir} = StubConfig) ->
     _ConfigFile = write_config_file(AppDir, StubConfig1),
     _LockFile = write_lock_file(AppDir, StubConfig1),
     #{repo := Repo} = StubConfig1,
-    %%Setup = stub_project(StubConfig1),
     State = init_state(AppDir, Repo, StubConfig1),
     {ok, App} = rebar3_hex_app:find(rebar_state:project_apps(State), Name),
     {ok, State1} = rebar_prv_edoc:init(State),

@@ -13,6 +13,8 @@ all() ->
         create_docs_test,
         create_docs_unknown_provider_test,
         create_docs_no_provider_test,
+        create_docs_doc_dir_test,
+        create_docs_doc_dir_missing_test,
         create_docs_provider_failure_test
     ].
 
@@ -68,19 +70,34 @@ create_docs_unknown_provider_test(Config) ->
     StubConfig = #{type => app, dir => data_dir(Config), name => "valid"},
     {State, Repo, App} = test_utils:make_stub(StubConfig),
     Repo1 = Repo#{doc => #{provider => foo}},
-    ?assertMatch({error, doc_provider_not_found}, rebar3_hex_build:create_docs(State, Repo1, App)).
+    ?assertMatch({error, {doc_provider_not_found, foo}}, rebar3_hex_build:create_docs(State, Repo1, App)).
 
 create_docs_no_provider_test(Config) ->
-    StubConfig = #{type => app, dir => data_dir(Config), name => "valid"},
+    StubConfig = #{type => app, dir => data_dir(Config), name => "no_doc_config"},
+    {State, Repo, App} = test_utils:make_stub(StubConfig),
+    Repo1 = maps:remove(doc, Repo),
+    ?assertMatch({error, no_doc_config}, rebar3_hex_build:create_docs(State, Repo1, App)).
+
+create_docs_doc_dir_test(Config) ->
+    #{dir := RootDir} = StubConfig = #{type => app, dir => data_dir(Config), name => "doc_attr"},
+    {State, Repo, App} = test_utils:make_stub(StubConfig),
+    DocDir = filename:join([RootDir, "doc_attr", "doc"]),
+    test_utils:mkdir_p(DocDir),
+    ok = file:write_file(filename:join([DocDir, "index.html"]), "eh?"),
+    Repo1 = Repo#{doc => #{}},
+    ?assertMatch({ok, _Docs}, rebar3_hex_build:create_docs(State, Repo1, App, #{doc_dir => "doc"})).
+
+create_docs_doc_dir_missing_test(Config) ->
+    StubConfig = #{type => app, dir => data_dir(Config), name => "doc_attr"},
     {State, Repo, App} = test_utils:make_stub(StubConfig),
     Repo1 = Repo#{doc => #{}},
-    ?assertMatch({error, no_doc_config}, rebar3_hex_build:create_docs(State, Repo1, App)).
+    ?assertMatch({ok, _Docs}, rebar3_hex_build:create_docs(State, Repo1, App, #{doc_dir => "doc"})).
 
 create_docs_provider_failure_test(Config) ->
     StubConfig = #{type => app, dir => data_dir(Config), name => "valid"},
     {State, Repo, App} = test_utils:make_stub(StubConfig),
     Repo1 = Repo#{doc => #{provider => bad_doc}},
     {ok, State1} = bad_doc_provider:init(State),
-    ?assertMatch({error, doc_provider_failed}, rebar3_hex_build:create_docs(State1, Repo1, App)).
+    ?assertMatch({error, {doc_provider_failed, bad_doc}}, rebar3_hex_build:create_docs(State1, Repo1, App)).
 
 data_dir(Config) -> ?config(priv_dir, Config).
