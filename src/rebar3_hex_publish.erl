@@ -116,8 +116,8 @@ format_error({no_license, AppName}) ->
 format_error({invalid_licenses, Invalids, AppName}) ->
     InvalidLicenses = string:join(Invalids, ", "),
     Url = "See https://spdx.org/licenses/ for a list of valid license identifiers",
-    Err = "~ts.app.src : invalid license types detected - ~ts~n~ts",
-    io_lib:format(Err, [AppName, InvalidLicenses, Url]);
+    Err = "~ts.app.src : invalid license types detected - ~ts~n~5c~ts",
+    io_lib:format(Err, [AppName, InvalidLicenses, 32, Url]);
 format_error({has_maintainers, AppName}) ->
     Err = "~ts.app.src : deprecated field maintainers found",
     io_lib:format(Err, [AppName]);
