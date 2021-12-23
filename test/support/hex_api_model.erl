@@ -162,18 +162,23 @@ handle('POST', [<<"users">>], Req) ->
     Data     = body_to_terms(Req),
     Username = maps:get(<<"username">>, Data),
     Email    = maps:get(<<"email">>, Data),
-    _Passwd  = maps:get(<<"password">>, Data),
+    Passwd  = maps:get(<<"password">>, Data),
     Ts = timestamp(),
     Res = #{
       <<"username">> => Username,
       <<"email">> => Email,
       <<"inserted_at">> => Ts,
       <<"updated_at">> => Ts,
+      <<"password">> => Passwd,
       <<"url">> => <<?BASE_USER_URL/bitstring, Username/bitstring>>
     },
   case hex_db:add_user(Res) of
-      {ok, Username} ->
+      {ok, _Username} ->
         respond_with(201, Req, Res);
+      {error, empty_password} ->
+          respond_with(422, Req, #{<<"errors">> => #{<<"password">> => <<"can't be blank">>},
+                                   <<"status">> => 422,
+                                   <<"message">> => <<"validation failed">>});
       {error, user_exists} ->
           ErrVal = <<"has already been taken">>,
           respond_with(422, Req, #{<<"errors">> => #{<<"username">> => ErrVal},

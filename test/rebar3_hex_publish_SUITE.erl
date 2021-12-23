@@ -131,7 +131,7 @@ format_error_test(_Config) ->
         "empty tarball", rebar3_hex_publish:format_error({publish, {error, {tarball, empty}}})
     ),
     ?assertEqual(
-        "An unknown error was encountered. Run with DEBUG=1 for more details.",
+        "An unknown error was encountered. Run with DIAGNOSTIC=1 for more details.",
         rebar3_hex_publish:format_error(unknown)
     ),
 

@@ -5,11 +5,24 @@
 -include_lib("eunit/include/eunit.hrl").
 
 all() ->
-    [repo, api_key_name_test, org_key_name_test].
+    [repo, api_key_name_test, encrypt_decrypt_write_key_test, org_key_name_test].
 
 api_key_name_test(_Config) ->
     ?assertEqual(<<"foo-api">>, rebar3_hex_config:api_key_name(<<"foo">>)),
     ?assertEqual(<<"foo-api-org">>, rebar3_hex_config:api_key_name(<<"foo">>, <<"org">>)).
+
+encrypt_decrypt_write_key_test(_Config) ->
+    WriteKey = <<"abc1234">>,
+
+    Username = <<"user">>,
+    LocalPassword = <<"password">>,
+
+    WriteKeyEncrypted = rebar3_hex_user:encrypt_write_key(Username, LocalPassword, WriteKey),
+
+    ?assertMatch(error,
+                  rebar3_hex_config:decrypt_write_key(Username, <<"wrong password">>, WriteKeyEncrypted)),
+
+    ?assertEqual(WriteKey, rebar3_hex_config:decrypt_write_key(Username, LocalPassword, WriteKeyEncrypted)).
 
 org_key_name_test(_Config) ->
     {ok, Name} = inet:gethostname(),

@@ -2,6 +2,8 @@
 
 -export([ api_key_name/1
         , api_key_name/2
+        , encrypt_write_key/3
+        , decrypt_write_key/3
         , repos_key_name/0
         , org_key_name/2
         , parent_repos/1
@@ -26,6 +28,46 @@ api_key_name(Key) ->
 api_key_name(Key, Suffix) ->
      Prefix = key_name_prefix(Key),
      key_name(Prefix, <<"-api-">>, Suffix).
+
+-ifdef(POST_OTP_22).
+-spec encrypt_write_key(binary(), binary(), binary()) -> {binary(), {binary(), binary()}}.
+encrypt_write_key(Username, LocalPassword, WriteKey) ->
+    AAD = Username,
+    IV = crypto:strong_rand_bytes(16),
+    Key =  pad(LocalPassword),
+    {IV, crypto:crypto_one_time_aead(cipher(Key), Key, IV, WriteKey, AAD, true)}.
+-else.
+-spec encrypt_write_key(binary(), binary(), binary()) -> {binary(), {binary(), binary()}}.
+encrypt_write_key(Username, LocalPassword, WriteKey) ->
+    AAD = Username,
+    IV = crypto:strong_rand_bytes(16),
+    {IV, crypto:block_encrypt(aes_gcm, pad(LocalPassword), IV, {AAD, WriteKey})}.
+-endif.
+
+-ifdef(POST_OTP_22).
+decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}) ->
+    Key = pad(LocalPassword),
+    crypto:crypto_one_time_aead(cipher(Key), Key, IV, CipherText, Username, CipherTag, false).
+-else.
+decrypt_write_key(Username, LocalPassword, {IV, {CipherText, CipherTag}}) ->
+    crypto:block_decrypt(aes_gcm, pad(LocalPassword), IV, {Username, CipherText, CipherTag}).
+-endif.
+
+-ifdef(POST_OTP_22).
+cipher(Key) when byte_size(Key) == 16  -> aes_128_gcm;
+cipher(Key) when byte_size(Key) == 24  -> aes_192_gcm;
+cipher(Key) when byte_size(Key) == 32  -> aes_256_gcm.
+-endif.
+
+pad(Binary) ->
+    case byte_size(Binary) of
+        Size when Size =< 16 ->
+            <<Binary/binary, 0:((16 - Size) * 8)>>;
+        Size when Size =< 24 ->
+            <<Binary/binary, 0:((24 - Size) * 8)>>;
+        Size when Size =< 32 ->
+            <<Binary/binary, 0:((32 - Size) * 8)>>
+    end.
 
 -spec repos_key_name() -> binary().
 repos_key_name() ->

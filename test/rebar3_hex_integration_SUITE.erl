@@ -14,6 +14,7 @@ all() ->
     , decrypt_write_key_test
     , bad_command_test
     , reset_password_test
+    , reset_local_password_test
     , reset_password_error_test
     , reset_password_api_error_test
     , register_user_test
@@ -148,7 +149,7 @@ decrypt_write_key_test(_Config) ->
     setup_mocks_for(decrypt_write_key, #{username => Username, email => ?default_email, password =>
                                          LocalPassword, password_confirmation => LocalPassword, repo => Repo}),
 
-    ?assertThrow({error,{rebar3_hex_user,bad_local_password}}, rebar3_hex_user:decrypt_write_key(<<"mr_pockets">>,
+    ?assertError({error,{rebar3_hex_user,bad_local_password}}, rebar3_hex_user:decrypt_write_key(<<"mr_pockets">>,
                                                                                                  BadKey)),
     ?assertEqual(WriteKey, rebar3_hex_user:decrypt_write_key(Username, WriteKeyEncrypted)).
 
@@ -173,18 +174,20 @@ register_existing_user_test(Config) ->
          },
     #{rebar_state := State, repo := Repo} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
-    ExpErr1 = {error, {rebar3_hex_user, {registration_failure, <<"email already in use">>}}},
-    ?assertMatch(ExpErr1, rebar3_hex_user:do(State)).
+    ExpErr1 = {error, {rebar3_hex_user, {registration_failure,#{<<"email">> => <<"already in use">>}}}},
+    ?assertError(ExpErr1, rebar3_hex_user:do(State)).
 
 register_empty_password_test(Config) ->
     P = #{
           command => #{provider => rebar3_hex_user, args => ["register"]},
           app => #{name => "valid"},
           mocks => [register],
-          password => <<>>
+          password => <<>>,
+          password_confirmation => <<>>
          },
     #{rebar_state := State} = setup_state(P, Config),
-    ?assertMatch(error, rebar3_hex_user:do(State)).
+    ExpErr = {error, {rebar3_hex_user, {registration_failure,#{<<"password">> => <<"can't be blank">>}}}},
+    ?assertError(ExpErr, rebar3_hex_user:do(State)).
 
 register_error_test(Config) ->
     meck:expect(hex_api_user, create, fun(_,_,_,_) -> {error, meh} end),
@@ -194,8 +197,8 @@ register_error_test(Config) ->
           mocks => [register]
          },
     #{rebar_state := State} = setup_state(P, Config),
-    ExpErr = {error,{rebar3_hex_user,{registration_failure,["meh"]}}},
-    ?assertMatch(ExpErr, rebar3_hex_user:do(State)).
+    ExpErr = {error,{rebar3_hex_user,{registration_failure,{error, meh}}}},
+    ?assertError(ExpErr, rebar3_hex_user:do(State)).
 
 register_password_mismatch_test(Config) ->
     P = #{
@@ -206,8 +209,8 @@ register_password_mismatch_test(Config) ->
          },
     #{rebar_state := State, repo := Repo} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
-    ExpErr = {error,{rebar3_hex_user,{error,"passwords do not match"}}},
-    ?assertMatch(ExpErr, rebar3_hex_user:do(State)).
+    ExpErr = {error,{rebar3_hex_user,passwords_do_not_match}},
+    ?assertError(ExpErr, rebar3_hex_user:do(State)).
 
 auth_test(Config) ->
     P = #{
@@ -228,7 +231,7 @@ auth_bad_local_password_test(Config) ->
          },
     #{rebar_state := State, repo := Repo} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
-    ?assertThrow({error,{rebar3_hex_user,no_match_local_password}}, rebar3_hex_user:do(State)).
+    ?assertError({error,{rebar3_hex_user,passwords_do_not_match}}, rebar3_hex_user:do(State)).
 
 auth_password_24_char_test(Config) ->
     Pass = <<"special_shoes_shoes">>,
@@ -263,7 +266,7 @@ auth_unhandled_test(Config) ->
     P = #{command => #{provider => rebar3_hex_user, args => ["auth"]}, app => #{name => "valid"}, mocks => [first_auth]},
     #{rebar_state := State} = setup_state(P, Config),
     ExpErr = {error,{rebar3_hex_user,{generate_key,<<"eh?">>}}},
-    ?assertMatch(ExpErr, rebar3_hex_user:do(State)),
+    ?assertError(ExpErr, rebar3_hex_user:do(State)),
     meck:unload([hex_api_key]).
 
 auth_error_test(Config) ->
@@ -277,8 +280,8 @@ auth_error_test(Config) ->
           mocks => [first_auth]
          },
     #{rebar_state := State} = setup_state(P, Config),
-    ExpErr = {error,{rebar3_hex_user,{generate_key,["meh"]}}},
-    ?assertMatch(ExpErr, rebar3_hex_user:do(State)),
+    ExpErr = {error,{rebar3_hex_user,{generate_key,{error, meh}}}},
+    ?assertError(ExpErr, rebar3_hex_user:do(State)),
     meck:unload([hex_api_key]).
 
 whoami_test(Config) ->
@@ -299,8 +302,8 @@ whoami_unknown_test(Config) ->
          },
     #{rebar_state := State} = Setup = setup_state(P, Config),
     expects_parent_repos(Setup),
-    ExpErr = {error,{rebar3_hex_user,{whoami_failure,<<"huh?">>}}},
-    ?assertMatch(ExpErr, rebar3_hex_user:do(State)).
+    ExpErr = {error,{rebar3_hex_user,{whoami,<<"huh?">>}}},
+    ?assertError(ExpErr, rebar3_hex_user:do(State)).
 
 whoami_api_error_test(Config) ->
     meck:expect(hex_api_user, me, fun(_) -> {error, meh} end),
@@ -322,12 +325,10 @@ whoami_error_test(Config) ->
           app => #{name => "valid"}, mocks => [whoami]
          },
     #{rebar_state := State} = setup_state(P, Config),
-    ExpErr = {error,{rebar3_hex_user,{whoami_failure,["meh"]}}},
-    ?assertMatch(ExpErr, rebar3_hex_user:do(State)).
+    ExpErr = {error,{rebar3_hex_user,{whoami,{error, meh}}}},
+    ?assertError(ExpErr, rebar3_hex_user:do(State)).
 
 whoami_not_authed_test(Config) ->
-    Str = "Not authenticated as any user currently for this repository",
-    expects_output([Str]),
     meck:expect(hex_api_user, me, fun(_) -> {error, meh} end),
     P = #{
           command => #{provider => rebar3_hex_user, args => ["whoami"]},
@@ -337,13 +338,11 @@ whoami_not_authed_test(Config) ->
          },
     #{rebar_state := State} = Setup = setup_state(P, Config),
     expects_parent_repos(Setup),
-    ExpErr = {error,"Not authenticated as any user currently for this repository"},
-    ?assertMatch(ExpErr, rebar3_hex_user:do(State)),
-    ?assert(meck:validate(rebar3_hex_io)).
+    ?assertError({error, {rebar3_hex_user,not_authenticated}}, rebar3_hex_user:do(State)).
 
 reset_password_test(Config) ->
     P = #{
-          command => #{provider => rebar3_hex_user, args => ["reset_password"]},
+          command => #{provider => rebar3_hex_user, args => ["reset_password", "account"]},
           app => #{name => "valid"},
           mocks => [reset_password],
           username => "mr_pockets"
@@ -351,29 +350,39 @@ reset_password_test(Config) ->
     #{rebar_state := State} = setup_state(P, Config),
     ?assertMatch({ok, State}, rebar3_hex_user:do(State)).
 
+reset_local_password_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_user, args => ["reset_password", "local"]},
+          app => #{name => "valid"},
+          mocks => [key_mutation],
+          username => "mr_pockets"
+         },
+    #{rebar_state := State} = setup_state(P, Config),
+    ?assertMatch({ok, State}, rebar3_hex_user:do(State)).
+
 reset_password_api_error_test(Config) ->
     P = #{
-          command => #{provider => rebar3_hex_user, args => ["reset_password"]},
+          command => #{provider => rebar3_hex_user, args => ["reset_password", "account"]},
           app => #{name => "valid"},
           mocks => [reset_password],
           username => "eh?",
           repo_config => #{username => "eh?"}
          },
     #{rebar_state := State} = setup_state(P, Config),
-    ExpErr = {error,{rebar3_hex_user,{reset_failure,<<"huh?">>}}},
-    ?assertMatch(ExpErr, rebar3_hex_user:do(State)).
+    ExpErr = {error,{rebar3_hex_user,{reset_account_password,<<"huh?">>}}},
+    ?assertError(ExpErr, rebar3_hex_user:do(State)).
 
 reset_password_error_test(Config) ->
     meck:expect(hex_api_user, reset_password, fun(_,_) -> {error, meh} end),
     P = #{
-          command => #{provider => rebar3_hex_user, args => ["reset_password"]},
+          command => #{provider => rebar3_hex_user, args => ["reset_password", "account"]},
           app => #{name => "valid"},
           mocks => [reset_password],
           username => "mr_pockets"
          },
     #{rebar_state := State} = setup_state(P, Config),
-    ExpErr = {error,{rebar3_hex_user,{reset_failure,["meh"]}}},
-    ?assertMatch(ExpErr, rebar3_hex_user:do(State)).
+    ExpErr = {error,{rebar3_hex_user,{reset_account_password,{error, meh}}}},
+    ?assertError(ExpErr, rebar3_hex_user:do(State)).
 
 deauth_test(Config) ->
     P = #{
@@ -803,44 +812,44 @@ retire_test(Config) ->
     ?assertMatch({ok, State5}, rebar3_hex_retire:do(State5)).
 
 key_list_test(Config) ->
-    P = #{command => #{provider => rebar3_hex_key, args => ["list"]}, app => #{name => "valid"}, mocks => []},
+    P = #{command => #{provider => rebar3_hex_user, args => ["key", "list"]}, app => #{name => "valid"}, mocks => []},
     #{rebar_state := State} = setup_state(P, Config),
-    ?assertMatch({ok, State}, rebar3_hex_key:do(State)).
+    ?assertMatch({ok, State}, rebar3_hex_user:do(State)).
 
 key_get_test(Config) ->
     P = #{
-          command => #{provider => rebar3_hex_key, args => ["fetch", "-k", "key"]},
+          command => #{provider => rebar3_hex_user, args => ["key", "fetch", "-k", "key"]},
           app => #{name => "valid"}, mocks => []
          },
     #{rebar_state := State} = setup_state(P, Config),
-    ?assertMatch({ok, State}, rebar3_hex_key:do(State)).
+    ?assertMatch({ok, State}, rebar3_hex_user:do(State)).
 
 key_add_test(Config) ->
     P = #{
-          command => #{provider => rebar3_hex_key, args => ["generate", "-k", "foo"]},
+          command => #{provider => rebar3_hex_user, args => ["key", "generate", "-k", "foo"]},
           app => #{name => "valid"},
           mocks => [key_mutation]
          },
     #{rebar_state := State} = setup_state(P, Config),
-    ?assertMatch({ok, State}, rebar3_hex_key:do(State)).
+    ?assertMatch({ok, State}, rebar3_hex_user:do(State)).
 
 key_delete_test(Config) ->
     P = #{
-          command => #{provider => rebar3_hex_key, args => ["revoke", "-k", "key"]},
+          command => #{provider => rebar3_hex_user, args => ["key", "revoke", "-k", "key"]},
           app => #{name => "valid"},
           mocks => [key_mutation]
          },
     #{rebar_state := State} = setup_state(P, Config),
-    ?assertMatch({ok, State}, rebar3_hex_key:do(State)).
+    ?assertMatch({ok, State}, rebar3_hex_user:do(State)).
 
 key_delete_all_test(Config) ->
     P = #{
-          command => #{provider => rebar3_hex_key, args => ["revoke", "--all"]},
+          command => #{provider => rebar3_hex_user, args => ["key", "revoke", "--all"]},
           app => #{name => "valid"},
           mocks => [key_mutation]
          },
     #{rebar_state := State} = setup_state(P, Config),
-    ?assertMatch({ok, State}, rebar3_hex_key:do(State)).
+    ?assertMatch({ok, State}, rebar3_hex_user:do(State)).
 
 owner_add_test(Config) ->
     P = #{
@@ -889,7 +898,7 @@ bad_command_test(Config) ->
     P = #{command => #{provider => rebar3_hex_user, args => ["bad_command"]}, app => #{name => "valid"},
                                                                                            mocks => [deauth]},
     #{rebar_state := State} = setup_state(P, Config),
-    ?assertThrow({error,{rebar3_hex_user,bad_command}}, rebar3_hex_user:do(State)).
+    ?assertError({error,{rebar3_hex_user,bad_command}}, rebar3_hex_user:do(State)).
 
 revert_invalid_ver_test(Config) ->
     P = #{
@@ -1020,7 +1029,7 @@ setup_mocks_for(first_auth, #{username := Username,
 
     meck:expect(rebar3_hex_config, update_auth_config, Fun),
     expect_local_password_prompt(Setup),
-    expects_output(["Generating all keys...", AuthInfo]),
+    expects_output(["Generating keys...", AuthInfo, "You are now ready to interact with your hex repositories."]),
     expects_user_registration_prompts(Email, Username);
 
 setup_mocks_for(owner, #{password := Password} = Setup) ->
@@ -1294,6 +1303,10 @@ expect_local_password_prompt(#{password := Password, password_confirmation := Pa
                 <<"Local Password: ">> ->
                     Password;
                 <<"Local Password (confirm): ">> ->
+                    PasswordConfirm;
+                <<"New local Password: ">> -> 
+                    Password;
+                <<"New local Password (confirm): ">> ->
                     PasswordConfirm
             end
     end,
