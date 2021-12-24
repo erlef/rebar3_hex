@@ -264,13 +264,19 @@ publish_package(State, Repo, App, Args) ->
             HexOpts = hex_opts(Args),
             rebar_api:info("package argument given, will not publish docs", []),
             #{tarball := Tarball} = Package,
-            case rebar3_hex_client:publish(Repo, Tarball, HexOpts) of
-                {ok, _Res} ->
-                    #{name := Name, version := Version} = Package,
-                    rebar_api:info("Published ~ts ~ts", [Name, Version]),
+            case Args of
+                #{dry_run := true} ->
+                    rebar_api:info("--dry-run enabled : will not publish package.", []),
                     {ok, State};
-                Error ->
-                    ?RAISE({publish, Error})
+                _ -> 
+                    case rebar3_hex_client:publish(Repo, Tarball, HexOpts) of
+                        {ok, _Res} ->
+                            #{name := Name, version := Version} = Package,
+                            rebar_api:info("Published ~ts ~ts", [Name, Version]),
+                            {ok, State};
+                        Error ->
+                            ?RAISE({publish, Error})
+                    end
             end;
         abort ->
             rebar3_hex_io:say("Goodbye..."),
