@@ -780,24 +780,24 @@ retire_test(Config) ->
     Command1 = #{provider => rebar3_hex_retire, args => []},
     P1 = #{command => Command1, app => #{name => "valid"}, mocks => [retire]},
     #{rebar_state := State1} = setup_state(P1, Config),
-    ?assertError({error,{rebar3_hex_retire,{required,pkg}}}, rebar3_hex_retire:do(State1)),
+    ?assertError({error,{rebar3_hex_retire,bad_command}}, rebar3_hex_retire:do(State1)),
 
     Command2 = Command1#{args => ["pkg_name"]},
     P2 = #{command => Command2, app => #{name => "valid"}, mocks => [retire]},
     #{rebar_state := State2} = setup_state(P2, Config),
-    ?assertError({error,{rebar3_hex_retire,{required,vsn}}}, rebar3_hex_retire:do(State2)),
+    ?assertError({error,{rebar3_hex_retire,bad_command}}, rebar3_hex_retire:do(State2)),
 
     Command3 = Command1#{args => ["pkg_name", "1.1.1"]},
     P3 = #{command => Command3, app => #{name => "valid"}, mocks => [retire]},
     #{rebar_state := State3} = setup_state(P3, Config),
-    ?assertError({error,{rebar3_hex_retire,{required,reason}}}, rebar3_hex_retire:do(State3)),
+    ?assertError({error,{rebar3_hex_retire,bad_command}}, rebar3_hex_retire:do(State3)),
 
     Command4 = Command1#{args => ["pkg_name", "1.1.1", "reason"]},
     P4 = #{command => Command4, app => #{name => "valid"}, mocks => [retire]},
     #{rebar_state := State4} = setup_state(P4, Config),
     ?assertError({error,{rebar3_hex_retire,{required,message}}}, rebar3_hex_retire:do(State4)),
 
-    Command5 = Command1#{args => ["pkg_name", "1.1.1", "reason", "msg"]},
+    Command5 = Command1#{args => ["pkg_name", "1.1.1", "reason", "--message", "msg"]},
     P5 = #{command => Command5, app => #{name => "valid"}, mocks => [retire]},
     #{rebar_state := State5} = setup_state(P5, Config),
     ?assertMatch({ok, State5}, rebar3_hex_retire:do(State5)).
