@@ -71,11 +71,13 @@ task_state(State) ->
      case rebar3_hex_config:repo(State) of
          {ok, Repo} -> 
              Opts = get_args(State),
+             CurrentTask = maps:get(task, Opts, undefined),
+             Opts1 = Opts#{task => CurrentTask},
              case rebar_state:project_apps(State) of 
                  [_App] = Apps ->
-                    {ok, #{raw_opts => Opts0, raw_args => Args0, args => Opts, repo => Repo, state => State, multi_app => false, apps => Apps}};
+                    {ok, #{raw_opts => Opts0, raw_args => Args0, args => Opts1, repo => Repo, state => State, multi_app => false, apps => Apps}};
                  [_|_] = Apps ->
-                    {ok, #{raw_opts => Opts0, raw_args => Args0, args => Opts, repo => Repo, state => State, multi_app => true, apps => Apps}}
+                    {ok, #{raw_opts => Opts0, raw_args => Args0, args => Opts1, repo => Repo, state => State, multi_app => true, apps => Apps}}
              end;
          Err -> 
             Err
