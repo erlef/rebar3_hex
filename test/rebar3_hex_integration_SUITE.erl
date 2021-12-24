@@ -830,7 +830,8 @@ key_add_test(Config) ->
           app => #{name => "valid"},
           mocks => [key_mutation]
          },
-    #{rebar_state := State} = setup_state(P, Config),
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_user_registration_prompts(Setup),
     ?assertMatch({ok, State}, rebar3_hex_user:do(State)).
 
 key_delete_test(Config) ->
@@ -1013,7 +1014,6 @@ setup_mocks_for(docs, #{repo := Repo} = Setup) ->
     expects_output(default_publish_io(Setup));
 
 setup_mocks_for(first_auth, #{username := Username,
-                              email := Email,
                               repo := Repo} = Setup) ->
 
     AuthInfo =  "You have authenticated on Hex using your account password. "
@@ -1030,7 +1030,7 @@ setup_mocks_for(first_auth, #{username := Username,
     meck:expect(rebar3_hex_config, update_auth_config, Fun),
     expect_local_password_prompt(Setup),
     expects_output(["Generating keys...", AuthInfo, "You are now ready to interact with your hex repositories."]),
-    expects_user_registration_prompts(Email, Username);
+    expects_user_registration_prompts(Setup);
 
 setup_mocks_for(owner, #{password := Password} = Setup) ->
     expects_repo_config(Setup),
@@ -1142,18 +1142,18 @@ setup_mocks_for(retire, #{username := Username, repo := Repo} = Setup) ->
     meck:expect(rebar3_hex_config, update_auth_config, Fun),
     expect_local_password_prompt(Setup);
 
-setup_mocks_for(register, #{username := Username, email := Email, repo := Repo} = Setup) ->
+setup_mocks_for(register, #{email := Email, repo := Repo} = Setup) ->
     expects_repo_config(Setup),
     expect_local_password_prompt(Setup),
     RepoName = maps:get(name, Repo),
     expects_registration_confirmation_output(RepoName, Email),
     expects_registration_output(),
-    expects_user_registration_prompts(Email, Username);
+    expects_user_registration_prompts(Setup);
 
-setup_mocks_for(register_existing, #{username := Username, email := Email} = Setup) ->
+setup_mocks_for(register_existing, Setup) ->
     expects_registration_output(),
     expect_local_password_prompt(Setup),
-    expects_user_registration_prompts(Email, Username).
+    expects_user_registration_prompts(Setup).
 
 
 default_publish_io(#{selected_app := #{name := AppName}, repo := #{name := RepoName}}) ->
@@ -1243,7 +1243,7 @@ expects_output([_T | _R] = OneOfs)  ->
 		  end
 	end).
 
-expects_user_registration_prompts(Email, Username) ->
+expects_user_registration_prompts(#{email := Email, username := Username}) ->
     BinEmail = binary_to_list(Email),
     BinUsername = binary_to_list(Username),
     Exps = [

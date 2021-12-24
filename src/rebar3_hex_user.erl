@@ -197,7 +197,10 @@ handle_task(#{args := #{task := whoami}, state := State}) ->
 handle_task(#{args := #{task := key, generate := true} = Args} = Task) ->
     #{raw_opts := Opts, repo := Repo, state := State} = Task,
     KeyName = maps:get(key_name, Args, undefined),
-    {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
+    Username = list_to_binary(rebar3_hex_io:ask("Username:", string, "")),
+    Password  = get_password(account),
+    Auth = base64:encode_to_string(<<Username/binary, ":", Password/binary>>),
+    Config = Repo#{api_key => list_to_binary("Basic " ++ Auth)},
     PermOpts = proplists:get_all_values(permission, Opts),
     Perms = rebar3_hex_key:convert_permissions(PermOpts, [#{<<"domain">> => <<"api">>}]), 
     _ = generate_key(Config, KeyName, Perms),
