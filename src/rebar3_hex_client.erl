@@ -1,7 +1,9 @@
 -module(rebar3_hex_client).
 
 -export([ is_success/1
+        , create_user/4
         , delete_release/3
+        , me/1
         , key_add/3
         , key_get/2
         , key_delete/2
@@ -14,12 +16,25 @@
         , member_of/1
         , pretty_print_status/1
         , pretty_print_errors/1
+        , reset_password/2
         ]).
 
 -include("rebar3_hex.hrl").
 
 -define(is_success(N), N >= 200 andalso N =< 299).
 
+create_user(HexConfig, Username, Password, Email) -> 
+   Res = hex_api_user:create(HexConfig, Username, Password, Email),
+    response(Res).
+
+reset_password(HexConfig, User) -> 
+    Res = hex_api_user:reset_password(HexConfig, User),
+    response(Res).
+
+me(HexConfig) -> 
+    Res = hex_api_user:me(HexConfig),
+    response(Res).
+ 
 key_add(HexConfig, <<KeyName/binary>>, Perms) ->
     Res = hex_api_key:add(HexConfig, KeyName, Perms),
     response(Res);
@@ -94,6 +109,8 @@ response({ok, {404, _Headers, Res}}) ->
 response({ok, {422, _Headers, #{<<"message">> := <<"Validation error(s)">>} = Res}}) ->
     {error, Res};
 response({ok, {422, _Headers, Res}}) ->
+    {error, Res};
+response({ok, {500, _Headers, Res}}) -> 
     {error, Res};
 response({_, _} = Unknown) ->
     Unknown.

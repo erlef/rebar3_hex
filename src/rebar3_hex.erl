@@ -10,7 +10,9 @@
         , help_opt/0
         ]).
 
--type task() :: #{args := map(), 
+-type task() :: #{raw_opts := proplists:proplist(),
+                  raw_args := list(),
+                  args := map(), 
                   repo := map(), 
                   apps := [rebar_app_info:t()], 
                   state := rebar_state:t(), 
@@ -22,7 +24,6 @@
 init(State) ->
     lists:foldl(fun provider_init/2, {ok, State}, [rebar3_hex_user,
                                                    rebar3_hex_cut,
-                                                   rebar3_hex_key,
                                                    rebar3_hex_owner,
                                                    rebar3_hex_repo,
                                                    rebar3_hex_search,
@@ -60,16 +61,21 @@ task_args(State) ->
             {Task, proplists:delete(task, Opts)}
     end.
 
+
+%% TODO: A current limitation of rebar3_hex:task_state/1 is it returns strings.
+%% This will need to be adjusted to return binaries. For now, we return the opts and args
+%% as returned from rebar_state:command_parsed_args/1 as raw_args and raw_opts.
 -spec task_state(rebar_state:t()) -> {ok, task()} | {error, term()}.
 task_state(State) ->
+    {Opts0, Args0} = rebar_state:command_parsed_args(State),
      case rebar3_hex_config:repo(State) of
          {ok, Repo} -> 
              Opts = get_args(State),
              case rebar_state:project_apps(State) of 
                  [_App] = Apps ->
-                    {ok, #{args => Opts, repo => Repo, state => State, multi_app => false, apps => Apps}};
+                    {ok, #{raw_opts => Opts0, raw_args => Args0, args => Opts, repo => Repo, state => State, multi_app => false, apps => Apps}};
                  [_|_] = Apps ->
-                    {ok, #{args => Opts, repo => Repo, state => State, multi_app => true, apps => Apps}}
+                    {ok, #{raw_opts => Opts0, raw_args => Args0, args => Opts, repo => Repo, state => State, multi_app => true, apps => Apps}}
              end;
          Err -> 
             Err

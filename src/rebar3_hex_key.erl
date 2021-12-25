@@ -1,136 +1,59 @@
 -module(rebar3_hex_key).
 
--export([init/1, do/1, format_error/1]).
+-export([convert_permissions/2, fetch/2, format_error/1, generate/3, revoke/2, revoke_all/1, list/1]).
 
--include("rebar3_hex.hrl").
-
--define(PROVIDER, key).
--define(DEPS, []).
-
--spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
-init(State) ->
-    Provider = providers:create([{name, ?PROVIDER},
-                                 {module, ?MODULE},
-                                 {namespace, hex},
-                                 {bare, true},
-                                 {deps, ?DEPS},
-                                 {example,
-                                  "rebar3 hex key [generate -k <key> | list | revoke -k <key> "
-                                  "| revoke --all]"},
-                                 {short_desc,
-                                  "Remove or list API keys associated with your account"},
-                                 {desc, ""},
-                                 {opts,
-                                  [{all, $a, "all", boolean, "all."},
-                                   {keyname, $k, "key-name", string, "key-name"},
-                                   {permission, $p, "permission", list, "perms."},
-                                   rebar3_hex:repo_opt()]}]),
-    State1 = rebar_state:add_provider(State, Provider),
-    {ok, State1}.
-
--spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, term()}.
-do(State) ->
-    case rebar3_hex_config:repo(State) of
-      {ok, Repo} ->
-          TaskArgs = rebar3_hex:task_args(State),
-          handle_command(TaskArgs, State, Repo);
-      {error, Reason} ->
-          ?PRV_ERROR(Reason)
-    end.
-
-handle_command({"generate", Params}, State, Repo) ->
-    Fun = fun (State1, Config, Params1) ->
-                  generate(State1, Config, Params1)
-          end,
-    perform(State, Repo, write, Fun, Params);
-handle_command({"fetch", []}, _State, _Repo) ->
-    ?PRV_ERROR({fetch, missing_required_params});
-handle_command({"fetch", [{keyname, KeyName}]}, State, Repo) ->
-    Fun = fun (State1, Config, [KeyName1]) ->
-                  fetch(State1, Config, KeyName1)
-          end,
-    perform(State, Repo, read, Fun, [KeyName]);
-handle_command({"list", _Params}, State, Repo) ->
-    Fun = fun (State1, Config, []) ->
-                  list(State1, Config)
-          end,
-    perform(State, Repo, read, Fun, []);
-handle_command({"revoke", [{keyname, KeyName}]}, State, Repo) ->
-    Fun = fun (State1, Config, [KeyName1]) ->
-                  revoke(State1, Config, KeyName1)
-          end,
-    perform(State, Repo, write, Fun, [KeyName]);
-handle_command({"revoke", [{all, true}]}, State, Repo) ->
-    Fun = fun (State1, Config, []) ->
-                  revoke_all(State1, Config)
-          end,
-    perform(State, Repo, write, Fun, []);
-handle_command({"revoke", _Params}, _State, _Repo) ->
-    ?PRV_ERROR({revoke, unsupported_params});
-handle_command(_, _, _) ->
-    ?PRV_ERROR(bad_command).
-
-perform(State, Repo, RepoContext, Fun, Params) ->
-    case rebar3_hex_config:hex_config(Repo, RepoContext) of
-      {ok, Config} ->
-          Fun(State, Config, Params);
-      Err ->
-          ?PRV_ERROR(Err)
-    end.
-
-generate(State, HexConfig, Params) ->
-    Perms = gather_permissions(proplists:get_all_values(permission, Params)),
-    KeyName = proplists:get_value(keyname, Params, undefined),
+generate(HexConfig, KeyName, Perms) ->
     case rebar3_hex_client:key_add(HexConfig, KeyName, Perms) of
-      {ok, _Res} ->
-          rebar3_hex_io:say("Key successfully created", []),
-          {ok, State};
+      {ok, _Res} = Ret ->
+        Ret;
       Error ->
-          ?PRV_ERROR({generate, Error})
+        Error
     end.
 
-fetch(State, HexConfig, KeyName) ->
+fetch(HexConfig, KeyName) ->
     case rebar3_hex_client:key_get(HexConfig, KeyName) of
       {ok, Res} ->
-          ok = print_key_details(Res),
-          {ok, State};
+        print_key_details(Res);
       Error ->
-          ?PRV_ERROR({fetch, Error})
+        Error
     end.
 
-revoke(State, HexConfig, KeyName) ->
+revoke(HexConfig, KeyName) ->
     case rebar3_hex_client:key_delete(HexConfig, KeyName) of
       {ok, _Res} ->
-          rebar3_hex_io:say("Key successfully revoked", []),
-          {ok, State};
+        ok;
       Error ->
-          ?PRV_ERROR({revoke, Error})
+        Error
     end.
 
-revoke_all(State, HexConfig) ->
+revoke_all(HexConfig) ->
     case rebar3_hex_client:key_delete_all(HexConfig) of
       {ok, _Res} ->
-          rebar3_hex_io:say("All keys successfully revoked", []),
-          {ok, State};
+          ok;
       Error ->
-          ?PRV_ERROR({revoke_all, Error})
+        Error
     end.
 
-list(State, HexConfig) ->
+list(HexConfig) ->
     case rebar3_hex_client:key_list(HexConfig) of
       {ok, Res} ->
-          ok = print_results(Res),
-          {ok, State};
+        print_results(Res);  
       Error ->
-          ?PRV_ERROR({list, Error})
+        Error
     end.
 
-gather_permissions([]) ->
-    [];
-gather_permissions(Perms) ->
+-spec convert_permissions([string()], [map()]) -> [map()].
+convert_permissions([], Defaults) -> 
+    Defaults;
+convert_permissions(Perms, _) -> 
     lists:foldl(fun (Name, Acc) ->
-                        [Domain, Resource] = binary:split(rebar_utils:to_binary(Name), <<":">>),
-                        [#{<<"domain">> => Domain, <<"resource">> => Resource}] ++ Acc
+                             case binary:split(rebar_utils:to_binary(Name), <<":">>) of 
+                                 [Domain] -> 
+                                     [#{<<"domain">> => Domain, <<"resource">> => nil}] ++ Acc;
+
+                                [Domain, Resource] -> 
+                                    [#{<<"domain">> => Domain, <<"resource">> => Resource}] ++ Acc
+                             end
                 end,
                 [],
                 Perms).

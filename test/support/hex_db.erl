@@ -17,11 +17,14 @@ start_link() ->
 stop(Pid) ->
     gen_server:stop(Pid).
 
+add_user(#{<<"password">> := <<>>}) ->
+    {error, empty_password};
+
 add_user(#{<<"username">> := Username, <<"email">> := Email} = User) ->
-    case ets:insert_new(?MODULE, {Username, User})  of 
-        true -> 
-            case ets:insert_new(?MODULE, {Email, Username}) of 
-                true -> 
+    case ets:insert_new(?MODULE, {Username, User})  of
+        true ->
+            case ets:insert_new(?MODULE, {Email, Username}) of
+                true ->
                     {ok, Username};
                 false ->
                     ets:delete(?MODULE, {Username, User}),
@@ -35,14 +38,14 @@ init([]) ->
     _Tid = ets:new(?MODULE, [named_table, public, {write_concurrency, true}]),
     {ok, {}}.
 
-handle_call(_, State, _) -> 
+handle_call(_, State, _) ->
     {ok, State}.
 
-handle_cast(_, State) -> 
+handle_cast(_, State) ->
     {ok, State}.
 
-handle_info(_, State) -> 
-    {ok, State}. 
+handle_info(_, State) ->
+    {ok, State}.
 
 terminate(_Reason, _State) ->
     ok.

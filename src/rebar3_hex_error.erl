@@ -20,10 +20,11 @@ format_error({Cmd, unsupported_params}) ->
 format_error({Cmd, missing_required_params}) ->
     io_lib:format("Required parameters for the ~ts command have not been supplied.", [Cmd]);
 
-format_error({_Cmd, {error, {failed_connect, [{to_address,_},
-                                        {inet,[inet],econnrefused}]}}}) ->
-    io_lib:format("Error connecting to hex repository api.", []);
+format_error({Cmd, {error, {failed_connect, [{to_address,_},
+                                        {inet,[inet],econnrefused}]} = Err}}) ->
+    rebar_log:log(diagnostic, "Failed to connect to hex repository : ~p , context : ~ts", [Err, Cmd]),
+    io_lib:format("Error connecting to hex repository api. Run with DIAGNOSTIC=1 for more details", []);
 
 format_error(Reason) ->
-    rebar_api:debug("Unknown error: ~p", [Reason]),
-    "An unknown error was encountered. Run with DEBUG=1 for more details.".
+    rebar_log:log(diagnostic, "Unknown error: ~p", [Reason]),
+    "An unknown error was encountered. Run with DIAGNOSTIC=1 for more details.".
