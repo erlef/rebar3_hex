@@ -33,6 +33,15 @@ all() ->
     , whoami_error_test
     , whoami_unknown_test
     , deauth_test
+    , org_auth_test
+    , org_auth_key_test
+    , org_deauth_test
+    , org_key_generate_test
+    , org_key_revoke_test
+    , org_key_revoke_all_test
+    , org_key_list_test
+    , org_list_test
+    , org_bad_command_test
     , publish_test
     , publish_no_prompt_test
     , publish_package_with_pointless_app_arg_test
@@ -117,11 +126,7 @@ data_dir(Config) -> ?config(data_dir, Config).
 
 -define(default_repo, <<"hexpm">>).
 
--define(default_repo_config, #{repo => ?default_repo,
-                                name => ?default_repo,
-                                username => ?default_username,
-                                doc => #{provider => edoc}
-                              }).
+-define(default_repo_config, test_utils:default_config()).
 
 sanity_check(_Config) ->
         User = <<"mr_pockets">>,
@@ -221,6 +226,118 @@ auth_test(Config) ->
     #{rebar_state := State, repo := Repo} = setup_state(P, Config),
     create_user(?default_username, ?default_password, ?default_email, Repo),
     ?assertMatch({ok, State}, rebar3_hex_user:do(State)).
+
+org_auth_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_organization, args => ["auth", "hexpm:foo"]},
+          app => #{name => "valid"},
+          repo_config => #{repo => <<"hexpm:foo">>, name => <<"hexpm:foo">>},
+          mocks => []
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expect_local_password_prompt(Setup),
+    expects_repo_config(Setup),
+    expects_update_auth_config(Setup),
+    expects_update_auth_config_for(<<"hexpm:foo">>),
+    ?assertMatch({ok, State}, rebar3_hex_organization:do(State)).
+
+org_auth_key_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_organization, args => ["auth", "hexpm:foo", "--key", "123"]},
+          app => #{name => "valid"},
+          repo_config => #{repo => <<"hexpm:foo">>, name => <<"hexpm:foo">>},
+          mocks => []
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expect_local_password_prompt(Setup),
+    expects_repo_config(Setup),
+    expects_update_auth_config(Setup),
+    expects_update_auth_config_for(<<"hexpm:foo">>),
+    ?assertMatch({ok, State}, rebar3_hex_organization:do(State)).
+
+org_deauth_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_organization, args => ["deauth", "hexpm:foo"]},
+          app => #{name => "valid"},
+          repo_config => #{repo => <<"hexpm:foo">>, name => <<"hexpm:foo">>},
+          mocks => []
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_output([{"Successfully deauthorized ~ts", [<<"hexpm:foo">>]}]),
+    expects_repo_config(Setup),
+
+    expects_update_auth_config(Setup),
+    ?assertMatch({ok, State}, rebar3_hex_organization:do(State)).
+
+org_key_generate_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_organization, args => ["key", "hexpm:foo", "generate"]},
+          app => #{name => "valid"},
+          repo_config => #{repo => <<"hexpm:foo">>, name => <<"hexpm:foo">>},
+          mocks => [first_auth]
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    expect_local_password_prompt(Setup),
+    expects_update_auth_config(Setup),
+    ?assertMatch({ok, State}, rebar3_hex_organization:do(State)).
+
+org_key_revoke_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_organization, args => ["key", "hexpm:foo", "revoke", "--key-name", "this-key"]},
+          app => #{name => "valid"},
+          repo_config => #{repo => <<"hexpm:foo">>, name => <<"hexpm:foo">>},
+          mocks => [key_mutation]
+         },
+    #{rebar_state := State, repo := _Repo} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    expect_local_password_prompt(Setup),
+    expects_update_auth_config(Setup),
+    ?assertMatch({ok, State}, rebar3_hex_organization:do(State)).
+
+org_key_revoke_all_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_organization, args => ["key", "hexpm:foo", "revoke", "--all"]},
+          app => #{name => "valid"},
+          repo_config => #{repo => <<"hexpm:foo">>, name => <<"hexpm:foo">>},
+          mocks => [key_mutation]
+         },
+    #{rebar_state := State, repo := _Repo} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    expects_update_auth_config(Setup),
+    ?assertMatch({ok, State}, rebar3_hex_organization:do(State)).
+
+org_key_list_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_organization, args => ["key", "hexpm:foo", "list"]},
+          app => #{name => "valid"},
+          repo_config => #{repo => <<"hexpm:foo">>, name => <<"hexpm:foo">>},
+          mocks => [first_auth]
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    expects_update_auth_config(Setup),
+    ?assertMatch({ok, State}, rebar3_hex_organization:do(State)).
+
+org_list_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_organization, args => ["list"]},
+          app => #{name => "valid"},
+          repo_config => #{repo => <<"hexpm:foo">>, name => <<"hexpm:foo">>},
+          mocks => [first_auth]
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    ?assertMatch({ok, State}, rebar3_hex_organization:do(State)).
+
+org_bad_command_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_organization, args => ["key", "hexpm:foo", "eh", "--all"]},
+          app => #{name => "valid"},
+          mocks => [key_mutation]
+         },
+    #{rebar_state := State, repo := _Repo} = _Setup = setup_state(P, Config),
+    ?assertError({error, {rebar3_hex_organization,bad_command}}, rebar3_hex_organization:do(State)).
 
 auth_bad_local_password_test(Config) ->
     P = #{
@@ -357,7 +474,8 @@ reset_local_password_test(Config) ->
           mocks => [key_mutation],
           username => "mr_pockets"
          },
-    #{rebar_state := State} = setup_state(P, Config),
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_update_auth_config(Setup),
     ?assertMatch({ok, State}, rebar3_hex_user:do(State)).
 
 reset_password_api_error_test(Config) ->
@@ -927,7 +1045,7 @@ setup_state(P, Config) ->
       email := _Email}            = Params,
 
     WriteKey = maps:get(write_key, Params, rebar3_hex_user:encrypt_write_key(Username, Password, KeyPhrase)),
-    DefRepoConfig = ?default_repo_config,
+    DefRepoConfig = test_utils:default_config(),
     ParamRepoConfig =  maps:get(repo_config, Params, DefRepoConfig),
     RepoConfig = maps:merge(DefRepoConfig#{write_key => WriteKey}, ParamRepoConfig),
     Repo = test_utils:repo_config(RepoConfig),
@@ -1187,19 +1305,33 @@ expects_registration_confirmation_output(RepoName, Email) ->
     expects_output([{TokenInfo, [RepoName]}, {ReqInfo, [Email]}]).
 
 expects_repo_config(#{repo := Repo}) ->
-    meck:expect(rebar3_hex_config, repo, fun(_) -> {ok, Repo} end).
+    meck:expect(rebar3_hex_config, repo, fun(_) -> {ok, Repo} end),
+    meck:expect(rebar3_hex_config, repo, fun(_, <<"hexpm">>) -> {ok, test_utils:default_config()} end).
 
 expects_parent_repos(#{repo := Repo}) ->
     meck:expect(rebar3_hex_config, parent_repos, fun(_) -> {ok, [Repo]} end).
 
 expects_update_auth_config( #{username := Username, repo := Repo}) ->
+    BinUsername = rebar_utils:to_binary(Username),
     Fun = fun(Cfg, State) ->
                   Rname = maps:get(name, Repo),
                   Skey = maps:get(repo_key, Repo),
                   [Rname] = maps:keys(Cfg),
-                  #{repo_key := Skey, username := Username} = maps:get(Rname, Cfg),
+                  #{repo_key := Skey, username := BinUsername} = maps:get(Rname, Cfg),
                   {ok, State} end,
     meck:expect(rebar3_hex_config, update_auth_config, Fun).
+
+expects_update_auth_config_for(RepoName) ->
+    Fun = fun(Cfg, State) ->
+                  case Cfg of 
+                      #{RepoName := _Repo} -> 
+                          {ok, State};
+                      Got -> 
+                        meck:exception(error, {expected, RepoName, got, Got})  
+                    end
+                  end,
+    meck:expect(rebar3_hex_config, update_auth_config, Fun).
+
 
 %% Helper for mocking rebar3_hex_io:say/2.
 %% if an any atom is supplied for an argument list in the list of expected prompts

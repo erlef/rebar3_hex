@@ -11,6 +11,7 @@
         , hex_config_write/1
         , hex_config_read/1
         , repo/1
+        , repo/2
         , update_auth_config/2
         ]).
 
@@ -127,9 +128,11 @@ repo(State, RepoName) ->
     MaybeFound2 =  get_repo(<<MaybeParentRepo/binary, BinName/binary>>, Repos),
     case {MaybeFound1, MaybeFound2} of
         {{ok, Repo1}, undefined} ->
-            {ok, set_http_adapter(merge_with_env(Repo1))};
+            Repo2 = set_http_adapter(merge_with_env(Repo1)),
+            {ok, maybe_set_api_organization(Repo2)};
         {undefined, {ok, Repo2}} ->
-            {ok, set_http_adapter(merge_with_env(Repo2))};
+            Repo3 = set_http_adapter(merge_with_env(Repo2)),
+            {ok, maybe_set_api_organization(Repo3)};
         {undefined, undefined} ->
             {error, {not_valid_repo, RepoName}}
     end.
@@ -210,7 +213,7 @@ hex_config_write(#{api_key := Key} = HexConfig) when is_binary(Key) ->
     {ok, set_http_adapter(HexConfig)};
 hex_config_write(#{write_key := undefined}) ->
     {error, no_write_key};
-hex_config_write(#{api_key := undefined, write_key := WriteKey, username := Username} = HexConfig) ->
+hex_config_write(#{write_key := WriteKey, username := Username} = HexConfig) ->
     DecryptedWriteKey = rebar3_hex_user:decrypt_write_key(Username, WriteKey),
     {ok, set_http_adapter(HexConfig#{api_key => DecryptedWriteKey})};
 hex_config_write(_) ->
@@ -220,3 +223,11 @@ hex_config_read(#{read_key := ReadKey} = HexConfig) ->
     {ok, set_http_adapter(HexConfig#{api_key => ReadKey})};
 hex_config_read(_Config) ->
     {error, no_read_key}.
+
+maybe_set_api_organization(#{name := Name} = Repo) -> 
+    case binary:split(Name, <<":">>) of
+        [_] -> 
+            Repo;
+        [_,Org] -> 
+            Repo#{api_organization => Org}
+    end.

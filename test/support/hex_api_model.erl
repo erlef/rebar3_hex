@@ -21,6 +21,33 @@
 handle(Req, _Args) ->
     handle(Req#req.method, elli_request:path(Req), Req).
 
+handle('GET', [<<"auth">>], Req) -> 
+    respond_with(200, Req, #{});
+
+handle('GET', [<<"orgs">>, <<"foo">>, <<"keys">>], Req) ->
+    Res = [
+            #{<<"name">> => <<"key1">>,
+              <<"inserted_at">> => <<"2019-05-27T20:49:35Z">>
+             },
+            #{<<"name">> => <<"key2">>,
+              <<"inserted_at">> => <<"2019-06-27T20:49:35Z">>
+             }
+          ],
+    respond_with(200, Req, Res);
+
+
+handle('POST', [<<"orgs">>, <<"foo">>, <<"keys">>], Req) ->
+    Res = #{
+      <<"secret">> => <<"repo_key">>
+    },
+    respond_with(201, Req, Res);
+
+handle('DELETE', [<<"orgs">>, <<"foo">>, <<"keys">>], Req) ->
+    respond_with(201, Req, #{});
+
+handle('DELETE', [<<"orgs">>, <<"foo">>, <<"keys">>, <<"this-key">>], Req) ->
+    respond_with(201, Req, #{});
+
 handle('POST', [<<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], Req) ->
     case authenticate(Req) of
        {ok, #{username := _Username, email := _Email}} ->
@@ -278,8 +305,11 @@ handle('DELETE', [<<"keys">>, <<"key">>], Req) ->
     Res = #{<<"secret">> => <<"repo_key">>},
     respond_with(200, Req, Res);
 
-handle(_Method, _Path, Req) ->
-    respond_with(404, Req, #{}).
+handle(Method, Path, Req) ->
+    MethodBin = atom_to_binary(Method, utf8),
+    PathBin = binary:list_to_bin(lists:join(<<"/">>, Path)),
+    Msg = <<MethodBin/binary, " /", PathBin/binary, " - 404 not found">>,
+    respond_with(404, Req, #{<<"message">> => Msg}).
 
 handle_event(_Event, _Data, _Args) ->
     ok.

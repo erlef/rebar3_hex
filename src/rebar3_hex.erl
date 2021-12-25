@@ -25,7 +25,7 @@ init(State) ->
     lists:foldl(fun provider_init/2, {ok, State}, [rebar3_hex_user,
                                                    rebar3_hex_cut,
                                                    rebar3_hex_owner,
-                                                   rebar3_hex_repo,
+                                                   rebar3_hex_organization,
                                                    rebar3_hex_search,
                                                    rebar3_hex_retire,
                                                    rebar3_hex_publish]).
