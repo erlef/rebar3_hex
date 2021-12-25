@@ -27,9 +27,10 @@ underline_emphasis(Item) ->
     io_lib:format("\e[1m\e[00m\e[4m~ts\e[24m", [Item]).
 
 % Returns a str, expects first row to be a header
-table(Rows) ->
-    [Header | Body] = align_rows(Rows),
-    Table = [pretty_header(Header), ""] ++ Body,
+table([Headers | Body]) ->
+    Headers1 = [H ++ "|" || H <- Headers],
+    [Headers2 | Body1] = align_rows([Headers1 | Body]),
+    Table = [pretty_header(Headers2), ""] ++ Body1,
     lists:foldl(fun(Row, Acc) ->
                         Acc ++ [io_lib:fwrite("~s~n", [lists:flatten(Row)])]
                 end,
@@ -38,7 +39,7 @@ table(Rows) ->
 
 pretty_header(Header) ->
     lists:map(fun(W) ->
-                      [Value, Space] = rebar3_hex_io:str_split(W, " "),
+                      [Value, Space] = rebar3_hex_io:str_split(W, "|"),
                       underline_emphasis(Value) ++ " "  ++ Space  end,
               Header).
 
