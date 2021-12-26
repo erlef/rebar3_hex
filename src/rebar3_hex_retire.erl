@@ -1,4 +1,4 @@
-%% @doc `rebar3 hex retire' 
+%% @doc `rebar3 hex retire' - retire and unretire packages
 %%
 %% Retires a package version.
 %%

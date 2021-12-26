@@ -1,3 +1,4 @@
+%% @private
 -module(rebar3_hex_key).
 
 -export([convert_permissions/2, fetch/2, format_error/1, generate/3, revoke/2, revoke_all/1, list/1]).

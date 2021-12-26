@@ -1,4 +1,4 @@
-% @doc `rebar3 hex build' 
+% @doc `rebar3 hex build' - Build packages and docs 
 %
 %% Builds a new local version of your package.
 %%
@@ -28,8 +28,8 @@
 %% == Required configuration == 
 %% 
 %% <ul>
-%%  <li> `application' - application name. This is required per Erlang/OTP thus it should always be present anyway. 
-%   <li> `vsn' -  must be a valid [semantic version](http://semver.org/) identifier.
+%%  <li> `application' - application name. This is required per Erlang/OTP thus it should always be present anyway.</li> 
+%   <li> `vsn' -  must be a valid [semantic version](http://semver.org/) identifier.</li>
 %%  <li>`licenses' - A list of licenses the project is licensed under. This attribute is required. A valid
 %%  [spdx](https://spdx.org/licenses/) is expected.</li>
 %% </ul>

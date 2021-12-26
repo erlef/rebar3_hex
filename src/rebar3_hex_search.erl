@@ -1,3 +1,22 @@
+%% @doc `rebar3 hex search'  - search for packages on hexpm.
+%%
+%% Displays packages matching the given search query.
+%%
+%% If you are authenticated it will additionally search all organizations you are member of.
+%%
+%% ```
+%% $ rebar3 hex search PACKAGE
+%% '''
+%%
+%% <h2> Command line options </h2>
+%%
+%% <ul>
+%%  <li>`--repo' - Specify the repository to work with within the scope of a user task. This option is required when you 
+%%   have multiple repositories configured, including organizations. The argument must be a fully qualified repository
+%%   name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm').
+%%   Defaults to `hexpm'.
+%%   </li>
+%% </ul>
 -module(rebar3_hex_search).
 
 -export([init/1,
@@ -9,6 +28,7 @@
 -define(PROVIDER, search).
 -define(DEPS, []).
 
+%% @private
 -spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
 init(State) ->
     Provider = providers:create([
@@ -26,6 +46,7 @@ init(State) ->
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
+%% @private
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()}.
 do(State) ->
     {Args, _} = rebar_state:command_parsed_args(State),
@@ -116,6 +137,7 @@ version_sort(Releases) ->
                end,
                Releases).
 
+%% @private
 -spec format_error(any()) -> iolist().
 format_error({status, Status}) ->
     io_lib:format("Error searching for packages: ~ts",

@@ -1,16 +1,13 @@
-rebar3 Hex Providers [![GitHub Actions CI][ci-img]][ci] [![Coverage][cov-img]][cov]
-=========================
+# rebar3_hex
 
-[ci]: https://github.com/tsloughter/rebar3_hex
-[ci-img]: https://github.com/tsloughter/rebar3_hex/workflows/build/badge.svg
-[cov]: https://codecov.io/gh/tsloughter/rebar3_hex
-[cov-img]: https://codecov.io/gh/tsloughter/rebar3_hex/branch/master/graph/badge.svg
+[![Build Status](https://github.com/erlef/rebar3_hex/actions/workflows/ci.yml/badge.svg)](https://github.com/erlef/rebar3_hex/actions/workflows/ci.yml) 
+[![Hex pm](https://img.shields.io/hexpm/v/rebar3_hex.svg)](https://hex.pm/packages/rebar3_hex)
+[![Docs](https://img.shields.io/badge/hex-docs-green.svg?style=flat)](https://hexdocs.pm/rebar3_hex)
+[![Erlang Versions](https://img.shields.io/badge/Supported%20Erlang%2FOTP-22.0%20to%2024.0-blue)](http://www.erlang.org)
 
-Providers for interacting with the Erlang package manager [hex.pm](https://hex.pm/).
+rebar3_hex is a rebar3 plugin which bundles providers for interacting with the Erlang ecosystem package manager [hex.pm](https://hex.pm/).
 
-
-Usage
-------
+## Setup
 
 Add to your global rebar3 config in `~/.config/rebar3/rebar.config`:
 
@@ -18,10 +15,46 @@ Add to your global rebar3 config in `~/.config/rebar3/rebar.config`:
 {plugins, [rebar3_hex]}.
 ```
 
-Usage
---------
+Alternatively, you can add to your project's rebar3 config in project plugins : 
 
-## Authenticating User
+```erlang
+{project_plugins, [rebar3_hex]}.
+```
+
+**NOTE** : Be sure **not** to add `rebar3_hex` to the plugins section within a projects rebar3 config as this will 
+become a dependency for others downloading your package from hex.pm
+
+### Documentation
+
+rebar3_hex by default expects you to configure a documentation provider. We recommend using
+[rebar3_ex_doc](https://hexdocs.pm/rebar3_ex_doc/) for publishing documentation along with your package for a 
+consistent format and style on [hex.pm](https://hex.pm/). 
+
+Example : 
+
+```erlang
+
+{ex_doc, [
+    {source_url, <<"https://github.com/namespace/your_app">>},
+    {extras, [<<"README.md">>, <<"LICENSE">>]},
+    {main, <<"readme">>}
+]}.
+
+{hex, [{doc, ex_doc}]}.
+```
+
+Alternatively you can use the edoc provider that ships with rebar3 : 
+
+```erlang
+{hex, [{doc, edoc}]}.
+```
+
+## Basic usage 
+
+You should read the [docs](https://hexdocs.pm/rebar3_hex/) for a complete over for each provider, but below is a
+brief overview of basic usage. 
+
+### Authenticating User
 
 If you already have a user for [hex.pm](https://hex.pm) run:
 
@@ -30,11 +63,75 @@ If you already have a user for [hex.pm](https://hex.pm) run:
 $ rebar3 hex user auth
 ```
 
-Note that this will ask for your hex.pm username and password, as well as a password for encrypting your api token that has write permissions to the repository. When publishing a package you will have to give this password to decrypt the token in order to publish.
+Note that this will ask for your hex.pm username and password, as well as a password for encrypting your api token that 
+has write permissions to the repository. When publishing a package you will have to give this password to decrypt the 
+token in order to publish.
 
-## Private Organizations
+See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_user.html)
 
-[Private organizations]() are treated as repositories that have a parent. The parent is found as the first part of a repository's name, separated from the organization by a `:`. So for an organization `rebar3` on the main repository `hexpm` the name must be `hexpm:rebar3`.
+### Building
+
+The `build` provider is very useful for seeing exactly what would be published using either the `publish` or `cut` task
+without any chance of actually publishing the package or docs. Tarballs for the package and docs are written to
+`_build/<profile>/lib/your_app/hex/` by default. 
+
+
+```
+$ rebar3 hex build
+```
+
+See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_build.html)
+
+### Publishing 
+
+Two providers are available for publishing packages, `publish` and `cut` 
+
+By default `publish` builds and pushes your package and docs to a repository. See the 
+[docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_publish.html) for more information. 
+
+``` shell
+$ rebar3 hex publish
+```
+
+`cut` is available to provide some additional functionality around versioning and git tags. See the 
+[docs](https://hexdocs.pm/hex/rebar3_hex_cut.html) for more information.
+
+``` shell
+$ rebar3 hex cut
+```
+
+In either case, both providers will display the details of what is being published 
+(what files, the version, dependencies) and ask if it should continue, so be sure to read the 
+output carefully and make sure it is publishing what you expected.
+
+### Managing package owners 
+
+Owners can be added, removed, and listed for packages you are an owner of with the `hex owner` command. Packages
+can also be transfered to other registered users on hexpm as well. 
+
+``` shell
+$ rebar3 hex owner [add | remove | list | transfer] <package> <email>
+```
+
+See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_owner.html) for more information.
+
+### Retiring packages 
+
+Packages can be flagged as retired on hexpm via the `retire` provider : 
+
+```
+$ rebar3 hex retire PACKAGE VERSION REASON --message
+```
+
+They can also be unretired in case a mistake was made : 
+
+```
+$ rebar3 hex retire PACKAGE VERSION --unretire 
+```
+
+See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_retire.html)
+
+### Organizations
 
 `~/.config/rebar3/rebar.config`
 
@@ -44,49 +141,38 @@ Note that this will ask for your hex.pm username and password, as well as a pass
 	  ]}]}.
 ```
 
-## Read-Only Repo Key for CI
+See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_organization.html)
+
+#### Read-Only Repo Key for CI
 
 If you have a private organization or other private repository it is recommended that you use a repo specific auth token for reading from the repository in CI. To generate a token:
 
 ```shell
-$ rebar3 hex repo auth <repo> generate
-Generated key: abc123
+$ rebar3 hex organization auth <repo>
+Successfully authenticated to hexpm:myrepo
+```
+
+Now you can generate a key to use in CI for your organization 
+
+```
+$ rebar3 hex organization key hexpm:repo generate
+abc123
 ```
 
 Then in CI use whatever method is available for setting an environment variable to the token and add this call at the beginning of your CI runs to add the token to your rebar3 hex tokens:
 
 ```shell
-$ rebar3 hex repo auth <repo> --key $REPO_KEY
+$ rebar3 hex organization auth hexpm:repo --key abc123
 ```
 
-## Publishing Packages
+### Searching hexpm 
 
-Two functions are available for publishing applications to hex as packages. The first, `hex publish`, simply packages up what you have as is:
+A `search` provider is available to search packages across hex.pm as a convenience.
 
-``` shell
-$ rebar3 hex publish
+```
+$ rebar3 hex search
 ```
 
-Note that it will display the details of what it is publishing (what files, the version, dependencies) and ask if it should continue, so be sure to read the output carefully and make sure it is publishing what you expected.
-
-Another task, `hex cut` is available to provide some additional functionality around versioning and git tags:
-
-``` shell
-$ rebar3 hex cut
-```
-
-This command will ask how to increment (major, minor, patch) the version number based on the last version and can create a git tag and push that tag upstream.
-
-## Publishing Docs
-
-``` shell
-$ rebar3 hex docs
-```
-
-## Adding and Removing Owners of Packages
-
-Owners can be added and removed for packages you are an owner of with the `hex owner` command:
-
-``` shell
-$ rebar3 hex owner [add | remove] <package> <email>
-```
+# Further reading 
+See [Publishing packages](https://hex.pm/docs/rebar3_publish) on hexpm for more setup and usage instructions. See the 
+[docs](https://hexdocs.pm/rebar3_hex) for detailed documentation for all available providers.

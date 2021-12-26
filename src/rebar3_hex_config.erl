@@ -1,3 +1,4 @@
+%% @private
 -module(rebar3_hex_config).
 
 -export([ api_key_name/1

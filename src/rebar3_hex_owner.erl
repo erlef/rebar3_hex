@@ -1,3 +1,56 @@
+%% @doc `rebar3 hex owner'  - Manage package owners
+%%
+%% Adds, removes or lists package owners.
+%% 
+%% Package owners have full permissions to the package. They can publish and revert releases and even remove 
+%% other package owners.
+%%
+%% <h2>Add a owner</h2>
+%% Adds an owner to package by specifying the package name and email or username of the new owner.
+%% ```
+%% $ rebar3 hex owner add PACKAGE EMAIL_OR_USERNAME
+%% '''
+%%
+%% <h2>Transfer ownership</h2>
+%% Like `rebar3 hex owner add` add but also removes all existing owners of the package. This task is required to use 
+%% when transferring ownership of the package to an organization.
+%%
+%% ```
+%% $ rebar3 hex owner transfer PACKAGE EMAIL_OR_USERNAME
+%% '''
+%%
+%% <h2>Remove owner</h2>
+%% 
+%% Removes an owner to package by specifying the package name and email or username of the new owner.
+%%
+%% ```
+%% $ rebar3 hex owner remove PACKAGE EMAIL_OR_USERNAME
+%% '''
+%%
+%% <h2> List owners </h2>
+%% Lists all owners of given package.
+%%
+%% ```
+%% $ rebar3 hex owner list PACKAGE
+%% '''
+%%
+%% <h2> List owned packages </h2>
+%% Lists all packages owned by the current user.
+%%
+%% ```
+%% $ rebar3 hex owner list packages
+%% '''
+%%
+%% <h2> Command line options </h2>
+%%
+%% <ul>
+%%  <li>`--repo' - Specify the repository to use in the task. This option is required when 
+%%      you have multiple repositories configured, including organizations. The argument must 
+%%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm').
+%%      Defaults to `hexpm'.
+%%   </li>
+%% </ul>
+
 -module(rebar3_hex_owner).
 
 -export([init/1,
@@ -13,6 +66,7 @@
 %% Public API
 %% ===================================================================
 
+%% @private
 -spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
 init(State) ->
     Provider = providers:create([{name, ?PROVIDER},
@@ -31,6 +85,7 @@ init(State) ->
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
+%% @private
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()}.
 do(State) ->
     case rebar3_hex_config:repo(State) of
@@ -117,6 +172,7 @@ support() ->
     "  <level>    - one of full or maintainer~n~n"
     "  <transfer> - boolean value indicating whether to transfer a specified package or not~n~n".
 
+%% @private
 -spec format_error(any()) -> iolist().
 format_error(bad_command) ->
     S = "Invalid command ~n~n",

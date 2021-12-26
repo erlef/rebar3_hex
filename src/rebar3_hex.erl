@@ -1,3 +1,4 @@
+%% @private
 -module(rebar3_hex).
 
 -export([ init/1
