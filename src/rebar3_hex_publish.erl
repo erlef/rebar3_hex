@@ -207,6 +207,7 @@ handle_task(#{args := #{task := package}, apps := [App]} = Task) ->
     maybe_warn_about_single_app_args(Task),
     #{args := Args, repo := Repo, state := State} = Task,
     {ok, HexConfig} = write_config(Repo),
+    rebar_api:info("package argument given, will not publish docs", []),
     publish_package(State, HexConfig, App, Args);
 
 handle_task(#{args := #{task := package, app := AppName}, apps := Apps} = Task) ->
@@ -216,6 +217,7 @@ handle_task(#{args := #{task := package, app := AppName}, apps := Apps} = Task) 
             ?RAISE({app_not_found, AppName});
         {ok, App} ->
             {ok, HexConfig} = write_config(Repo),
+            rebar_api:info("package argument given, will not publish docs", []),
             publish_package(State, HexConfig, App, Args)
     end,
     {ok, State};
@@ -233,6 +235,7 @@ handle_task(#{args := #{task := docs, revert := Vsn}, apps := [App]} = Task) ->
 
 handle_task(#{args := #{task := docs}, apps := [App]} = Task) ->
     #{args := Args, repo := Repo, state := State} = Task,
+    rebar_api:info("docs argument given, will not publish package", []),
     publish_docs(State, Repo, App, Args),
     {ok, State};
 
@@ -242,6 +245,7 @@ handle_task(#{args := #{task := docs, app := AppName}, apps := Apps} = Task) ->
             ?RAISE({app_not_found, AppName});
         {ok, App} ->
             #{args := Args, repo := Repo, state := State} = Task,
+            rebar_api:info("docs argument given, will not publish package", []),
             publish_docs(State, Repo, App, Args),
             {ok, State}
     end;
@@ -315,7 +319,6 @@ publish_package(State, Repo, App, Args) ->
     case maybe_prompt(Args, "Proceed" ++ MaybeCheckoutWarnings ++ "?") of
         proceed ->
             HexOpts = hex_opts(Args),
-            rebar_api:info("package argument given, will not publish docs", []),
             #{tarball := Tarball} = Package,
             case Args of
                 #{dry_run := true} ->
