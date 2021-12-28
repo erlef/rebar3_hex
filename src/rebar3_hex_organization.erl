@@ -144,6 +144,10 @@ format_error(no_repo) ->
 format_error(auth_no_key) ->
     "Repo authenticate command requires key";
 
+format_error({get_write_config, {error, no_write_key}}) -> 
+    "You are not authenticated to the parent repository as a user. " 
+    "Authenticate with rebar3 hex user auth then run this command again.";
+
 format_error({auth, Reason}) when is_binary(Reason) ->
     io_lib:format("Error authenticating organization : ~ts", [Reason]);
 format_error({auth, Errors}) when is_map(Errors) ->
