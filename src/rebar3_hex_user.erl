@@ -106,7 +106,7 @@ handle_task(#{args := #{task := auth}} = Task) ->
     Password = get_password(account),
 
     Auth = base64:encode_to_string(<<Username/binary, ":", Password/binary>>),
-    RepoConfig0 = Repo#{api_key => list_to_binary("Basic " ++ Auth)},
+    RepoConfig0 = Repo#{api_key => rebar_utils:to_binary("Basic " ++ Auth)},
 
     %% write key
     WriteKeyName = api_key_name(),
@@ -162,7 +162,7 @@ handle_task(#{args := #{task := deauth}} = Task) ->
 handle_task(#{args := #{task := reset_password, account := true}} = Task) ->
     #{repo := Repo, state := State} = Task,
     User = get_string_input("Username or Email"),
-    case rebar3_hex_client:reset_password(Repo, list_to_binary(User)) of
+    case rebar3_hex_client:reset_password(Repo, rebar_utils:to_binary(User)) of
         {ok, _} ->
              rebar3_hex_io:say("Email with reset link sent", []),
              {ok, State};
@@ -203,7 +203,7 @@ handle_task(#{args := #{task := key, generate := true} = Args} = Task) ->
     Username = get_string_input("Username"),
     Password  = get_password(account),
     Auth = base64:encode_to_string(<<Username/binary, ":", Password/binary>>),
-    Config = Repo#{api_key => list_to_binary("Basic " ++ Auth)},
+    Config = Repo#{api_key => rebar_utils:to_binary("Basic " ++ Auth)},
     PermOpts = proplists:get_all_values(permission, Opts),
     Perms = rebar3_hex_key:convert_permissions(PermOpts, [#{<<"domain">> => <<"api">>}]),
     _ = generate_key(Config, KeyName, Perms),
@@ -285,7 +285,7 @@ do_get_string_input(Prompt, MaxRetries) ->
             rebar_api:warn("A ~ts is required for this task, please try again.", [Prompt]),
             do_get_string_input(Prompt, MaxRetries - 1);
         Username ->
-            list_to_binary(Username)
+            rebar_utils:to_binary(Username)
     end.
 
 local_password_check(Pw) ->
@@ -400,13 +400,13 @@ hostname() ->
     Name.
 
 api_key_name() ->
-    list_to_binary(hostname()).
+    rebar_utils:to_binary(hostname()).
 
 -dialyzer({nowarn_function, api_key_name/1}).
 api_key_name(Postfix) ->
-    list_to_binary([hostname(), "-api-", Postfix]).
+    rebar_utils:to_binary([hostname(), "-api-", Postfix]).
 
 -dialyzer({nowarn_function, repos_key_name/0}).
 repos_key_name() ->
-    list_to_binary([hostname(), "-repositories"]).
+    rebar_utils:to_binary([hostname(), "-repositories"]).
 
