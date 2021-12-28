@@ -17,6 +17,8 @@
         , pretty_print_status/1
         , pretty_print_errors/1
         , reset_password/2
+        , retire/5
+        , unretire/3
         ]).
 
 -include("rebar3_hex.hrl").
@@ -92,6 +94,17 @@ publish_docs(Repo, Name, Version, Tarball) ->
 
 delete_docs(Config, Name, Version) ->
     Res = hex_api:delete(Config, ["packages", Name, "releases", Version, "docs"]),
+    response(Res).
+
+retire(Config, Package, Version, Reason, Message) -> 
+    Msg = #{<<"reason">> => Reason,
+            <<"message">> => Message
+           },
+    Res = hex_api_release:retire(Config, Package, Version, Msg),
+    response(Res).
+
+unretire(Config, Package, Version) -> 
+    Res = hex_api_release:unretire(Config, Package, Version),
     response(Res).
 
 response({ok, {201, _Headers, Res}}) ->
