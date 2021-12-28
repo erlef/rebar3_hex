@@ -1,3 +1,88 @@
+% @doc `rebar3 hex build' 
+%
+%% Builds a new local version of your package.
+%%
+%% By default this provider will build both a package tarball and docs tarball. 
+%%  
+%% The package and docs .tar files are created in the current directory, but is not pushed to the repository. An app 
+%% named foo at version 1.2.3 will be built as foo-1.2.3.tar. Likewise the docs .tar would be built as 
+%% foo-1.2.4-docs.tar. 
+%%
+%% ```shell
+%% $ rebar3 hex build 
+%% '''
+%% 
+%% You may also build only a package or docs tarball utilizing the same available command line options. 
+%%
+%% ``` shell
+%% $ rebar3 hex build package 
+%% '''
+%%
+%% ```
+%% $ rebar3 hex build docs 
+%% '''
+%% 
+%% <h2>Configuration</h2> 
+%% Packages are configured via `src/<myapp>.app.src'  attributes.
+%% 
+%% == Required configuration == 
+%% 
+%% <ul>
+%%  <li> `application' - application name. This is required per Erlang/OTP thus it should always be present anyway. 
+%   <li> `vsn' -  must be a valid [semantic version](http://semver.org/) identifier.
+%%  <li>`licenses' - A list of licenses the project is licensed under. This attribute is required. A valid
+%%  [spdx](https://spdx.org/licenses/) is expected.</li>
+%% </ul>
+
+%% 
+%% == Optional configuration == 
+%% In addition, the following meta attributes are supported and highly recommended : 
+%%
+%% <ul>
+%%  <li> `description' - a brief description about your application.
+%%  <li>`pkg_name' - The name of the package in case you want to publish the package with a different name than the
+%%  application name.</li>
+%%  <li>`links' - A map where the key is a link name and the value is the link URL. Optional but highly recommended.
+%%  <li> `files' - A list of files and directories to include in the package. Defaults to standard project directories, 
+%%        so you usually don't need to set this property.</li>
+%%  <li> `include_files' - A list of paths containing files you wish to include in a release. </li>
+%%  <li> `exclude_files' - A list of paths containing files you wish to exclude in a release. </li>
+%%  <li> `exclude_patterns' - A list of regular expressions used to exclude files that may have been accumulated via
+%%  `files' and `include_files' and standard project paths. 
+%%  <li> `build_tools' - List of build tools that can build the package. It's very rare that you need to set this. </li>
+%% </ul>
+%%
+%% Below is an example : 
+%%
+%% ```erlang
+%% {application, myapp,
+%%  [{description, "An Erlang/OTP application"},
+%%   {vsn, "0.1.0"},
+%%   {modules, []},
+%%   {registered, []},
+%%   {applications, [kernel,
+%%                   stdlib,
+%%                   ]},
+%%   {licenses, ["Apache-2.0"]},
+%%   {links, [{"GitHub", "https://github.com/my_name/myapp"}]}]}.
+%% ```
+%%
+%% <h2> Command line options </h2>
+%%
+%% <ul>
+%%  <li> `-r', `--repo' - Specify the repository to use in the task. This option is required when 
+%%      you have multiple repositories configured, including organizations. The argument must 
+%%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm').
+%%   </li>
+%%   <li> `-u', `--unpack' - Builds the tarball and unpacks contents into a directory. Useful for making sure the tarball 
+%%        contains all needed files before publishing. See --output below for setting the output path.
+%%   </li>
+%%   <li> `-o', `--output' - Sets output path. When used with --unpack it means the directory 
+%%   (Default: <app>-<version>). Otherwise, it specifies tarball path (Default: <app>-<version>.tar)</li>
+%% </ul>
+
+
+
 -module(rebar3_hex_build).
 
 -export([create_package/3, create_docs/3, create_docs/4]).
@@ -21,7 +106,135 @@
     "NOTICE"
 ]).
 
+-define(DEPS, [{default, lock}]).
+-define(PROVIDER, build).
 -define(DEFAULT_DOC_DIR, "doc").
+
+-export([
+    init/1,
+    do/1,
+    format_error/1
+]).
+
+%% ===================================================================
+%% Public API
+%% ===================================================================
+
+%% @private
+-spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
+init(State) ->
+    Provider = providers:create([
+        {name, ?PROVIDER},
+        {module, ?MODULE},
+        {namespace, hex},
+        {bare, true},
+        {deps, ?DEPS},
+        {example, "rebar3 hex build"},
+        {short_desc, "Builds a new local version of your package and docs."},
+        {desc, ""},
+        {opts, [
+            rebar3_hex:repo_opt(),
+            {app, $a, "app", {string, undefined}, "HALP!"},
+            {output_dir, $o, "output", {string, undefined}, "HALP!"},
+            {unpack, $u, "unpack", {boolean, false}, "HALP!"}
+        ]}
+    ]),
+    State1 = rebar_state:add_provider(State, Provider),
+    {ok, State1}.
+
+%% @private
+-spec do(rebar_state:t()) -> {ok, rebar_state:t()}.
+do(State) ->
+    case rebar3_hex:task_state(State) of
+        {ok, Task} ->
+            handle_task(Task);
+        {error, Reason} ->
+            ?RAISE(Reason)
+    end.
+
+%% @private
+-spec format_error(any()) -> iolist().
+format_error({build_package, Error}) when is_list(Error) -> 
+    io_lib:format("Error building package : ~ts", [Error]);
+
+format_error({build_docs, Error}) when is_list(Error) -> 
+    io_lib:format("Error building docs : ~ts", [Error]);
+
+format_error(Reason) ->
+    rebar3_hex_error:format_error(Reason).
+
+handle_task(#{state := State, repo := Repo, apps := [App], args := #{task := docs} = Args}) ->
+    case create_docs(State, Repo, App) of
+        {ok, Docs} ->
+            AbsDir = write_or_unpack(Docs, Args),
+            rebar3_hex_io:say("Your docs can be inspected at ~ts", [AbsDir]),
+            {ok, State};
+        Error ->
+            ?RAISE({build_docs, Error})
+    end;
+
+handle_task(#{state := State, repo := Repo, apps := [App], args := #{task := package} = Args}) ->
+    case create_package(State, Repo, App) of
+        {ok, Pkg} ->
+            AbsDir = write_or_unpack(Pkg, Args),
+            rebar3_hex_io:say("Your package contents can be inspected at ~ts", [AbsDir]),
+            {ok, State};
+        Error ->
+            ?RAISE({build_package, Error})
+    end;
+
+handle_task(#{state := State, repo := Repo, apps := [App], args := Args}) ->
+    case create_package(State, Repo, App) of
+        {ok, Pkg} ->
+            AbsOutput = write_or_unpack(Pkg, Args),
+            rebar3_hex_io:say("Your package tarball is available at ~ts", [AbsOutput]),
+            case create_docs(State, Repo, App) of
+                {ok, Docs} ->
+                    AbsFile = write_or_unpack(Docs, Args),
+                    rebar3_hex_io:say("Your docs tarball is available at ~ts", [AbsFile]),
+                    {ok, State};
+                Error ->
+                    ?RAISE({build_docs, Error})
+            end;
+        Error ->
+            ?RAISE({build_package, Error})
+    end.
+
+output_path(docs, Name, Version, #{unpack := true}) ->
+    io_lib:format("~ts-~ts-docs", [Name, Version]);
+output_path(docs, Name, Version, _Args) ->
+    io_lib:format("~ts-~ts-docs.tar", [Name, Version]);
+output_path(package, Name, Version, #{unpack := true}) ->
+    io_lib:format("~ts-~ts", [Name, Version]);
+output_path(package, Name, Version, _Args) ->
+    io_lib:format("~ts-~ts.tar", [Name, Version]).
+
+write_or_unpack(#{type := Type, tarball := Tarball, name := Name, version := Version}, Args) -> 
+    OutputDir = output_dir(Args),
+    Out = output_path(Type, Name, Version, Args),
+    AbsOut = filename:join(OutputDir, Out),
+    case Args of 
+        #{unpack := true} -> 
+            file:make_dir(AbsOut),
+            case Type of 
+                docs -> 
+                    hex_tarball:unpack_docs(Tarball, AbsOut);
+                package -> 
+                    hex_tarball:unpack(Tarball, AbsOut)
+            end;
+        _ -> 
+            file:write_file(AbsOut, Tarball)
+    end,
+    AbsOut.
+        
+output_dir(#{output_dir := undefined}) ->
+    {ok, Cwd} = file:get_cwd(),
+    Cwd;
+output_dir(#{output_dir := Output}) ->
+    filename:absname(Output);
+output_dir(_) ->
+    {ok, Cwd} = file:get_cwd(),
+    Cwd.
 
 create_package(State, #{name := RepoName} = _Repo, App) ->
     Name = rebar_app_info:name(App),
@@ -68,6 +281,7 @@ create_package(State, #{name := RepoName} = _Repo, App) ->
                     Err;
                 Tarball ->
                     Package = #{
+                        type => package,
                         name => PkgName,
                         repo_name => RepoName,
                         deps => Deps1,
@@ -108,7 +322,7 @@ include_files(Name, AppDir, AppDetails) ->
     FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
     IncludeFilePaths = proplists:get_value(include_files, AppDetails, []),
     ExcludeFilePaths = proplists:get_value(exclude_files, AppDetails, []),
-    ExcludeRes = proplists:get_value(exclude_regexps, AppDetails, []),
+    ExcludeRes = proplists:get_value(exclude_patterns, AppDetails, []),
 
     AllFiles = lists:ukeysort(2, rebar3_hex_file:expand_paths(FilePaths, AppDir)),
     IncludeFiles = lists:ukeysort(2, rebar3_hex_file:expand_paths(IncludeFilePaths, AppDir)),
@@ -179,9 +393,9 @@ create_docs(State, Repo, App, Args) ->
                     case create_docs_tarball(FileList) of
                         {ok, Tarball} ->
                             {ok, #{
-                                tarball => Tarball, name => binarify(PkgName), vsn => binarify(Vsn)
+                                type => docs, tarball => Tarball, name => binarify(PkgName), version => binarify(Vsn)
                             }};
-                        {error, Reason}  ->
+                        {error, Reason} ->
                             {error, hex_tarball:format_error(Reason)};
                         Err ->
                             Err
