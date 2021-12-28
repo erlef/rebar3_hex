@@ -87,9 +87,9 @@ publish_docs(Repo, Name, Version, Tarball) ->
     Headers = maps:get(http_headers, Config, #{}),
     Headers1 = maps:put(<<"content-length">>, integer_to_binary(byte_size(Tarball)), Headers),
     Config2 = maps:put(http_headers, Headers1, Config),
-
+    Path = hex_api:build_repository_path(Config2, ["packages", Name, "releases", Version, "docs"]),
     Body = {TarballContentType, Tarball},
-    Res = hex_api:post(Config2, ["packages", Name, "releases", Version, "docs"], Body),
+    Res = hex_api:post(Config2, Path, Body),
     response(Res).
 
 delete_docs(Config, Name, Version) ->
