@@ -19,7 +19,7 @@ format_error_test(_Config) ->
             {invalid_semver, {myapp, "-1.2.3"}},
             <<"myapp.app.src : non-semantic version number \"-1.2.3\" found">>
         },
-        { 
+        {
          {invalid_semver_arg, <<"1.0">>},
           <<"The version argument provided \"1.0\" is not a valid semantic version.">>
         },
@@ -29,17 +29,32 @@ format_error_test(_Config) ->
         {{has_contributors, myapp}, <<"myapp.app.src : deprecated field contributors found">>},
         {no_write_key,
             <<"No write key found for user. Be sure to authenticate first with: rebar3 hex user auth">>},
+
+
         {
-            {publish,
+            {create_package, {error, "some error"}},
+            <<"Error creating package : some error">>
+        },
+
+        {
+            {create_docs, {error, {doc_provider_not_found, foo}}},
+            <<"The foo documentation provider could not be found">>
+        },
+        {
+            {create_docs, {error, {doc_provider_failed, foo}}},
+            <<"The foo documentation provider failed">>
+        },
+        {
+            {publish_package, <<"foo">>, <<"v1.0.0">>,
                 {error, #{
                     <<"message">> => <<"eh?">>,
                     <<"errors">> => [<<"Bad things">>, {<<"More bad">>, <<"things">>}]
                 }}},
-            <<"Failed to publish package: eh?\n\tBad thingsMore bad: things">>
+            <<"Failed to publish package foo - v1.0.0 : eh?\n\tBad thingsMore bad: things">>
         },
         {
-            {publish, {error, #{<<"message">> => "non sequitur"}}},
-            <<"Failed to publish package: non sequitur">>
+            {publish_package, <<"foo">>, <<"v1.0.0">>, {error, #{<<"message">> => "non sequitur"}}},
+            <<"Failed to publish package foo - v1.0.0 : non sequitur">>
         },
         {
             {publish_package, app_switch_required},
@@ -50,8 +65,44 @@ format_error_test(_Config) ->
             <<"--app required when publishing with the docs argument in a umbrella">>
         },
         {
+            {publish_docs, <<"foo">>, <<"v1.0.0">>,
+                {error, #{
+                    <<"message">> => <<"eh?">>,
+                    <<"errors">> => [<<"Bad things">>, {<<"More bad">>, <<"things">>}]
+                }}},
+            <<"Failed to publish docs for foo - v1.0.0 : eh?\n\tBad thingsMore bad: things">>
+        },
+        {
+            {publish_docs, <<"foo">>, <<"v1.0.0">>, {error, #{<<"message">> => "non sequitur"}}},
+            <<"Failed to publish docs for foo - v1.0.0 : non sequitur">>
+        },
+        {
             {revert, app_switch_required},
             <<"--app required when reverting in a umbrella with multiple apps">>
+        },
+        {
+            {revert_package, <<"foo">>, <<"v1.0.0">>,
+                {error, #{
+                    <<"message">> => <<"eh?">>,
+                    <<"errors">> => [<<"Bad things">>, {<<"More bad">>, <<"things">>}]
+                }}},
+            <<"Failed to revert package foo - v1.0.0 : eh?\n\tBad thingsMore bad: things">>
+        },
+        {
+            {revert_package, <<"foo">>, <<"v1.0.0">>, {error, #{<<"message">> => "non sequitur"}}},
+            <<"Failed to revert package foo - v1.0.0 : non sequitur">>
+        },
+        {
+            {revert_docs, <<"foo">>, <<"v1.0.0">>,
+                {error, #{
+                    <<"message">> => <<"eh?">>,
+                    <<"errors">> => [<<"Bad things">>, {<<"More bad">>, <<"things">>}]
+                }}},
+            <<"Failed to revert docs for foo - v1.0.0 : eh?\n\tBad thingsMore bad: things">>
+        },
+        {
+            {revert_docs, <<"foo">>, <<"v1.0.0">>, {error, #{<<"message">> => "non sequitur"}}},
+            <<"Failed to revert docs for foo - v1.0.0 : non sequitur">>
         },
         {
             {non_hex_deps, ["dep1", "dep2", "dep3"]},
@@ -85,7 +136,7 @@ format_error_test(_Config) ->
 
     lists:foreach(
         fun({Args, Exp}) ->
-            ?assertEqual(Exp, list_to_bitstring(rebar3_hex_publish:format_error(Args)))
+            ?assertEqual(Exp, list_to_binary(rebar3_hex_publish:format_error(Args)))
         end,
         ErrMap
     ),
@@ -99,7 +150,7 @@ format_error_test(_Config) ->
         list_to_bitstring(rebar3_hex_publish:format_error(ErrList))
     ),
 
-    ?assertEqual("bad command", rebar3_hex_publish:format_error(bad_command)),
+    ?assertMatch(<<"Invalid arguments", _/binary>>, list_to_binary(rebar3_hex_publish:format_error(bad_command))),
     ?assertEqual(
         "App foo specified with --app switch not found in project",
         rebar3_hex_publish:format_error({app_not_found, foo})
@@ -128,9 +179,6 @@ format_error_test(_Config) ->
     ),
 
     ?assertEqual(
-        "empty tarball", rebar3_hex_publish:format_error({publish, {error, {tarball, empty}}})
-    ),
-    ?assertEqual(
         "An unknown error was encountered. Run with DIAGNOSTIC=1 for more details.",
         rebar3_hex_publish:format_error(unknown)
     ),
@@ -149,7 +197,9 @@ format_error_test(_Config) ->
         ],
         10
     ],
-    ?assertEqual(ExpErr, rebar3_hex_publish:format_error({has_unstable_deps, [{"verl", "42"}]})).
+    ?assertEqual(ExpErr, rebar3_hex_publish:format_error({has_unstable_deps, [{"verl", "42"}]})),
+    ?assertMatch(<<"No index.html file was found", _Rest/binary>>, list_to_binary(rebar3_hex_publish:format_error({create_docs, {error,
+                                                                                                        missing_doc_index}}))).
 
 %%%%%%%%%%%%%%%
 %%% Helpers %%%

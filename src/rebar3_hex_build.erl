@@ -63,21 +63,24 @@ create_package(State, #{name := RepoName} = _Repo, App) ->
                 | OptionalFiltered
             ]),
 
-            Tarball = create_package_tarball(Metadata, PackageFiles),
-
-            Package = #{
-                name => PkgName,
-                repo_name => RepoName,
-                deps => Deps1,
-                version => Version,
-                metadata => Metadata,
-                files => PackageFiles,
-                tarball => Tarball,
-                has_checkouts => has_checkouts(State)
-            },
-            {ok, Package};
-        {error, _} = Err ->
-            Err
+            case create_package_tarball(Metadata, PackageFiles) of
+                {error, _} = Err ->
+                    Err;
+                Tarball ->
+                    Package = #{
+                        name => PkgName,
+                        repo_name => RepoName,
+                        deps => Deps1,
+                        version => Version,
+                        metadata => Metadata,
+                        files => PackageFiles,
+                        tarball => Tarball,
+                        has_checkouts => has_checkouts(State)
+                    },
+                    {ok, Package}
+            end;
+        Error ->
+            Error
     end.
 
 update_versions(ConfigDeps, LockDeps) ->
@@ -178,8 +181,8 @@ create_docs(State, Repo, App, Args) ->
                             {ok, #{
                                 tarball => Tarball, name => binarify(PkgName), vsn => binarify(Vsn)
                             }};
-                        {error, _} = Err ->
-                            Err;
+                        {error, Reason}  ->
+                            {error, hex_tarball:format_error(Reason)};
                         Err ->
                             Err
                     end;
@@ -268,8 +271,8 @@ create_package_tarball(Metadata, Files) ->
     case hex_tarball:create(Metadata, Files) of
         {ok, #{tarball := Tarball, inner_checksum := _Checksum}} ->
             Tarball;
-        {error, _} = Err ->
-            Err;
+        {error, Reason} ->
+            {error, hex_tarball:format_error(Reason)};
         Error ->
             Error
     end.

@@ -51,6 +51,7 @@ do(State) ->
             ?RAISE(Reason)
     end.
 
+%% TODO: Move me somewhere else
 -spec format_error(any()) -> iolist().
 format_error(ErrList) when is_list(ErrList) ->
   F = fun(Err, Acc) ->
@@ -59,6 +60,27 @@ format_error(ErrList) when is_list(ErrList) ->
       end,
   More = "\n     Please see https://hex.pm/docs/rebar3_publish for more info.\n",
   lists:foldl(F, "Validator Errors:\n", ErrList) ++ More;
+
+format_error(no_write_key) ->
+    "No write key found for user. Be sure to authenticate first with:"
+    ++ " rebar3 hex user auth";
+
+%% Option errors
+format_error({app_not_found, AppName}) ->
+     io_lib:format("App ~s specified with --app switch not found in project", [AppName]);
+format_error({publish_package, app_switch_required}) ->
+    "--app required when publishing with the package argument in a umbrella";
+format_error({publish_docs, app_switch_required}) ->
+    "--app required when publishing with the docs argument in a umbrella";
+format_error({revert, app_switch_required}) ->
+    "--app required when reverting in a umbrella with multiple apps";
+format_error({required, repo}) ->
+    "publish requires a repo name argument to identify the repo to publish to";
+format_error({not_valid_repo, RepoName}) ->
+    io_lib:format("No configuration for repository ~ts found.", [RepoName]);
+
+
+%% Validation errors
 format_error({validation_errors, Errs}) ->
     lists:map(fun(E) -> format_error(E) end, Errs);
 format_error({has_contributors, AppName}) ->
@@ -93,36 +115,57 @@ format_error({has_unstable_deps, Deps}) ->
     ],
     io_lib:format("~s~n~n~s~n~n~s~n", [MainMsg, DepList, Msg]);
 
-format_error({app_not_found, AppName}) ->
-     io_lib:format("App ~s specified with --app switch not found in project", [AppName]);
-format_error(bad_command) ->
-        "bad command";
-format_error({publish_package, app_switch_required}) ->
-    "--app required when publishing with the package argument in a umbrella";
-format_error({publish_docs, app_switch_required}) ->
-    "--app required when publishing with the docs argument in a umbrella";
-format_error({revert, app_switch_required}) ->
-    "--app required when reverting in a umbrella with multiple apps";
-format_error({required, repo}) ->
-    "publish requires a repo name argument to identify the repo to publish to";
-format_error({not_valid_repo, RepoName}) ->
-    io_lib:format("No configuration for repository ~ts found.", [RepoName]);
-format_error(no_write_key) ->
-    "No write key found for user. Be sure to authenticate first with:"
-    ++ " rebar3 hex user auth";
-format_error({publish, {error, {tarball, _} = Err}}) ->
-    hex_tarball:format_error(Err);
-format_error({publish, {error, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
-    ErrorString = errors_to_string(Errors),
-    io_lib:format("Failed to publish package: ~ts~n\t~ts", [Message, ErrorString]);
-format_error({publish, {error, #{<<"message">> := Message}}}) ->
-    io_lib:format("Failed to publish package: ~ts", [Message]);
-format_error({create_docs, {error, {doc_provider_not_found, PrvName}}}) ->
-   io_lib:format("The ~ts documentation provider could not be found", [PrvName]);
 format_error({non_hex_deps, Excluded}) ->
     Err = "Can not publish package because the following deps are not available"
          ++ " in hex: ~s",
     io_lib:format(Err, [string:join(Excluded, ", ")]);
+
+%% create package errors
+format_error({create_package, {error, Err}}) when is_list(Err) ->
+    io_lib:format("Error creating package : ~ts", [Err]);
+
+%% create docs errors
+format_error({create_docs, {error, {doc_provider_not_found, PrvName}}}) ->
+   io_lib:format("The ~ts documentation provider could not be found", [PrvName]);
+format_error({create_docs, {error, {doc_provider_failed, PrvName}}}) ->
+   io_lib:format("The ~ts documentation provider failed", [PrvName]);
+format_error({create_docs, {error, missing_doc_index}}) ->
+    "No index.html file was found in expected docs directory.\n"
+    "If you provided --doc-dir option ensure that your docs were generated before running this task.\n"
+    "Otherwise, check that your preferred doc provider is properly generating docs outside the scope of this task.\n"
+    "Once resolved, run rebar3 hex publish docs <options> to publish only the docs for this version of your package.\n";
+
+%% publish package errors
+format_error({publish_package, Name, Version, {error, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
+    ErrorString = errors_to_string(Errors),
+    io_lib:format("Failed to publish package ~ts - ~ts : ~ts~n\t~ts", [Name, Version, Message, ErrorString]);
+format_error({publish_package, Name, Version, {error, #{<<"message">> := Message}}}) ->
+    io_lib:format("Failed to publish package ~ts - ~ts : ~ts", [Name, Version, Message]);
+
+%% publish docs errors
+format_error({publish_docs, Name, Version, {error, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
+    ErrorString = errors_to_string(Errors),
+    io_lib:format("Failed to publish docs for ~ts - ~ts : ~ts~n\t~ts", [Name, Version, Message, ErrorString]);
+format_error({publish_docs, Name, Version, {error, #{<<"message">> := Message}}}) ->
+    io_lib:format("Failed to publish docs for ~ts - ~ts : ~ts", [Name, Version, Message]);
+
+%% revert package errors
+format_error({revert_package, Name, Version, {error, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
+    ErrorString = errors_to_string(Errors),
+    io_lib:format("Failed to revert package ~ts - ~ts : ~ts~n\t~ts", [Name, Version, Message, ErrorString]);
+format_error({revert_package, Name, Version, {error, #{<<"message">> := Message}}}) ->
+    io_lib:format("Failed to revert package ~ts - ~ts : ~ts", [Name, Version, Message]);
+
+%% revert docs errors
+format_error({revert_docs, Name, Version, {error, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
+    ErrorString = errors_to_string(Errors),
+    io_lib:format("Failed to revert docs for ~ts - ~ts : ~ts~n\t~ts", [Name, Version, Message, ErrorString]);
+format_error({revert_docs, Name, Version, {error, #{<<"message">> := Message}}}) ->
+    io_lib:format("Failed to revert docs for ~ts - ~ts : ~ts", [Name, Version, Message]);
+
+
+%% TODO: Check if this is dead code
+%% Server errors
 format_error(undefined_server_error) ->
     "Unknown server error";
 format_error({status, Status}) ->
@@ -135,6 +178,13 @@ format_error({status, Status, Error}) ->
   ErrorString = errors_to_string(Errors),
   Data =  [rebar3_hex_client:pretty_print_status(Status), Message, ErrorString],
   io_lib:format("Status Code: ~s~nHex Error: ~s~n\t~s", Data);
+
+format_error(bad_command) ->
+    "Invalid arguments, expected one of:\n\n"
+    "rebar3 hex publish\n"
+    "rebar3 hex publish package\n"
+    "rebar3 hex publish docs\n";
+
 format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
 
@@ -157,6 +207,7 @@ handle_task(#{args := #{task := package}, apps := [App]} = Task) ->
     maybe_warn_about_single_app_args(Task),
     #{args := Args, repo := Repo, state := State} = Task,
     {ok, HexConfig} = write_config(Repo),
+    rebar_api:info("package argument given, will not publish docs", []),
     publish_package(State, HexConfig, App, Args);
 
 handle_task(#{args := #{task := package, app := AppName}, apps := Apps} = Task) ->
@@ -166,6 +217,7 @@ handle_task(#{args := #{task := package, app := AppName}, apps := Apps} = Task) 
             ?RAISE({app_not_found, AppName});
         {ok, App} ->
             {ok, HexConfig} = write_config(Repo),
+            rebar_api:info("package argument given, will not publish docs", []),
             publish_package(State, HexConfig, App, Args)
     end,
     {ok, State};
@@ -183,6 +235,7 @@ handle_task(#{args := #{task := docs, revert := Vsn}, apps := [App]} = Task) ->
 
 handle_task(#{args := #{task := docs}, apps := [App]} = Task) ->
     #{args := Args, repo := Repo, state := State} = Task,
+    rebar_api:info("docs argument given, will not publish package", []),
     publish_docs(State, Repo, App, Args),
     {ok, State};
 
@@ -192,6 +245,7 @@ handle_task(#{args := #{task := docs, app := AppName}, apps := Apps} = Task) ->
             ?RAISE({app_not_found, AppName});
         {ok, App} ->
             #{args := Args, repo := Repo, state := State} = Task,
+            rebar_api:info("docs argument given, will not publish package", []),
             publish_docs(State, Repo, App, Args),
             {ok, State}
     end;
@@ -220,21 +274,24 @@ handle_task(#{args := #{revert := Vsn, app := AppName}, apps := Apps} = Task) ->
 %% Publish package and docs (the default path)
 %% ===================================================================
 
-handle_task(#{args := #{app := undefined}, repo := Repo, state := State, apps := Apps} = Task) ->
+handle_task(#{args := #{task := undefined, app := undefined}, repo := Repo, state := State, apps := Apps} = Task) ->
     #{args := Args} = Task,
     maybe_warn_about_single_app_args(Task),
     Selected = rebar3_hex_io:select_apps(Apps),
     lists:foreach(fun(App) -> publish(State, Repo, App, Args) end, Selected),
     {ok, State};
 
-handle_task(#{args := #{app := AppName},  apps := Apps, multi_app := true} = Task) ->
+handle_task(#{args := #{task := undefined, app := AppName},  apps := Apps, multi_app := true} = Task) ->
     case rebar3_hex_app:find(Apps, AppName) of
         {error, app_not_found} ->
             ?RAISE({app_not_found, AppName});
         {ok, App} ->
             #{args := Args, repo := Repo, state := State} = Task,
             publish(State, Repo, App, Args)
-    end.
+    end;
+
+handle_task(_) -> 
+    ?RAISE(bad_command).
 
 -dialyzer({nowarn_function, publish/4}).
 publish(State, Repo, App, Args) ->
@@ -262,20 +319,20 @@ publish_package(State, Repo, App, Args) ->
     case maybe_prompt(Args, "Proceed" ++ MaybeCheckoutWarnings ++ "?") of
         proceed ->
             HexOpts = hex_opts(Args),
-            rebar_api:info("package argument given, will not publish docs", []),
             #{tarball := Tarball} = Package,
             case Args of
                 #{dry_run := true} ->
                     rebar_api:info("--dry-run enabled : will not publish package.", []),
                     {ok, State};
-                _ -> 
+                _ ->
                     case rebar3_hex_client:publish(Repo, Tarball, HexOpts) of
                         {ok, _Res} ->
                             #{name := Name, version := Version} = Package,
                             rebar_api:info("Published ~ts ~ts", [Name, Version]),
                             {ok, State};
-                        Error ->
-                            ?RAISE({publish, Error})
+                      Error ->
+                        #{name := Name, version := Version} = Package,
+                        ?RAISE({publish_package, Name, Version, Error})
                     end
             end;
         abort ->
@@ -367,7 +424,7 @@ publish_docs(State, Repo, App, Args) ->
                     rebar_api:info("Published docs for ~ts ~ts", [Name, Vsn]),
                     {ok, State};
                 Reason ->
-                    ?RAISE({publish_docs, Reason})
+                    ?RAISE({publish_docs, Name, Vsn, Reason})
             end
     end.
 
@@ -375,6 +432,8 @@ create_docs(State, Repo, App, Args) ->
     case rebar3_hex_build:create_docs(State, Repo, App, Args) of
         {ok, Docs} ->
             Docs;
+        {error, no_doc_config} ->
+            rebar_api:warn("No documentation provider was configured, docs will not be generated.", []);
         Err ->
             ?RAISE({create_docs, Err})
     end.
@@ -399,7 +458,7 @@ revert_package(State, Repo, AppName, Vsn) ->
                     {ok, State}
             end;
         Reason ->
-            ?RAISE({revert, Reason})
+            ?RAISE({revert_package, BinAppName, BinVsn, Reason})
     end.
 
 revert_docs(State, Repo, AppName, Vsn) ->
@@ -412,7 +471,7 @@ revert_docs(State, Repo, AppName, Vsn) ->
             rebar_api:info("Successfully deleted docs for ~ts ~ts", [AppName, Vsn]),
             {ok, State};
         Reason ->
-            ?RAISE({revert, Reason})
+            ?RAISE({revert_docs, BinAppName, BinVsn, Reason})
     end.
 
 %% ===================================================================

@@ -769,7 +769,9 @@ publish_unauthorized_test(Config) ->
     expects_repo_config(Setup),
     Exp = {error,
            {rebar3_hex_publish,
-            {publish,
+            {publish_package,
+             <<"valid">>,
+             "0.1.0",
              {error,
               #{<<"message">> =>
                 <<"account not authorized for this action">>}}}}},
