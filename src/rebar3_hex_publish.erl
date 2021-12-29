@@ -147,7 +147,13 @@ format_error({publish_docs, Name, Version, {error, #{<<"errors">> := Errors, <<"
     ErrorString = errors_to_string(Errors),
     io_lib:format("Failed to publish docs for ~ts - ~ts : ~ts~n\t~ts", [Name, Version, Message, ErrorString]);
 format_error({publish_docs, Name, Version, {error, #{<<"message">> := Message}}}) ->
-    io_lib:format("Failed to publish docs for ~ts - ~ts : ~ts", [Name, Version, Message]);
+    Reason = case Message of
+        <<"Page not found">> ->
+            io_lib:format("the ~ts package at version ~ts could not be found.", [Name, Version]);
+        Other ->
+            Other
+    end,
+    io_lib:format("Failed to publish docs for ~ts - ~ts : ~ts", [Name, Version, Reason]);
 
 %% revert package errors
 format_error({revert_package, Name, Version, {error, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
