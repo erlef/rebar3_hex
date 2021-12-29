@@ -48,7 +48,7 @@ help_test(_Config) ->
                 {rebar3_hex_publish, publish},
                 {rebar3_hex_cut, cut},
                 {rebar3_hex_owner, owner},
-                {rebar3_hex_repo, repo},
+                {rebar3_hex_organization, organization},
                 {rebar3_hex_retire, retire},
                 {rebar3_hex_search, search},
                 {rebar3_hex_user, user}

@@ -1,6 +1,16 @@
 -module(test_utils).
 
--export([mkdir_p/1, make_stub/1, stub_app/1, mock_command/4, repo_config/0, repo_config/1]).
+-export([default_config/0, mkdir_p/1, make_stub/1, stub_app/1, mock_command/4, repo_config/0, repo_config/1]).
+
+-define(HEXPM_PUBLIC_KEY, <<"-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApqREcFDt5vV21JVe2QNB
+Edvzk6w36aNFhVGWN5toNJRjRJ6m4hIuG4KaXtDWVLjnvct6MYMfqhC79HAGwyF+
+IqR6Q6a5bbFSsImgBJwz1oadoVKD6ZNetAuCIK84cjMrEFRkELtEIPNHblCzUkkM
+3rS9+DPlnfG8hBvGi6tvQIuZmXGCxF/73hU0/MyGhbmEjIKRtG6b0sJYKelRLTPW
+XgK7s5pESgiwf2YC/2MGDXjAJfpfCd0RpLdvd4eRiXtVlE9qO9bND94E7PgQ/xqZ
+J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
+0wIDAQAB
+-----END PUBLIC KEY-----">>).
 
 -define(REPO_CONFIG, maps:merge(hex_core:default_config(), #{
                                   name        => <<"hexpm">>,
@@ -9,14 +19,17 @@
                                   repo_url    => <<"http://127.0.0.1:3000">>,
                                   repo_verify => false,
                                   read_key                 => <<"123">>,
-                                  repo_public_key          => <<0>>,
+                                  repo_public_key          => ?HEXPM_PUBLIC_KEY,
                                   repo_key                => <<"repo_key">>,
                                   username                 => <<"mr_pockets">>,
-
                                   write_key               => rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>,
-                                  <<"special_shoes">>, <<"key">>)
+                                  <<"special_shoes">>, <<"key">>),
+                                  doc => #{provider => edoc}
                                  }
                                )).
+
+
+default_config() -> ?REPO_CONFIG.
 
 mock_command(ProviderName, Command, RepoConfig, State0) ->
     State1 = rebar_state:add_resource(State0, {pkg, rebar_pkg_resource}),
