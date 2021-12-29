@@ -45,10 +45,10 @@
 %%  <li>`links' - A map where the key is a link name and the value is the link URL. Optional but highly recommended.
 %%  <li> `files' - A list of files and directories to include in the package. Defaults to standard project directories, 
 %%        so you usually don't need to set this property.</li>
-%%  <li> `include_files' - A list of paths containing files you wish to include in a release. </li>
-%%  <li> `exclude_files' - A list of paths containing files you wish to exclude in a release. </li>
+%%  <li> `include_paths' - A list of paths containing files you wish to include in a release. </li>
+%%  <li> `exclude_paths' - A list of paths containing files you wish to exclude in a release. </li>
 %%  <li> `exclude_patterns' - A list of regular expressions used to exclude files that may have been accumulated via
-%%  `files' and `include_files' and standard project paths. 
+%%  `files' and `include_paths' and standard project paths. 
 %%  <li> `build_tools' - List of build tools that can build the package. It's very rare that you need to set this. </li>
 %% </ul>
 %%
@@ -72,13 +72,16 @@
 %% <ul>
 %%  <li> `-r', `--repo' - Specify the repository to use in the task. This option is required when 
 %%      you have multiple repositories configured, including organizations. The argument must 
-%%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm').
+%%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm'). 
+%%      Defaults to `hexpm'. 
 %%   </li>
 %%   <li> `-u', `--unpack' - Builds the tarball and unpacks contents into a directory. Useful for making sure the tarball 
 %%        contains all needed files before publishing. See --output below for setting the output path.
 %%   </li>
 %%   <li> `-o', `--output' - Sets output path. When used with --unpack it means the directory 
-%%   (Default: <app>-<version>). Otherwise, it specifies tarball path (Default: <app>-<version>.tar)</li>
+%%   (Default: <app>-<version>). Otherwise, it specifies tarball path (Default: <app>-<version>.tar).
+%%   Artifacts will be written to `_build/default/lib/<your_app>/' by default.
+%%   </li>
 %% </ul>
 
 
@@ -160,13 +163,19 @@ format_error({build_package, Error}) when is_list(Error) ->
 format_error({build_docs, Error}) when is_list(Error) -> 
     io_lib:format("Error building docs : ~ts", [Error]);
 
+format_error(app_switch_required) -> 
+     "--app switch is required when building packages or docs in a umbrella with multiple apps";
+
 format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
+
+handle_task(#{apps := [_,_|_]}) -> 
+    ?RAISE(app_switch_required);
 
 handle_task(#{state := State, repo := Repo, apps := [App], args := #{task := docs} = Args}) ->
     case create_docs(State, Repo, App) of
         {ok, Docs} ->
-            AbsDir = write_or_unpack(Docs, Args),
+            AbsDir = write_or_unpack(App, Docs, Args),
             rebar3_hex_io:say("Your docs can be inspected at ~ts", [AbsDir]),
             {ok, State};
         Error ->
@@ -176,7 +185,7 @@ handle_task(#{state := State, repo := Repo, apps := [App], args := #{task := doc
 handle_task(#{state := State, repo := Repo, apps := [App], args := #{task := package} = Args}) ->
     case create_package(State, Repo, App) of
         {ok, Pkg} ->
-            AbsDir = write_or_unpack(Pkg, Args),
+            AbsDir = write_or_unpack(App, Pkg, Args),
             rebar3_hex_io:say("Your package contents can be inspected at ~ts", [AbsDir]),
             {ok, State};
         Error ->
@@ -186,11 +195,11 @@ handle_task(#{state := State, repo := Repo, apps := [App], args := #{task := pac
 handle_task(#{state := State, repo := Repo, apps := [App], args := Args}) ->
     case create_package(State, Repo, App) of
         {ok, Pkg} ->
-            AbsOutput = write_or_unpack(Pkg, Args),
+            AbsOutput = write_or_unpack(App, Pkg, Args),
             rebar3_hex_io:say("Your package tarball is available at ~ts", [AbsOutput]),
             case create_docs(State, Repo, App) of
                 {ok, Docs} ->
-                    AbsFile = write_or_unpack(Docs, Args),
+                    AbsFile = write_or_unpack(App, Docs, Args),
                     rebar3_hex_io:say("Your docs tarball is available at ~ts", [AbsFile]),
                     {ok, State};
                 Error ->
@@ -209,8 +218,8 @@ output_path(package, Name, Version, #{unpack := true}) ->
 output_path(package, Name, Version, _Args) ->
     io_lib:format("~ts-~ts.tar", [Name, Version]).
 
-write_or_unpack(#{type := Type, tarball := Tarball, name := Name, version := Version}, Args) -> 
-    OutputDir = output_dir(Args),
+write_or_unpack(App, #{type := Type, tarball := Tarball, name := Name, version := Version}, Args) -> 
+    OutputDir = output_dir(App, Args),
     Out = output_path(Type, Name, Version, Args),
     AbsOut = filename:join(OutputDir, Out),
     case Args of 
@@ -227,14 +236,12 @@ write_or_unpack(#{type := Type, tarball := Tarball, name := Name, version := Ver
     end,
     AbsOut.
         
-output_dir(#{output_dir := undefined}) ->
-    {ok, Cwd} = file:get_cwd(),
-    Cwd;
-output_dir(#{output_dir := Output}) ->
+output_dir(App, #{output_dir := undefined}) ->
+    rebar_app_info:out_dir(App);
+output_dir(_App, #{output_dir := Output}) ->
     filename:absname(Output);
-output_dir(_) ->
-    {ok, Cwd} = file:get_cwd(),
-    Cwd.
+output_dir(App, _) ->
+    rebar_app_info:out_dir(App).
 
 create_package(State, #{name := RepoName} = _Repo, App) ->
     Name = rebar_app_info:name(App),
@@ -320,13 +327,13 @@ update_versions(ConfigDeps, LockDeps) ->
 include_files(Name, AppDir, AppDetails) ->
     AppSrc = {application, to_atom(Name), AppDetails},
     FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
-    IncludeFilePaths = proplists:get_value(include_files, AppDetails, []),
-    ExcludeFilePaths = proplists:get_value(exclude_files, AppDetails, []),
+    IncludePaths = proplists:get_value(include_paths, AppDetails, proplists:get_value(include_files, AppDetails, [])),
+    ExcludePaths = proplists:get_value(exclude_paths, AppDetails, proplists:get_value(exclude_files, AppDetails, [])),
     ExcludeRes = proplists:get_value(exclude_patterns, AppDetails, []),
 
     AllFiles = lists:ukeysort(2, rebar3_hex_file:expand_paths(FilePaths, AppDir)),
-    IncludeFiles = lists:ukeysort(2, rebar3_hex_file:expand_paths(IncludeFilePaths, AppDir)),
-    ExcludeFiles = lists:ukeysort(2, rebar3_hex_file:expand_paths(ExcludeFilePaths, AppDir)),
+    IncludeFiles = lists:ukeysort(2, rebar3_hex_file:expand_paths(IncludePaths, AppDir)),
+    ExcludeFiles = lists:ukeysort(2, rebar3_hex_file:expand_paths(ExcludePaths, AppDir)),
 
     %% We filter first and then include, that way glob excludes can be
     %% overwritten be explict includes
