@@ -125,21 +125,17 @@ format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
 
 retire(State, PkgName, Version, Repo, RetireReason, RetireMessage) ->
-    case rebar3_hex_config:hex_config_write(Repo) of
-        {error, no_write_key} ->
-            ?RAISE({no_write_key, maps:get(name, Repo)});
-        {ok, HexConfig} ->
-            Msg = #{<<"reason">> => RetireReason,
-                     <<"message">> => RetireMessage},
-            case hex_api_release:retire(HexConfig, PkgName, Version, Msg) of
-                {ok, {204, _Headers, _Body}} ->
-                    rebar_api:info("Successfully retired package ~ts ~ts", [PkgName, Version]),
-                    {ok, State};
-                {ok, {422, _Headers, #{<<"errors">> := Errors, <<"message">> := Message}}} ->
-                    ?RAISE({validation_errors, Errors, Message});
-                {ok, {Code, _Headers, _Body}} ->
-                    ?RAISE({api_error, PkgName, Version, rebar3_hex_client:pretty_print_status(Code)});
-                {error, Reason} ->
-                    ?RAISE({api_error, PkgName, Version, io_lib:format("~p", [Reason])})
-            end
+    HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
+    Msg = #{<<"reason">> => RetireReason,
+                <<"message">> => RetireMessage},
+    case hex_api_release:retire(HexConfig, PkgName, Version, Msg) of
+        {ok, {204, _Headers, _Body}} ->
+            rebar_api:info("Successfully retired package ~ts ~ts", [PkgName, Version]),
+            {ok, State};
+        {ok, {422, _Headers, #{<<"errors">> := Errors, <<"message">> := Message}}} ->
+            ?RAISE({validation_errors, Errors, Message});
+        {ok, {Code, _Headers, _Body}} ->
+            ?RAISE({api_error, PkgName, Version, rebar3_hex_client:pretty_print_status(Code)});
+        {error, Reason} ->
+            ?RAISE({api_error, PkgName, Version, io_lib:format("~p", [Reason])})
     end.
