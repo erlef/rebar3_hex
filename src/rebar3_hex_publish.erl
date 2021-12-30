@@ -61,9 +61,8 @@ format_error(ErrList) when is_list(ErrList) ->
   More = "\n     Please see https://hex.pm/docs/rebar3_publish for more info.\n",
   lists:foldl(F, "Validator Errors:\n", ErrList) ++ More;
 
-format_error(no_write_key) ->
-    "No write key found for user. Be sure to authenticate first with:"
-    ++ " rebar3 hex user auth";
+format_error(no_apps_found) ->
+    "publish can not continue, no apps were found.";
 
 %% Option errors
 format_error({app_not_found, AppName}) ->
@@ -147,7 +146,13 @@ format_error({publish_docs, Name, Version, {error, #{<<"errors">> := Errors, <<"
     ErrorString = errors_to_string(Errors),
     io_lib:format("Failed to publish docs for ~ts - ~ts : ~ts~n\t~ts", [Name, Version, Message, ErrorString]);
 format_error({publish_docs, Name, Version, {error, #{<<"message">> := Message}}}) ->
-    io_lib:format("Failed to publish docs for ~ts - ~ts : ~ts", [Name, Version, Message]);
+    Reason = case Message of
+        <<"Page not found">> ->
+            io_lib:format("the ~ts package at version ~ts could not be found.", [Name, Version]);
+        Other ->
+            Other
+    end,
+    io_lib:format("Failed to publish docs for ~ts - ~ts : ~ts", [Name, Version, Reason]);
 
 %% revert package errors
 format_error({revert_package, Name, Version, {error, #{<<"errors">> := Errors, <<"message">> := Message}}}) ->
@@ -195,6 +200,9 @@ format_error(Reason) ->
 %% ===================================================================
 %% Publish package only operations
 %% ===================================================================
+handle_task(#{apps := []}) ->
+    ?RAISE(no_apps_found);
+
 handle_task(#{args := #{task := package, app := undefined}, multi_app := true}) ->
     ?RAISE({publish_package, app_switch_required});
 
@@ -206,7 +214,7 @@ handle_task(#{args := #{task := package, revert := Vsn}, apps := [App]} = Task) 
 handle_task(#{args := #{task := package}, apps := [App]} = Task) ->
     maybe_warn_about_single_app_args(Task),
     #{args := Args, repo := Repo, state := State} = Task,
-    {ok, HexConfig} = write_config(Repo),
+    HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     rebar_api:info("package argument given, will not publish docs", []),
     publish_package(State, HexConfig, App, Args);
 
@@ -216,7 +224,7 @@ handle_task(#{args := #{task := package, app := AppName}, apps := Apps} = Task) 
         {error, app_not_found} ->
             ?RAISE({app_not_found, AppName});
         {ok, App} ->
-            {ok, HexConfig} = write_config(Repo),
+            HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
             rebar_api:info("package argument given, will not publish docs", []),
             publish_package(State, HexConfig, App, Args)
     end,
@@ -295,7 +303,7 @@ handle_task(_) ->
 
 -dialyzer({nowarn_function, publish/4}).
 publish(State, Repo, App, Args) ->
-    {ok, HexConfig} = write_config(Repo),
+    HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     case publish_package(State, HexConfig, App, Args) of
         abort ->
             {ok, State};
@@ -413,13 +421,14 @@ hex_opts(Opts) ->
 %%% ===================================================================
 
 publish_docs(State, Repo, App, Args) ->
-    #{tarball := Tar, name := Name, vsn := Vsn} = create_docs(State, Repo, App, Args),
+    #{tarball := Tar, name := Name, version := Vsn} = create_docs(State, Repo, App, Args),
     case Args of
         #{dry_run := true} ->
             rebar_api:info("--dry-run enabled : will not publish docs.", []),
             {ok, State};
          _ ->
-            case rebar3_hex_client:publish_docs(Repo, Name, Vsn, Tar) of
+            Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
+            case rebar3_hex_client:publish_docs(Config, Name, Vsn, Tar) of
                 {ok, _} ->
                     rebar_api:info("Published docs for ~ts ~ts", [Name, Vsn]),
                     {ok, State};
@@ -446,7 +455,7 @@ revert_package(State, Repo, AppName, Vsn) ->
     BinAppName = rebar_utils:to_binary(AppName),
     BinVsn =  rebar_utils:to_binary(Vsn),
     assert_valid_version_arg(BinVsn),
-    {ok, HexConfig} = write_config(Repo),
+    HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     case rebar3_hex_client:delete_release(HexConfig, BinAppName, BinVsn) of
         {ok, _} ->
             rebar_api:info("Successfully deleted package ~ts ~ts", [AppName, Vsn]),
@@ -465,7 +474,7 @@ revert_docs(State, Repo, AppName, Vsn) ->
     BinAppName = rebar_utils:to_binary(AppName),
     BinVsn =  rebar_utils:to_binary(Vsn),
     assert_valid_version_arg(BinVsn),
-    {ok, Config} = write_config(Repo),
+    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     case rebar3_hex_client:delete_docs(Config, BinAppName, BinVsn) of
         {ok, _} ->
             rebar_api:info("Successfully deleted docs for ~ts ~ts", [AppName, Vsn]),
@@ -477,15 +486,6 @@ revert_docs(State, Repo, AppName, Vsn) ->
 %% ===================================================================
 %% General purpose helpers
 %% ===================================================================
-
-assert_has_write_key(Repo) ->
-    MaybeApiKey = maps:get(api_key, Repo, undefined),
-    case maps:get(write_key, Repo, MaybeApiKey) of
-        undefined ->
-            ?RAISE(no_write_key);
-        _ ->
-            ok
-    end.
 
 assert_valid_app(State, App) ->
     Name = rebar_app_info:name(App),
@@ -568,6 +568,3 @@ support() ->
     "  <repo>    - a valid repository, only required when multiple repositories are configured~n~n"
     "  <version> - a valid version string, currently only utilized with --revert switch~n~n".
 
-write_config(Repo) ->
-    assert_has_write_key(Repo),
-    rebar3_hex_config:hex_config_write(Repo).

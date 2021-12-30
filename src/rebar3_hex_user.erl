@@ -48,6 +48,10 @@ do(State) ->
     end.
 
 -spec format_error(any()) -> iolist().
+format_error({decrypt_write_key, no_write_key}) -> 
+    "No write key found for user in this repository. "
+    "Be sure you have authenticated first with : rebar3 hex user auth";
+
 format_error({whoami, Reason}) when is_binary(Reason) ->
     io_lib:format("Fetching currently authenticated user failed: ~ts", [Reason]);
 format_error({input_required, InputName}) ->
@@ -193,7 +197,7 @@ handle_task(#{args := #{task := reset_password, local := true}} = Task) ->
     end;
 
 handle_task(#{args := #{task := whoami}, state := State}) ->
-    {ok, Parents} = rebar3_hex_config:parent_repos(State),
+    Parents = rebar3_hex_config:parent_repos(State),
     [whoami(R, State) || R <- Parents],
     {ok, State};
 
@@ -212,7 +216,7 @@ handle_task(#{args := #{task := key, generate := true} = Args} = Task) ->
 
 handle_task(#{args := #{task := key, revoke := true, all := true}} = Task) ->
     #{repo := Repo, state := State} = Task,
-    {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
+    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     case rebar3_hex_key:revoke_all(Config) of
         ok ->
             rebar3_hex_io:say("All keys successfully revoked", []),
@@ -223,7 +227,7 @@ handle_task(#{args := #{task := key, revoke := true, all := true}} = Task) ->
 
 handle_task(#{args := #{task := key, revoke := true, key_name := KeyName}} = Task) ->
     #{repo := Repo, state := State} = Task,
-    {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
+    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     case rebar3_hex_key:revoke(Config, KeyName) of
         ok ->
             rebar3_hex_io:say("Key successfully revoked", []),
@@ -233,7 +237,7 @@ handle_task(#{args := #{task := key, revoke := true, key_name := KeyName}} = Tas
     end;
 
 handle_task(#{repo := Repo, state := State, args := #{task := key, list := true}}) ->
-    {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
+    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, read),
     case rebar3_hex_key:list(Config) of
          ok ->
             {ok, State};
@@ -243,7 +247,7 @@ handle_task(#{repo := Repo, state := State, args := #{task := key, list := true}
 
 handle_task(#{args := #{task := key, fetch := true, key_name := KeyName}} = Task) ->
     #{repo := Repo, state := State} = Task,
-    {ok, Config} = rebar3_hex_config:hex_config_read(Repo),
+    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, read),
     case rebar3_hex_key:fetch(Config, KeyName) of
          ok ->
             {ok, State};
@@ -348,7 +352,7 @@ encrypt_write_key(Username, LocalPassword, WriteKey) ->
 
 %-spec decrypt_write_key(binary(), {binary(), {binary(), binary()}} | undefined) -> binary().
 decrypt_write_key(_Username, undefined) ->
-    {error, no_write_key};
+    {decrypt_write_key, no_write_key};
 decrypt_write_key(Username, Key) ->
     MaxRetries = 2,
     LocalPassword = rebar3_hex_io:get_password(<<"Local Password: ">>),
@@ -409,4 +413,5 @@ api_key_name(Postfix) ->
 -dialyzer({nowarn_function, repos_key_name/0}).
 repos_key_name() ->
     rebar_utils:to_binary([hostname(), "-repositories"]).
+
 

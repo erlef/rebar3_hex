@@ -144,10 +144,6 @@ format_error(no_repo) ->
 format_error(auth_no_key) ->
     "Repo authenticate command requires key";
 
-format_error({get_write_config, {error, no_write_key}}) -> 
-    "You are not authenticated to the parent repository as a user. " 
-    "Authenticate with rebar3 hex user auth then run this command again.";
-
 format_error({auth, Reason}) when is_binary(Reason) ->
     io_lib:format("Error authenticating organization : ~ts", [Reason]);
 format_error({auth, Errors}) when is_map(Errors) ->
@@ -211,7 +207,7 @@ auth(State, RepoName) ->
     Key =
         case proplists:get_value(key, Opts, undefined) of
             undefined ->
-                Config = get_write_config(ParentRepo),
+                Config = rebar3_hex_config:get_hex_config(?MODULE, ParentRepo, write),
                 Config1 = Config#{api_organization => OrgName},
                 KeyName = proplists:get_value(key_name, Opts, rebar3_hex_config:repos_key_name()),
                 generate_key(Config1, KeyName, default_perms(OrgName));
@@ -243,7 +239,7 @@ generate(State, RepoName) ->
     {Repo, OrgName} = get_parent_repo_and_org_name(State, RepoName),
     {Opts, _} = rebar_state:command_parsed_args(State),
     KeyName = proplists:get_value(key_name, Opts, rebar3_hex_config:repos_key_name()),
-    Config = get_write_config(Repo),
+    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     PermOpts = proplists:get_all_values(permission, Opts),
     Perms = rebar3_hex_key:convert_permissions(PermOpts, default_perms(OrgName)),
     Key = generate_key(Config#{api_organization => OrgName}, KeyName, Perms),
@@ -253,7 +249,7 @@ generate(State, RepoName) ->
 -spec list_org_keys(rebar_state:t(), binary()) -> {ok, rebar_state:t()}.
 list_org_keys(State, RepoName) ->
     {Repo, OrgName} = get_parent_repo_and_org_name(State, RepoName),
-    Config = get_write_config(Repo),
+    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, read),
     case rebar3_hex_key:list(Config#{api_organization => OrgName}) of
         ok ->
             {ok, State};
@@ -275,7 +271,7 @@ revoke(State, RepoName) ->
                   K ->
                       K
               end,
-    Config = get_write_config(Repo),
+    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     case rebar3_hex_key:revoke(Config#{api_organization => OrgName}, KeyName) of
         ok ->
             rebar3_hex_io:say("Key successfully revoked", []),
@@ -291,7 +287,7 @@ revoke(State, RepoName) ->
 -spec revoke_all(rebar_state:t(), binary()) -> {ok, rebar_state:t()}.
 revoke_all(State, RepoName) ->
     {Repo, OrgName} = get_parent_repo_and_org_name(State, RepoName),
-    Config = get_write_config(Repo),
+    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     case rebar3_hex_key:revoke_all(Config#{api_organization => OrgName}) of
         ok ->
             rebar3_hex_io:say("All keys successfully revoked", []),
@@ -386,15 +382,6 @@ to_binary(Name) ->
 
 -spec org_url(binary(), binary()) -> [byte(), ...].
 org_url(Org, Url) -> binary_to_list(Url) ++ "/repos/" ++ binary_to_list(Org).
-
--spec get_write_config(map()) -> map().
-get_write_config(Repo) ->
-    case rebar3_hex_config:hex_config_write(Repo) of
-        {ok, HexConfig} ->
-            HexConfig;
-        Error ->
-            ?RAISE({get_write_config, Error})
-    end.
 
 get_parent_repo_and_org_name(State, RepoName) ->
     case binary:split(RepoName, <<":">>) of
