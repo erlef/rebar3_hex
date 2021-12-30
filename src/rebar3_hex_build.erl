@@ -329,10 +329,11 @@ include_files(Name, AppDir, AppDetails) ->
     FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
     %% In versions prior to v7 the name of the for including paths and excluding paths was include_files and
     %% exclude_files. We don't document this anymore, but we do support it to avoid breaking changes. However, 
-    %% users should be instructed to use *_paths.
+    %% users should be instructed to use *_paths. Likewise for exclude_regexps which is now documented as
+    %% exclude_patterns.
     IncludePaths = proplists:get_value(include_paths, AppDetails, proplists:get_value(include_files, AppDetails, [])),
     ExcludePaths = proplists:get_value(exclude_paths, AppDetails, proplists:get_value(exclude_files, AppDetails, [])),
-    ExcludeRes = proplists:get_value(exclude_patterns, AppDetails, []),
+    ExcludeRes = proplists:get_value(exclude_patterns, AppDetails, proplists:get_value(exclude_regexps, AppDetails, [])),
 
     AllFiles = lists:ukeysort(2, rebar3_hex_file:expand_paths(FilePaths, AppDir)),
     IncludeFiles = lists:ukeysort(2, rebar3_hex_file:expand_paths(IncludePaths, AppDir)),
