@@ -65,6 +65,9 @@ format_error(no_write_key) ->
     "No write key found for user. Be sure to authenticate first with:"
     ++ " rebar3 hex user auth";
 
+format_error(no_apps_found) ->
+    "publish can not continue, no apps were found.";
+
 %% Option errors
 format_error({app_not_found, AppName}) ->
      io_lib:format("App ~s specified with --app switch not found in project", [AppName]);
@@ -201,6 +204,9 @@ format_error(Reason) ->
 %% ===================================================================
 %% Publish package only operations
 %% ===================================================================
+handle_task(#{apps := []}) ->
+    ?RAISE(no_apps_found);
+
 handle_task(#{args := #{task := package, app := undefined}, multi_app := true}) ->
     ?RAISE({publish_package, app_switch_required});
 

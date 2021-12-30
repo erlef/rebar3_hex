@@ -75,6 +75,8 @@ task_state(State) ->
              CurrentTask = maps:get(task, Opts, undefined),
              Opts1 = Opts#{task => CurrentTask},
              case rebar_state:project_apps(State) of 
+                 [] ->
+                     {ok, #{raw_opts => Opts0, raw_args => Args0, args => Opts1, repo => Repo, state => State, multi_app => false, apps => []}};
                  [_App] = Apps ->
                     {ok, #{raw_opts => Opts0, raw_args => Args0, args => Opts1, repo => Repo, state => State, multi_app => false, apps => Apps}};
                  [_|_] = Apps ->
