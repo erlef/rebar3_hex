@@ -159,12 +159,16 @@ vcs_vsn(State, App) ->
 
 vcs_vsn(OriginalVsn, Dir, Resources) when is_list(Dir), is_list(Resources) ->
     FakeState = rebar_state:new(),
-    {ok, AppInfo} = rebar_app_info:new(fake, OriginalVsn, Dir),
-    vcs_vsn(
-        AppInfo,
-        OriginalVsn,
-        rebar_state:set_resources(FakeState, Resources)
-    );
+    case rebar_app_info:new(fake, OriginalVsn, Dir) of
+        {ok, AppInfo} ->
+            vcs_vsn(
+                AppInfo,
+                OriginalVsn,
+                rebar_state:set_resources(FakeState, Resources)
+            );
+        Error ->
+            Error
+    end;
 vcs_vsn(AppInfo, Vcs, State) ->
     case vcs_vsn_cmd(AppInfo, Vcs, State) of
         {plain, VsnString} ->
@@ -186,8 +190,12 @@ vcs_vsn_cmd(_AppInfo, {cmd, _Cmd} = Custom, _) ->
     Custom;
 vcs_vsn_cmd(AppInfo, {file, File}, _) ->
     Path = filename:join(rebar_app_info:dir(AppInfo), File),
-    {ok, Vsn} = file:read_file(Path),
-    {plain, rebar_utils:to_list(rebar_string:trim(Vsn))};
+    case file:read_file(Path) of
+        {ok, Vsn} ->
+            {plain, rebar_utils:to_list(rebar_string:trim(Vsn))};
+        Error ->
+            Error
+    end;
 vcs_vsn_cmd(AppInfo, VCS, State) when is_atom(VCS) ->
     rebar_resource_v2:make_vsn(AppInfo, VCS, State);
 vcs_vsn_cmd(AppInfo, {VCS, _} = V, State) when is_atom(VCS) ->
@@ -207,5 +215,9 @@ vcs_vsn_cmd(_, _, _) ->
     unknown.
 
 cmd_vsn_invoke(Cmd, Dir) ->
-    {ok, VsnString} = rebar_utils:sh(Cmd, [{cd, Dir}, {use_stdout, false}]),
-    rebar_string:trim(VsnString, trailing, "\n").
+    case rebar_utils:sh(Cmd, [{cd, Dir}, {use_stdout, false}]) of
+        {ok, VsnString} ->
+            rebar_string:trim(VsnString, trailing, "\n");
+        Error ->
+            Error
+    end.

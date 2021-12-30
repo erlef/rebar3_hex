@@ -30,12 +30,12 @@ init(State) ->
 do(State) ->
     {Args, _} = rebar_state:command_parsed_args(State),
     Term = proplists:get_value(term, Args, ""),
-    {ok, Parents} = rebar3_hex_config:parent_repos(State),
+    Parents = rebar3_hex_config:parent_repos(State),
     lists:foreach(fun(Repo) -> search(State, Repo, Term) end, Parents),
     {ok, State}.
 
 search(State, Repo, Term) ->
-    {ok, HexConfig} = rebar3_hex_config:hex_config_read(Repo),
+    HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, read),
     case hex_api_package:search(HexConfig, rebar_utils:to_binary(Term), []) of
         {ok, {200, _Headers, []}} ->
             io:format("No Results~n"),

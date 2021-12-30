@@ -7,9 +7,7 @@
         , repos_key_name/0
         , org_key_name/2
         , parent_repos/1
-        , hex_config/2
-        , hex_config_write/1
-        , hex_config_read/1
+        , get_hex_config/3
         , repo/1
         , repo/2
         , update_auth_config/2
@@ -194,7 +192,7 @@ parent_repos(State) ->
                   end
           end,
     Map = lists:foldl(Fun, #{}, Repos),
-    {ok, maps:values(Map)}.
+    maps:values(Map).
 
 get_repo(BinaryName, Repos) ->
     try rebar_hex_repos:get_repo_config(BinaryName, Repos) of
@@ -202,6 +200,15 @@ get_repo(BinaryName, Repos) ->
             Name
     catch
         {error,{rebar_hex_repos,{repo_not_found,BinaryName}}} -> undefined
+    end.
+
+-spec get_hex_config(module(), map(), read | write) -> map().
+get_hex_config(Module, Repo, Mode) ->
+    case hex_config(Repo, Mode) of
+        {ok, HexConfig} ->
+            HexConfig;
+        {error, Reason} ->
+            erlang:error({error, {Module, {get_hex_config, Reason}}})
     end.
 
 hex_config(Repo, read) ->

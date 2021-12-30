@@ -79,9 +79,7 @@ delete_release(HexConfig, Name, Version) ->
     Res = hex_api_release:delete(HexConfig, Name, Version),
     response(Res).
 
-publish_docs(Repo, Name, Version, Tarball) ->
-    {ok, Config} = rebar3_hex_config:hex_config_write(Repo),
-
+publish_docs(Config, Name, Version, Tarball) ->
     TarballContentType = "application/octet-stream",
 
     Headers = maps:get(http_headers, Config, #{}),

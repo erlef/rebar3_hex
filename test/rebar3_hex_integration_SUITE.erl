@@ -873,7 +873,7 @@ publish_error_test(Config) ->
          },
     #{rebar_state := State} = Setup = setup_state(P, Config),
     expects_repo_config(Setup),
-    ?assertError({error,{rebar3_hex_publish,no_write_key}}, rebar3_hex_publish:do(State)).
+    ?assertError({error,{rebar3_hex_publish,{get_hex_config, no_write_key}}}, rebar3_hex_publish:do(State)).
 
 publish_unauthorized_test(Config) ->
     WriteKey = rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>, <<"special_shoes">>, <<"unauthorized">>),
@@ -1311,7 +1311,7 @@ expects_repo_config(#{repo := Repo}) ->
     meck:expect(rebar3_hex_config, repo, fun(_, <<"hexpm">>) -> {ok, test_utils:default_config()} end).
 
 expects_parent_repos(#{repo := Repo}) ->
-    meck:expect(rebar3_hex_config, parent_repos, fun(_) -> {ok, [Repo]} end).
+    meck:expect(rebar3_hex_config, parent_repos, fun(_) -> [Repo] end).
 
 expects_update_auth_config( #{username := Username, repo := Repo}) ->
     BinUsername = rebar_utils:to_binary(Username),

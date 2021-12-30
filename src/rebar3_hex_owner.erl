@@ -31,13 +31,13 @@ init(State) ->
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
 
--spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
+-spec do(rebar_state:t()) -> {ok, rebar_state:t()}.
 do(State) ->
     case rebar3_hex_config:repo(State) of
         {ok, Repo} ->
-            handle_command(State, Repo);
+            {ok, handle_command(State, Repo)};
         {error, Reason} ->
-            ?PRV_ERROR(Reason)
+            ?RAISE(Reason)
     end.
 
 handle_command(State, Repo) ->
@@ -45,44 +45,28 @@ handle_command(State, Repo) ->
         {"add", Package, UsernameOrEmail, Level, Transfer} ->
             case valid_level(Level) of
                 true ->
-                    case rebar3_hex_config:hex_config_write(Repo) of
-                        {ok, Config}  ->
-                            {ok, State} = add(Config, Package, UsernameOrEmail, Level, Transfer, State),
-                            ok = rebar3_hex_io:say("Added ~ts to ~ts", [UsernameOrEmail, Package]),
-                            {ok, State};
-                        Err ->
-                            ?PRV_ERROR(Err)
-                    end;
+                    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
+                    add(Config, Package, UsernameOrEmail, Level, Transfer, State),
+                    ok = rebar3_hex_io:say("Added ~ts to ~ts", [UsernameOrEmail, Package]),
+                    State;
                 false ->
-                    {error, "level must be one of full or maintainer"}
+                    ?RAISE({error, "level must be one of full or maintainer"})
             end;
         {"remove", Package, UsernameOrEmail} ->
-            case rebar3_hex_config:hex_config_write(Repo) of
-                {ok, Config} ->
-                    {ok, State} = remove(Config, Package, UsernameOrEmail, State),
-                    ok = rebar3_hex_io:say("Removed ~ts to ~ts", [UsernameOrEmail, Package]),
-                    {ok, State};
-                Err ->
-                    ?PRV_ERROR(Err)
-            end;
+            Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
+            remove(Config, Package, UsernameOrEmail, State),
+            ok = rebar3_hex_io:say("Removed ~ts to ~ts", [UsernameOrEmail, Package]),
+            State;
         {"transfer", Package, UsernameOrEmail} ->
-            case  rebar3_hex_config:hex_config_write(Repo) of
-                {ok, Config} ->
-                    {ok, State} = add(Config, Package, UsernameOrEmail, <<"full">>, true, State),
-                    ok = rebar3_hex_io:say("Transferred ~ts to ~ts", [Package, UsernameOrEmail]),
-                    {ok, State};
-                Err ->
-                    ?PRV_ERROR(Err)
-            end;
+            Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
+            add(Config, Package, UsernameOrEmail, <<"full">>, true, State),
+            ok = rebar3_hex_io:say("Transferred ~ts to ~ts", [Package, UsernameOrEmail]),
+            State;
         {"list", Package} ->
-            case rebar3_hex_config:hex_config_read(Repo) of
-                {ok, Config} ->
-                    list(Config, Package, State);
-                Err ->
-                    ?PRV_ERROR(Err)
-            end;
+            Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, read),
+            list(Config, Package, State);
         _Command ->
-            ?PRV_ERROR(bad_command)
+            ?RAISE(bad_command)
     end.
 
 command_args(State) ->
@@ -162,23 +146,23 @@ valid_level(_) -> false.
 add(HexConfig, Package, UsernameOrEmail, Level, Transfer, State) ->
     case hex_api_package_owner:add(HexConfig, Package, UsernameOrEmail, Level, Transfer) of
         {ok, {Code, _Headers, _Body}} when Code =:= 204 orelse Code =:= 201->
-            {ok, State};
+            State;
 		{ok, {422, _Headers, #{<<"errors">> := Errors, <<"message">> := Message}}} ->
-            erlang:error(?PRV_ERROR({validation_errors, add, Package, UsernameOrEmail, Errors, Message}));
+            ?RAISE({validation_errors, add, Package, UsernameOrEmail, Errors, Message});
         {ok, {Status, _Headers, _Body}} ->
-            erlang:error(?PRV_ERROR({status, Status, Package, UsernameOrEmail}));
+            ?RAISE({status, Status, Package, UsernameOrEmail});
         {error, Reason} ->
-            erlang:error(?PRV_ERROR({error, Package, UsernameOrEmail, Reason}))
+            ?RAISE({error, Package, UsernameOrEmail, Reason})
     end.
 
 remove(HexConfig, Package, UsernameOrEmail, State) ->
     case hex_api_package_owner:delete(HexConfig, Package, UsernameOrEmail) of
         {ok, {204, _Headers, _Body}} ->
-            {ok, State};
+            State;
         {ok, {Status, _Headers, _Body}} ->
-            ?PRV_ERROR({status, Status, Package, UsernameOrEmail});
+            ?RAISE({status, Status, Package, UsernameOrEmail});
         {error, Reason} ->
-            ?PRV_ERROR({error, Package, UsernameOrEmail, Reason})
+            ?RAISE({error, Package, UsernameOrEmail, Reason})
     end.
 
 list(HexConfig, Package, State) ->
@@ -187,11 +171,11 @@ list(HexConfig, Package, State) ->
             Owners = [owner(Owner) || Owner <- List],
             OwnersString = rebar_string:join(Owners, "\n"),
             rebar3_hex_io:say("~s", [OwnersString]),
-            {ok, State};
+            State;
         {ok, {Status, _Headers, _Body}} ->
-            ?PRV_ERROR({status, Status, Package});
+            ?RAISE({status, Status, Package});
         {error, Reason} ->
-            ?PRV_ERROR({error, Package, Reason})
+            ?RAISE({error, Package, Reason})
     end.
 
 owner(Owner) ->
