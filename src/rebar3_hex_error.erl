@@ -5,11 +5,14 @@
 format_error({required, repo}) ->
     "A repository argument is required for this command.";
 
-format_error({error, no_read_key}) ->
+format_error({not_valid_repo, RepoName}) ->
+    io_lib:format("Could not find ~ts in repo configuration. Be sure to authenticate first with rebar3 hex user auth.",
+                  [RepoName]);
+format_error({get_hex_config, no_read_key}) ->
     "No read key found for user. Be sure to authenticate first with:"
     " rebar3 hex user auth";
 
-format_error({error, no_write_key}) ->
+format_error({get_hex_config, no_write_key}) ->
     "No write key found for user. Be sure to authenticate first with:"
     " rebar3 hex user auth";
 
