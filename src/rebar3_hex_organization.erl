@@ -188,6 +188,10 @@ format_error(not_a_valid_repo_name) ->
     "Invalid organization repository: organization name arguments must be given as a fully qualified "
     "repository name (i.e, hexpm:my_org)";
 
+format_error({get_parent_repo_and_org_name, Error, Name}) -> 
+    Str = "Error getting the parent repo for ~ts. Be sure to authenticate first with: rebar3 hex user",
+    rebar_log:log(diagnostic, "Error getting parent repo and org name: ~p", [Error]),
+    io_lib:format(Str, [Name]);
 format_error({get_repo_by_name, {error,{not_valid_repo,ParentName}}}) ->
     Str = io_lib:format("You do not appear to be authenticated as a user to the ~ts repository.", [ParentName]),
     Str ++  " " ++ "Run rebar3 hex user auth and try this command again.";
@@ -386,7 +390,7 @@ get_parent_repo_and_org_name(State, RepoName) ->
                 {ok, Repo} ->
                     {Repo, Org};
                 Error ->
-                    ?RAISE({get_parent_repo_and_org_name, Error})
+                    ?RAISE({get_parent_repo_and_org_name, Error, RepoName})
             end;
         [_] ->
             ?RAISE(not_a_valid_repo_name)
