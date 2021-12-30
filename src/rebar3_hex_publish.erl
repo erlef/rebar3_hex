@@ -413,7 +413,7 @@ hex_opts(Opts) ->
 %%% ===================================================================
 
 publish_docs(State, Repo, App, Args) ->
-    #{tarball := Tar, name := Name, vsn := Vsn} = create_docs(State, Repo, App, Args),
+    #{tarball := Tar, name := Name, version := Vsn} = create_docs(State, Repo, App, Args),
     case Args of
         #{dry_run := true} ->
             rebar_api:info("--dry-run enabled : will not publish docs.", []),
