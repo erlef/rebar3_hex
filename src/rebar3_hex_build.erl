@@ -107,7 +107,7 @@
     "NOTICE"
 ]).
 
--define(DEPS, [{default, lock}]).
+-define(DEPS, [{default, compile}, {default, lock}]).
 -define(PROVIDER, build).
 -define(DEFAULT_DOC_DIR, "doc").
 
@@ -264,12 +264,22 @@ write_or_unpack(App, #{type := Type, tarball := Tarball, name := Name, version :
     end,
     AbsOut.
         
+%% We are exploiting a feature of ensuredir that that creates all
+%% directories up to the last element in the filename, then ignores
+%% that last element. This way we ensure that the dir is created
+%% and not have any worries about path names
 output_dir(App, #{output_dir := undefined}) ->
-    rebar_app_info:out_dir(App);
+    Dir = filename:join([rebar_app_info:out_dir(App), "hex"]),
+    filelib:ensure_dir(filename:join(Dir, "tmp")),
+    Dir;
 output_dir(_App, #{output_dir := Output}) ->
-    filename:absname(Output);
+    Dir = filename:join(filename:absname(Output), "tmp"),
+    filelib:ensure_dir(Dir),
+    Dir;
 output_dir(App, _) ->
-    rebar_app_info:out_dir(App).
+    Dir = filename:join([rebar_app_info:out_dir(App), "hex"]),
+    filelib:ensure_dir(filename:join(Dir, "tmp")),
+    Dir.
 
 create_package(State, #{name := RepoName} = _Repo, App) ->
     Name = rebar_app_info:name(App),
