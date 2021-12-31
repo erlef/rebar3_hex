@@ -1,4 +1,4 @@
-% @doc `rebar3 hex build' 
+% @doc `rebar3 hex build' - Build packages and docs 
 %
 %% Builds a new local version of your package.
 %%
@@ -28,8 +28,8 @@
 %% == Required configuration == 
 %% 
 %% <ul>
-%%  <li> `application' - application name. This is required per Erlang/OTP thus it should always be present anyway. 
-%   <li> `vsn' -  must be a valid [semantic version](http://semver.org/) identifier.
+%%  <li> `application' - application name. This is required per Erlang/OTP thus it should always be present anyway.</li> 
+%   <li> `vsn' -  must be a valid [semantic version](http://semver.org/) identifier.</li>
 %%  <li>`licenses' - A list of licenses the project is licensed under. This attribute is required. A valid
 %%  [spdx](https://spdx.org/licenses/) is expected.</li>
 %% </ul>
@@ -70,7 +70,7 @@
 %% <h2> Command line options </h2>
 %%
 %% <ul>
-%%  <li> `-r', `--repo' - Specify the repository to use in the task. This option is required when 
+%%  <li> `-r', `--repo' - Specify the repository to work with. This option is required when 
 %%      you have multiple repositories configured, including organizations. The argument must 
 %%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm'). 
 %%      Defaults to `hexpm'. 
@@ -135,9 +135,9 @@ init(State) ->
         {desc, ""},
         {opts, [
             rebar3_hex:repo_opt(),
-            {app, $a, "app", {string, undefined}, "HALP!"},
-            {output_dir, $o, "output", {string, undefined}, "HALP!"},
-            {unpack, $u, "unpack", {boolean, false}, "HALP!"}
+            {app, $a, "app", {string, undefined}, "Specify the app to build."},
+            {output_dir, $o, "output", {string, undefined}, "Specify the directory to output artifacts to."},
+            {unpack, $u, "unpack", {boolean, false}, "Unpack the contents of tarballs generated vs writing them out to the filesystem."}
         ]}
     ]),
     State1 = rebar_state:add_provider(State, Provider),

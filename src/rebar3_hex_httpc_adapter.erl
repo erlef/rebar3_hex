@@ -1,3 +1,4 @@
+%% @private
 %% Derived from rebar3_httpc_adapter, which was derived from hex_core v0.7.1 for extra flexibility.
 
 -module(rebar3_hex_httpc_adapter).

@@ -1,3 +1,4 @@
+%% @private
 -module(rebar3_hex_error).
 
 -export([format_error/1]).

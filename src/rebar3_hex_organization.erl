@@ -1,13 +1,27 @@
 %% @doc
-%% `rebar3_hex_organization' - Manage organization
+%% `rebar3_hex_organization' - Manage organizations
 %%
 %% Manages the list of authorized hex organizations.
-%%
+%% 
 %% Note that all commands that require a `NAME' argument expect a qualified repository name for the
 %% argument (i.e., `hexpm:my_org').
 %%
-%% == Authorize an organization ==
+%% == About Organizations == 
 %%
+%% Organizations are feature provided by hexpm that allows you group packages, public and private alike. Organizations 
+%%  are treated as repositories that have a parent. The parent is found as the first part of a repository's name, 
+%%  separated from the organization by a `:'. So for the organization `your_org' on the main repository `hexpm' 
+%%  the fully qualified name would be `hexpm:your_org'.
+%%
+%% Be sure to add your organization to either your global rebar.config `~/.config/rebar3/rebar.config' or
+%% within an projects `rebar.config'. Below is an example: 
+%%
+%% ```
+%% {hex, [{repos, [ #{name => <<"hexpm:your_org">>}]}]}.
+%% '''
+%%
+%% == Authorize an organization ==
+%% 
 %% This command will generate an API key used to authenticate access to the organization. See the `rebar3_hex_user' 
 %% tasks to list and control all your active API keys.
 %%
@@ -28,12 +42,12 @@
 %%
 %% == Generate organization key ==
 %% This command is useful to pre-generate keys for use with `rebar3 hex organization auth NAME --key KEY' on CI
-%% servers or similar systems. It returns the hash of the generated key that you can pass to auth NAME --key KEY.
+%% servers or similar systems. It returns the hash of the generated key that you can pass to auth NAME `--key' KEY.
 %% Unlike the `hex user' key commands, a key generated with this command is owned by the organization directly,
 %% and not the user that generated it. This makes it ideal for shared environments such as CI where you don't
 %% want to give access to user-specific resources and the user's organization membership status won't affect key. By
 %% default this command sets the organization permission which allows read-only access to the organization, it can be
-%% overridden with the --permission flag.
+%% overridden with the `--permission' flag.
 %%
 %%
 %% ```

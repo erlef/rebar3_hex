@@ -1,3 +1,4 @@
+%% @private
 -module(rebar3_hex_client).
 
 -export([ is_success/1

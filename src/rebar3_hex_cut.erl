@@ -1,3 +1,74 @@
+%% @doc `rebar3 hex cut' - Publish with git tag and version bump features 
+%%
+%% Increments tags and publishes.
+%%
+%% Incrementing and tagging are both optional features of this provider. 
+%%
+%% By default you'll be prompted what type of increment to make to the version or it can be supplied as an argument to
+%% the command `-i', `--increment' switch. 
+%%
+%% `cut' will also optionally create version bump commit, create a tag with a name corresponding to the new version, and
+%%  prompt you if you'd like to push the tag up to your git repository. 
+%%
+%% 
+%% Below is a full example of `cut' in action : 
+%%
+%% ```
+%% rebar3 hex cut
+%% ===> Analyzing applications...
+%% ===> Verifying dependencies...
+%% Select semver increment or other (Current 0.1.3):
+%% 1) patch
+%% 2) minor
+%% 3) major
+%% 4) other
+%% [1-4] > 1
+%% Create 'v0.1.4' commit? ("Y")>
+%% Push master to origin master? ("N")>
+%% Local Password:
+%% Publishing myapp 0.1.4 to hexpm:myrepo
+%% Description: My Application
+%% Dependencies:
+%%   relx ~>4.5.0
+%% Included files:
+%%   LICENSE
+%%   README.md
+%%   rebar.config
+%%   src/myapp.app.src
+%%   src/myapp.erl
+%% Licenses: Apache-2.0
+%% Links:
+%%   github: https://github.com/myname/myapp
+%% Build tools: rebar3
+%% Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct
+%% Proceed (with warnings)? ("Y")>
+%% ===> Published myapp 0.1.4
+%% ===> Analyzing applications...
+%% ===> Compiling myapp
+%% ===> Running edoc for myapp
+%% ===> Running ex_doc for myapp
+%% ===> Published docs for myapp 0.1.4
+%% Create new git tag v0.1.4? ("Y")>
+%% ===> Creating new tag v0.1.4...
+%% Push new tag to origin? ("Y")>
+%% ===> Pushing new tag v0.1.4...
+%% '''
+%% 
+%% <ul>
+%%  <li>`--repo' - Specify the repository to work with. This option is required when 
+%%      you have multiple repositories configured, including organizations. The argument must 
+%%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm').
+%%      Defaults to `hexpm'.
+%%   </li>
+%%   <li>`-i', `--increment' - Specify the type of version increment to perform without being prompted at runtime. 
+%%       Supported types are : 
+%%          <ul>
+%%              <li><b>major</b></li>
+%%              <li><b>minor</b></li>
+%%              <li><b>patch</b></li>
+%%          </ul>
+%%  </li>
+%% </ul>
 -module(rebar3_hex_cut).
 
 -export([init/1,
@@ -13,6 +84,7 @@
 %% Public API
 %% ===================================================================
 
+%% @private
 -spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
 init(State) ->
     Provider = providers:create([
@@ -32,6 +104,7 @@ init(State) ->
     {ok, State1}.
 
 
+%% @private
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()}.
 do(State) ->
     case rebar3_hex:task_state(State) of
@@ -49,6 +122,7 @@ handle_task(#{args := Args} = Task) ->
     lists:foreach(fun(App) -> cut(State, Repo, App, Args) end, Selected),
     {ok, State}.
 
+%% @private
 -spec format_error(any()) -> iolist().
 format_error({no_write_key, RepoName}) ->
     io_lib:format("No api key with permissions to write to the repository ~ts was found.", [RepoName]);

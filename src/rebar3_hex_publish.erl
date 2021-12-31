@@ -1,6 +1,88 @@
-%% @doc The publish provider is responsible for creating a tarball of
-%% an application and uploading to the repository.
-%% @end
+% @doc `rebar3 hex publish' - publish packages and docs
+%
+%% Builds and publishing a new version of a package and docs.
+%%
+%% ```
+%% $ rebar3 hex publish
+%% '''
+%%
+%% The current authenticated user will be the package owner. Only package owners can publish the package,
+%% new owners can be added with the `rebar3 hex owner' task.
+%% 
+%% Packages and documentation sizes are limited to 8mb compressed, and 64mb uncompressed.
+%% By default this provider will build both a package tarball and docs tarball. Before attempting to
+%% publish your package see the section below on documentation. 
+%%  
+%% <h2> Publishing Documentation </h2>
+%% 
+%% By default rebar3_hex will not generate or publish docs. You must add a doc provider to your the hex config in either
+%% your global `rebar.config' (i.e., `~/.config/rebar3/rebar.config') or locally in a projects `rebar.config'.
+%%
+%% We recommend using <a href="https://hexdocs.pm/rebar3_ex_doc/">rebar3_ex_doc</a> for publishing documentation along 
+%% with your package for a  consistent format and style on hexpm. 
+%% 
+%% Example :
+%% 
+%% ```
+%% {ex_doc, [
+%%    {source_url, <<"https://github.com/namespace/your_app">>},
+%%    {extras, [<<"README.md">>, <<"LICENSE">>]},
+%%    {main, <<"readme">>}
+%% ]}.
+%%
+%% {hex, [{doc, ex_doc}]}.
+%% '''
+%% 
+%% Alternatively you can use the edoc provider that ships with rebar3 : 
+%% 
+%% ```erlang
+%% {hex, [{doc, edoc}]}.
+%% '''
+%% 
+%% The expected result of the task is the generated documentation located in the either `doc/' directory with an
+%% `index.html' file or the directory you have configured the documentation provider to use.
+%%
+%% The documentation will be accessible at `https://hexdocs.pm/my_package/1.0.0', `https://hexdocs.pm/my_package' will always redirect to the latest published version.
+%%
+%% When a doc provider is configured documentation will be built and published automatically. To publish a package
+%% without documentation run `mix rebar3 hex publish package' or to only publish documentation 
+%% run `rebar3 hex publish docs'.
+%%
+%% <h2> Reverting a package </h2>
+%%
+%% A new package can be reverted or updated within 24 hours of it's initial publish, a new version of an existing 
+%% package can be reverted or updated within one hour. Documentation have no limitations on when it can be updated.
+%%
+%% To update the package simply run the `rebar hex publish' task again. 
+%% To revert run `rebar3 hex publish --revert VERSION' or to only revert the documentation 
+%% run `rebar3 hex publish docs --revert VERSION'.
+%%
+%% If the last version is reverted, the package is removed.
+%%
+%% <h2> Command line options </h2>
+%%
+%% <ul>
+%%  <li> `-a', `--app' - Specify which app you want to publish without being prompted to choose. This 
+%%      option is required when reverting a package, otherwise it's only useful in the context of an umbrella.</li>
+%%  <li> `-r', `--repo' - Specify the repository work with. This option is required when 
+%%      you have multiple repositories configured, including organizations. The argument must 
+%%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm'). 
+%%      Defaults to `hexpm'. 
+%%   </li>
+%%   <li> `-y', `--yes' - Publishes the package without any confirmation prompts </li>
+%%   <li> `--replace' - Allows overwriting an existing package version if it exists. Private packages can always be 
+%%          overwritten, public packages can only be overwritten within one hour after they were initially
+%%          published.</li>
+%%  <li>`--revert VERSION' - Revert the given version. If the last version is reverted, the package is removed.</li>
+%%  <li> `--dry-run' - Performs a dry run of the publish task (i.e., it won't actually publish).</li>
+%%  <li> `--doc-dir' - The option may be used in case there is no doc provider available for your desired method of
+%%        generating documentation. Instead of finding and running a doc provider, rebar3_hex will simply gather 
+%%        the files specified in the directory given to this option. Be sure your docs are up to date before publishing
+%%        with this option.
+%%  </li>
+%% </ul>
+
+
 -module(rebar3_hex_publish).
 
 -export([ init/1

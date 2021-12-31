@@ -1,3 +1,4 @@
+%% @private
 -module(rebar3_hex_file).
 
 -export([ expand_paths/2

@@ -1,3 +1,4 @@
+%% @private
 -module(rebar3_hex_results).
 
 -export([errors_to_string/1, print_table/1]).
