@@ -28,33 +28,58 @@
 %% == Required configuration == 
 %% 
 %% <ul>
-%%  <li> `application' - application name. This is required per Erlang/OTP thus it should always be present anyway.</li> 
-%   <li> `vsn' -  must be a valid [semantic version](http://semver.org/) identifier.</li>
-%%  <li>`licenses' - A list of licenses the project is licensed under. This attribute is required. A valid
-%%  [spdx](https://spdx.org/licenses/) is expected.</li>
+%%  <li> 
+%%      `application' - application name. This is required per Erlang/OTP thus it should always be present anyway.
+%%  </li>
+%   <li>
+%       `vsn' -  must be a valid <a href="https://semver.org/">semantic version</a> identifier.
+%   </li>
+%%  <li>
+%%      `licenses' - A list of licenses the project is licensed under. This attribute is required and must be a valid
+%%      <a href="https://spdx.org/licenses/">spdx</a> identifier.
+%%  </li>
 %% </ul>
-
+%%
 %% 
 %% == Optional configuration == 
 %% In addition, the following meta attributes are supported and highly recommended : 
 %%
 %% <ul>
-%%  <li> `description' - a brief description about your application.
-%%  <li>`pkg_name' - The name of the package in case you want to publish the package with a different name than the
-%%  application name.</li>
-%%  <li>`links' - A map where the key is a link name and the value is the link URL. Optional but highly recommended.
+%%  <li> 
+%%      `description' - a brief description about your application.
+%%  </li>
+%%  
+%%  <li>
+%%      `pkg_name' - The name of the package in case you want to publish the package with a different name than the
+%%       application name.
+%%  </li>
+%%  
+%%  <li>
+%%      `links' - A map where the key is a link name and the value is the link URL. Optional but highly
+%%      recommended.
+%%  </li>
+%%  
 %%  <li> `files' - A list of files and directories to include in the package. Defaults to standard project directories, 
-%%        so you usually don't need to set this property.</li>
-%%  <li> `include_paths' - A list of paths containing files you wish to include in a release. </li>
-%%  <li> `exclude_paths' - A list of paths containing files you wish to exclude in a release. </li>
-%%  <li> `exclude_patterns' - A list of regular expressions used to exclude files that may have been accumulated via
-%%  `files' and `include_paths' and standard project paths. 
-%%  <li> `build_tools' - List of build tools that can build the package. It's very rare that you need to set this. </li>
+%%        so you usually don't need to set this property. 
+%%  </li>
+%%  <li> 
+%%      `include_paths' - A list of paths containing files you wish to include in a release. 
+%%  </li>
+%%  <li> 
+%%      `exclude_paths' - A list of paths containing files you wish to exclude in a release. 
+%%  </li>
+%%  <li> 
+%%      `exclude_patterns' - A list of regular expressions used to exclude files that may have been accumulated via
+%%      `files' and `include_paths' and standard project paths.
+%%  </li> 
+%%  <li> 
+%%      `build_tools' - List of build tools that can build the package. It's very rare that you need to set this. 
+%%  </li>
 %% </ul>
 %%
 %% Below is an example : 
 %%
-%% ```erlang
+%% ```
 %% {application, myapp,
 %%  [{description, "An Erlang/OTP application"},
 %%   {vsn, "0.1.0"},
@@ -65,7 +90,7 @@
 %%                   ]},
 %%   {licenses, ["Apache-2.0"]},
 %%   {links, [{"GitHub", "https://github.com/my_name/myapp"}]}]}.
-%% ```
+%% '''
 %%
 %% <h2> Command line options </h2>
 %%
@@ -79,7 +104,7 @@
 %%        contains all needed files before publishing. See --output below for setting the output path.
 %%   </li>
 %%   <li> `-o', `--output' - Sets output path. When used with --unpack it means the directory 
-%%   (Default: <app>-<version>). Otherwise, it specifies tarball path (Default: <app>-<version>.tar).
+%%   (Default: `<app>-<version>'). Otherwise, it specifies tarball path (Default: `<app>-<version>.tar').
 %%   Artifacts will be written to `_build/<profile>/lib/<your_app>/' by default.
 %%   </li>
 %% </ul>
