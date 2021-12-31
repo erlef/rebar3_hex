@@ -149,11 +149,15 @@ repository first.
 $ rebar3 hex organization auth hexpm:your_org
 ```
 
+Now you can generate, revoke, and list keys for your organizations. See below for an example of generating a key for use
+in CI.
+
 See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_organization.html)
 
 #### Read-Only Repo Key for CI
 
-If you have a private organization or other private repository it is recommended that you use a repo specific auth token for reading from the repository in CI. To generate a token:
+If you have a private organization or other private repository it is recommended that you use a repo specific auth token for 
+reading from the repository in CI. To generate a token:
 
 ```shell
 $ rebar3 hex organization auth <repo>
@@ -167,7 +171,9 @@ $ rebar3 hex organization key hexpm:repo generate
 abc123
 ```
 
-Then in CI use whatever method is available for setting an environment variable to the token and add this call at the beginning of your CI runs to add the token to your rebar3 hex tokens:
+Then in CI use whatever method is available for setting an environment variable to the token and add this call at the 
+beginning of your CI runs to add the token to your rebar3 hex config. Below we'll use the environment `REPO_KEY` as an
+example. 
 
 ```shell
 $ rebar3 hex organization auth hexpm:repo --key $REPO_KEY
