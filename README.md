@@ -143,7 +143,7 @@ project rebar.config.
 ```
 
 You can then authenticate with with the organization repository. Be sure you have already authenticated with the main
-repository first. 
+repository first:
 
 ```
 $ rebar3 hex organization auth hexpm:your_org
