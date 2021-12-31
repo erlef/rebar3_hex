@@ -503,20 +503,24 @@ hex_opts(Opts) ->
 %%% ===================================================================
 
 publish_docs(State, Repo, App, Args) ->
-    #{tarball := Tar, name := Name, version := Vsn} = create_docs(State, Repo, App, Args),
-    case Args of
-        #{dry_run := true} ->
-            rebar_api:info("--dry-run enabled : will not publish docs.", []),
-            {ok, State};
-         _ ->
-            Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
-            case rebar3_hex_client:publish_docs(Config, Name, Vsn, Tar) of
-                {ok, _} ->
-                    rebar_api:info("Published docs for ~ts ~ts", [Name, Vsn]),
+    case create_docs(State, Repo, App, Args) of 
+        #{tarball := Tar, name := Name, version := Vsn} -> 
+            case Args of
+                #{dry_run := true} ->
+                    rebar_api:info("--dry-run enabled : will not publish docs.", []),
                     {ok, State};
-                Reason ->
-                    ?RAISE({publish_docs, Name, Vsn, Reason})
-            end
+                _ ->
+                    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
+                    case rebar3_hex_client:publish_docs(Config, Name, Vsn, Tar) of
+                        {ok, _} ->
+                            rebar_api:info("Published docs for ~ts ~ts", [Name, Vsn]),
+                            {ok, State};
+                        Reason ->
+                            ?RAISE({publish_docs, Name, Vsn, Reason})
+                    end
+            end;
+        ok -> 
+            {ok, State}
     end.
 
 create_docs(State, Repo, App, Args) ->

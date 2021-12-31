@@ -2,6 +2,6 @@
  [{description,"Hex.pm plugin for rebar3"},
   {vsn,"git"},
   {applications, [kernel,stdlib,hex_core]},
-  {maintainers, ["Tristan Sloughter"]},
-  {licenses, ["MIT"]},
+  {maintainers, ["Tristan Sloughter", "Bryan Paxton"]},
+  {licenses, ["Apache-2.0"]},
   {links, [{"Github", "https://github.com/tsloughter/rebar3_hex"}]}]}.
