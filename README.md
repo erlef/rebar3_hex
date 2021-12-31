@@ -67,7 +67,7 @@ Note that this will ask for your hex.pm username and password, as well as a pass
 has write permissions to the repository. When publishing a package you will have to give this password to decrypt the 
 token in order to publish.
 
-See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_user.html)
+See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_user.html) for more information.
 
 ### Building
 
@@ -80,7 +80,7 @@ without any chance of actually publishing the package or docs. Tarballs for the 
 $ rebar3 hex build
 ```
 
-See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_build.html)
+See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_build.html) for more information.
 
 ### Publishing 
 
@@ -129,7 +129,7 @@ They can also be unretired in case a mistake was made :
 $ rebar3 hex retire PACKAGE VERSION --unretire 
 ```
 
-See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_retire.html)
+See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_retire.html) for more information.
 
 ### Organizations
 
@@ -152,12 +152,12 @@ $ rebar3 hex organization auth hexpm:your_org
 Now you can generate, revoke, and list keys for your organizations. See below for an example of generating a key for use
 in CI.
 
-See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_organization.html)
+See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_organization.html) for more information.
 
 #### Read-Only Repo Key for CI
 
-If you have a private organization or other private repository it is recommended that you use a repo specific auth token for 
-reading from the repository in CI. To generate a token:
+If you have a private organization or other private repository it is recommended that you use a repo specific 
+auth token for reading from the repository in CI. To generate a token:
 
 ```shell
 $ rebar3 hex organization auth hexpm:myrepo
