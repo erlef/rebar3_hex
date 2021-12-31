@@ -142,7 +142,7 @@ project rebar.config.
 {hex, [{repos, [#{name => <<"hexpm:your_org">>}]}]}.
 ```
 
-Now simply authenticate with with the organization repository. Be sure you have already authenticated with the main
+You can then authenticate with with the organization repository. Be sure you have already authenticated with the main
 repository first. 
 
 ```
