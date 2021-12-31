@@ -135,9 +135,9 @@ init(State) ->
         {desc, ""},
         {opts, [
             rebar3_hex:repo_opt(),
-            {app, $a, "app", {string, undefined}, "HALP!"},
-            {output_dir, $o, "output", {string, undefined}, "HALP!"},
-            {unpack, $u, "unpack", {boolean, false}, "HALP!"}
+            {app, $a, "app", {string, undefined}, "Specify the app to build."},
+            {output_dir, $o, "output", {string, undefined}, "Specify the directory to output artifacts to."},
+            {unpack, $u, "unpack", {boolean, false}, "Unpack the contents of tarballs generated vs writing them out to the filesystem."}
         ]}
     ]),
     State1 = rebar_state:add_provider(State, Provider),
