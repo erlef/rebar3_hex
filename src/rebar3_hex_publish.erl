@@ -64,7 +64,7 @@
 %% <ul>
 %%  <li> `-a', `--app' - Specify which app you want to publish without being prompted to choose. This 
 %%      option is required when reverting a package, otherwise it's only useful in the context of an umbrella.</li>
-%%  <li> `-r', `--repo' - Specify the repository to use in the task. This option is required when 
+%%  <li> `-r', `--repo' - Specify the repository work with. This option is required when 
 %%      you have multiple repositories configured, including organizations. The argument must 
 %%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm'). 
 %%      Defaults to `hexpm'. 

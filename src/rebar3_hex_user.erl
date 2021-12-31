@@ -77,7 +77,7 @@
 %%
 %% <ul>
 %%   <li>
-%%       `--repo' - Specify the repository to work with within the scope of a user task. This option is required when 
+%%       `--repo' - Specify the repository to work with. This option is required when 
 %%       you have multiple repositories configured, including organizations. The argument must be a fully qualified 
 %%       repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm').
 %%       Default to `hexpm'.

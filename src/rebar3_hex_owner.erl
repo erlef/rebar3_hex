@@ -44,7 +44,7 @@
 %% <h2> Command line options </h2>
 %%
 %% <ul>
-%%  <li>`--repo' - Specify the repository to use in the task. This option is required when 
+%%  <li>`--repo' - Specify the repository to work with. This option is required when 
 %%      you have multiple repositories configured, including organizations. The argument must 
 %%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm').
 %%      Defaults to `hexpm'.
