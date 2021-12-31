@@ -170,7 +170,7 @@ abc123
 Then in CI use whatever method is available for setting an environment variable to the token and add this call at the beginning of your CI runs to add the token to your rebar3 hex tokens:
 
 ```shell
-$ rebar3 hex organization auth hexpm:repo --key abc123
+$ rebar3 hex organization auth hexpm:repo --key $REPO_KEY
 ```
 
 ### Searching hexpm 
