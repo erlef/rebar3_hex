@@ -146,7 +146,8 @@ You can then authenticate with with the organization repository. Be sure you hav
 repository first:
 
 ```
-$ rebar3 hex organization auth hexpm:your_org
+$ rebar3 hex auth    # make sure you're authenticated to the main repo first 
+$ rebar3 hex organization auth hexpm:your_org  # authenticate to the org
 ```
 
 Now you can generate, revoke, and list keys for your organizations. See below for an example of generating a key for use
