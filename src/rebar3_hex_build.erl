@@ -84,8 +84,6 @@
 %%   </li>
 %% </ul>
 
-
-
 -module(rebar3_hex_build).
 
 -export([create_package/3, create_docs/3, create_docs/4]).
@@ -109,7 +107,7 @@
     "NOTICE"
 ]).
 
--define(DEPS, [{default, lock}]).
+-define(DEPS, [{default, compile}, {default, lock}]).
 -define(PROVIDER, build).
 -define(DEFAULT_DOC_DIR, "doc").
 
@@ -160,6 +158,15 @@ do(State) ->
 format_error({build_package, Error}) when is_list(Error) -> 
     io_lib:format("Error building package : ~ts", [Error]);
 
+format_error({build_docs, {error, no_doc_config}}) -> 
+    no_doc_config_messsage();
+
+format_error({build_docs, {error, {doc_provider_not_found, PrvName}}}) -> 
+    doc_provider_not_found(PrvName);
+
+format_error({build_docs, {error, missing_doc_index}}) -> 
+    doc_missing_index_message();
+
 format_error({build_docs, Error}) when is_list(Error) -> 
     io_lib:format("Error building docs : ~ts", [Error]);
 
@@ -168,6 +175,18 @@ format_error(app_switch_required) ->
 
 format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
+
+no_doc_config_messsage() -> 
+    "No doc provider has been specified in your hex config.\n"
+    "Be sure to add a doc provider to the hex config you rebar configuration file.\n\n"
+    "Example : {hex, [{doc, ex_doc}]\n".
+
+doc_missing_index_message() -> 
+    "An index.html file was not found in docs after running docs provider.\n"
+    "Be sure the docs provider is configured correctly and double check it by running it on its own\n".
+
+doc_provider_not_found(Provider) ->
+    io_lib:format("The doc provider ~ts specified in your hex config could not be found", [Provider]).
 
 handle_task(#{apps := [_,_|_]}) -> 
     ?RAISE(app_switch_required);
@@ -201,6 +220,15 @@ handle_task(#{state := State, repo := Repo, apps := [App], args := Args}) ->
                 {ok, Docs} ->
                     AbsFile = write_or_unpack(App, Docs, Args),
                     rebar3_hex_io:say("Your docs tarball is available at ~ts", [AbsFile]),
+                    {ok, State};
+                {error, no_doc_config} -> 
+                    rebar_api:warn(no_doc_config_messsage(), []),
+                    {ok, State};
+                {error, {doc_provider_not_found, PrvName}} -> 
+                    rebar_api:warn(doc_provider_not_found(PrvName), []),
+                    {ok, State};
+                {error, missing_doc_index} -> 
+                    rebar_api:warn(doc_missing_index_message(), []),
                     {ok, State};
                 Error ->
                     ?RAISE({build_docs, Error})
@@ -236,12 +264,22 @@ write_or_unpack(App, #{type := Type, tarball := Tarball, name := Name, version :
     end,
     AbsOut.
         
+%% We are exploiting a feature of ensuredir that that creates all
+%% directories up to the last element in the filename, then ignores
+%% that last element. This way we ensure that the dir is created
+%% and not have any worries about path names
 output_dir(App, #{output_dir := undefined}) ->
-    rebar_app_info:out_dir(App);
+    Dir = filename:join([rebar_app_info:out_dir(App), "hex"]),
+    filelib:ensure_dir(filename:join(Dir, "tmp")),
+    Dir;
 output_dir(_App, #{output_dir := Output}) ->
-    filename:absname(Output);
+    Dir = filename:join(filename:absname(Output), "tmp"),
+    filelib:ensure_dir(Dir),
+    Dir;
 output_dir(App, _) ->
-    rebar_app_info:out_dir(App).
+    Dir = filename:join([rebar_app_info:out_dir(App), "hex"]),
+    filelib:ensure_dir(filename:join(Dir, "tmp")),
+    Dir.
 
 create_package(State, #{name := RepoName} = _Repo, App) ->
     Name = rebar_app_info:name(App),
