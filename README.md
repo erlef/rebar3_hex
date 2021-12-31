@@ -160,14 +160,14 @@ If you have a private organization or other private repository it is recommended
 reading from the repository in CI. To generate a token:
 
 ```shell
-$ rebar3 hex organization auth <repo>
+$ rebar3 hex organization auth hexpm:myrepo
 Successfully authenticated to hexpm:myrepo
 ```
 
 Now you can generate a key to use in CI for your organization 
 
 ```
-$ rebar3 hex organization key hexpm:repo generate
+$ rebar3 hex organization key hexpm:myrepo generate
 abc123
 ```
 
@@ -176,7 +176,7 @@ beginning of your CI runs to add the token to your rebar3 hex config. Below we'l
 example. 
 
 ```shell
-$ rebar3 hex organization auth hexpm:repo --key $REPO_KEY
+$ rebar3 hex organization auth hexpm:myrepo --key $REPO_KEY
 ```
 
 ### Searching hexpm 
