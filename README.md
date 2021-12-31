@@ -133,12 +133,20 @@ See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_retire.html)
 
 ### Organizations
 
-`~/.config/rebar3/rebar.config`
+rebar3_hex supports working with organizations via the `organization` provider. 
+
+Simply add your organization to either your global rebar.config (i.e., `~/.config/rebar3/rebar.config` ) or a local
+project rebar.config. 
 
 ```erlang
-{hex, [{repos, [
-		#{name => <<"hexpm:rebar3">>}
-	  ]}]}.
+{hex, [{repos, [#{name => <<"hexpm:your_org">>}]}]}.
+```
+
+Now simply authenticate with with the organization repository. Be sure you have already authenticated with the main
+repository first. 
+
+```
+$ rebar3 hex organization auth hexpm:your_org
 ```
 
 See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_organization.html)
