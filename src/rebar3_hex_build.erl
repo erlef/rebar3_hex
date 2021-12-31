@@ -436,8 +436,8 @@ create_docs(State, Repo, App, Args) ->
                     OriginalVsn = rebar_app_info:original_vsn(App),
                     Vsn = rebar_utils:vcs_vsn(App, OriginalVsn, State),
                     FileList = [
-                        {filename:join(filename:split(ShortName) -- [DocDir]), FullName}
-                     || {ShortName, FullName} <- Files
+                        {rebar_dir:make_relative_path(FullName, filename:absname(DocDir)), FullName}
+                     || {_ShortName, FullName} <- Files
                     ],
                     case create_docs_tarball(FileList) of
                         {ok, Tarball} ->
