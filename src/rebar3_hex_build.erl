@@ -8,13 +8,13 @@
 %% named foo at version 1.2.3 will be built as foo-1.2.3.tar. Likewise the docs .tar would be built as 
 %% foo-1.2.4-docs.tar. 
 %%
-%% ```shell
+%% ```
 %% $ rebar3 hex build 
 %% '''
 %% 
 %% You may also build only a package or docs tarball utilizing the same available command line options. 
 %%
-%% ``` shell
+%% ``` 
 %% $ rebar3 hex build package 
 %% '''
 %%
@@ -28,33 +28,58 @@
 %% == Required configuration == 
 %% 
 %% <ul>
-%%  <li> `application' - application name. This is required per Erlang/OTP thus it should always be present anyway.</li> 
-%   <li> `vsn' -  must be a valid [semantic version](http://semver.org/) identifier.</li>
-%%  <li>`licenses' - A list of licenses the project is licensed under. This attribute is required. A valid
-%%  [spdx](https://spdx.org/licenses/) is expected.</li>
+%%  <li> 
+%%      `application' - application name. This is required per Erlang/OTP thus it should always be present anyway.
+%%  </li>
+%   <li>
+%       `vsn' -  must be a valid <a href="https://semver.org/">semantic version</a> identifier.
+%   </li>
+%%  <li>
+%%      `licenses' - A list of licenses the project is licensed under. This attribute is required and must be a valid
+%%      <a href="https://spdx.org/licenses/">spdx</a> identifier.
+%%  </li>
 %% </ul>
-
+%%
 %% 
 %% == Optional configuration == 
 %% In addition, the following meta attributes are supported and highly recommended : 
 %%
 %% <ul>
-%%  <li> `description' - a brief description about your application.
-%%  <li>`pkg_name' - The name of the package in case you want to publish the package with a different name than the
-%%  application name.</li>
-%%  <li>`links' - A map where the key is a link name and the value is the link URL. Optional but highly recommended.
+%%  <li> 
+%%      `description' - a brief description about your application.
+%%  </li>
+%%  
+%%  <li>
+%%      `pkg_name' - The name of the package in case you want to publish the package with a different name than the
+%%       application name.
+%%  </li>
+%%  
+%%  <li>
+%%      `links' - A map where the key is a link name and the value is the link URL. Optional but highly
+%%      recommended.
+%%  </li>
+%%  
 %%  <li> `files' - A list of files and directories to include in the package. Defaults to standard project directories, 
-%%        so you usually don't need to set this property.</li>
-%%  <li> `include_paths' - A list of paths containing files you wish to include in a release. </li>
-%%  <li> `exclude_paths' - A list of paths containing files you wish to exclude in a release. </li>
-%%  <li> `exclude_patterns' - A list of regular expressions used to exclude files that may have been accumulated via
-%%  `files' and `include_paths' and standard project paths. 
-%%  <li> `build_tools' - List of build tools that can build the package. It's very rare that you need to set this. </li>
+%%        so you usually don't need to set this property. 
+%%  </li>
+%%  <li> 
+%%      `include_paths' - A list of paths containing files you wish to include in a release. 
+%%  </li>
+%%  <li> 
+%%      `exclude_paths' - A list of paths containing files you wish to exclude in a release. 
+%%  </li>
+%%  <li> 
+%%      `exclude_patterns' - A list of regular expressions used to exclude files that may have been accumulated via
+%%      `files' and `include_paths' and standard project paths.
+%%  </li> 
+%%  <li> 
+%%      `build_tools' - List of build tools that can build the package. It's very rare that you need to set this. 
+%%  </li>
 %% </ul>
 %%
 %% Below is an example : 
 %%
-%% ```erlang
+%% ```
 %% {application, myapp,
 %%  [{description, "An Erlang/OTP application"},
 %%   {vsn, "0.1.0"},
@@ -65,7 +90,7 @@
 %%                   ]},
 %%   {licenses, ["Apache-2.0"]},
 %%   {links, [{"GitHub", "https://github.com/my_name/myapp"}]}]}.
-%% ```
+%% '''
 %%
 %% <h2> Command line options </h2>
 %%
@@ -79,7 +104,7 @@
 %%        contains all needed files before publishing. See --output below for setting the output path.
 %%   </li>
 %%   <li> `-o', `--output' - Sets output path. When used with --unpack it means the directory 
-%%   (Default: <app>-<version>). Otherwise, it specifies tarball path (Default: <app>-<version>.tar).
+%%   (Default: `<app>-<version>'). Otherwise, it specifies tarball path (Default: `<app>-<version>.tar').
 %%   Artifacts will be written to `_build/<profile>/lib/<your_app>/' by default.
 %%   </li>
 %% </ul>
@@ -281,6 +306,7 @@ output_dir(App, _) ->
     filelib:ensure_dir(filename:join(Dir, "tmp")),
     Dir.
 
+%% @private
 create_package(State, #{name := RepoName} = _Repo, App) ->
     Name = rebar_app_info:name(App),
     Version = rebar3_hex_app:vcs_vsn(State, App),
@@ -419,9 +445,11 @@ known_exclude_file(Path, ExcludeRe) ->
 has_checkouts(State) ->
     filelib:is_dir(rebar_dir:checkouts_dir(State)).
 
+%% @private
 create_docs(State, Repo, App) ->
     create_docs(State, Repo, App, #{doc_dir => undefined}).
 
+%% @private
 -dialyzer({nowarn_function, create_docs/4}).
 create_docs(State, Repo, App, Args) ->
     case maybe_gen_docs(State, Repo, App, Args) of
@@ -436,8 +464,8 @@ create_docs(State, Repo, App, Args) ->
                     OriginalVsn = rebar_app_info:original_vsn(App),
                     Vsn = rebar_utils:vcs_vsn(App, OriginalVsn, State),
                     FileList = [
-                        {filename:join(filename:split(ShortName) -- [DocDir]), FullName}
-                     || {ShortName, FullName} <- Files
+                        {rebar_dir:make_relative_path(FullName, filename:absname(DocDir)), FullName}
+                     || {_ShortName, FullName} <- Files
                     ],
                     case create_docs_tarball(FileList) of
                         {ok, Tarball} ->
