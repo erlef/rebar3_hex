@@ -8,13 +8,13 @@
 %% named foo at version 1.2.3 will be built as foo-1.2.3.tar. Likewise the docs .tar would be built as 
 %% foo-1.2.4-docs.tar. 
 %%
-%% ```shell
+%% ```
 %% $ rebar3 hex build 
 %% '''
 %% 
 %% You may also build only a package or docs tarball utilizing the same available command line options. 
 %%
-%% ``` shell
+%% ``` 
 %% $ rebar3 hex build package 
 %% '''
 %%
@@ -281,6 +281,7 @@ output_dir(App, _) ->
     filelib:ensure_dir(filename:join(Dir, "tmp")),
     Dir.
 
+%% @private
 create_package(State, #{name := RepoName} = _Repo, App) ->
     Name = rebar_app_info:name(App),
     Version = rebar3_hex_app:vcs_vsn(State, App),
@@ -419,9 +420,11 @@ known_exclude_file(Path, ExcludeRe) ->
 has_checkouts(State) ->
     filelib:is_dir(rebar_dir:checkouts_dir(State)).
 
+%% @private
 create_docs(State, Repo, App) ->
     create_docs(State, Repo, App, #{doc_dir => undefined}).
 
+%% @private
 -dialyzer({nowarn_function, create_docs/4}).
 create_docs(State, Repo, App, Args) ->
     case maybe_gen_docs(State, Repo, App, Args) of
