@@ -37,8 +37,12 @@ create_package_test(Config) ->
                                    "src/valid.app.src" ->
                                          [{N, P}|Acc];
                                     _ ->
-                                        {ok, Bin} = file:read_file(P),
-                                        [{N, Bin}|Acc]
+                                        case file:read_file(P) of
+                                            {ok, Bin} -> 
+                                                [{N, Bin}|Acc];
+                                            _ -> 
+                                                Acc
+                                        end
                                 end
                                         end, [], PkgFiles),
     SortedExp = lists:sort(ExpFiles),
@@ -63,8 +67,18 @@ create_package_with_alias_deps(Config) ->
 create_docs_test(Config) ->
     StubConfig = #{type => app, dir => data_dir(Config), name => "valid"},
     {State, Repo, App} = test_utils:make_stub(StubConfig),
-    {ok, _Docs} = rebar3_hex_build:create_docs(State, Repo, App),
-    ok.
+    {ok, #{tarball := Tarball}} = rebar3_hex_build:create_docs(State, Repo, App),
+    {ok, Files} = hex_erl_tar:extract({binary, Tarball}, [memory, compressed]),
+    Found = [ X || {X, _} <- Files],
+    Exp = ["edoc-info",
+           "erlang.png",
+           "index.html",
+           "modules-frame.html",
+           "overview-summary.html",
+           "stylesheet.css",
+           "valid.html"
+          ],
+    ?assertMatch(Exp, Found).
 
 create_docs_unknown_provider_test(Config) ->
     StubConfig = #{type => app, dir => data_dir(Config), name => "valid"},

@@ -456,18 +456,13 @@ create_docs(State, Repo, App, Args) ->
         {ok, DocDir} ->
             case docs_detected(DocDir) of
                 true ->
-                    AppDir = rebar_app_info:dir(App),
                     AppDetails = rebar_app_info:app_details(App),
-                    Files = rebar3_hex_file:expand_paths([DocDir], AppDir),
+                    Files = rebar3_hex_file:expand_paths([DocDir], DocDir),
                     Name = rebar_utils:to_list(rebar_app_info:name(App)),
                     PkgName = rebar_utils:to_list(proplists:get_value(pkg_name, AppDetails, Name)),
                     OriginalVsn = rebar_app_info:original_vsn(App),
                     Vsn = rebar_utils:vcs_vsn(App, OriginalVsn, State),
-                    FileList = [
-                        {rebar_dir:make_relative_path(FullName, filename:absname(DocDir)), FullName}
-                     || {_ShortName, FullName} <- Files
-                    ],
-                    case create_docs_tarball(FileList) of
+                    case create_docs_tarball(Files) of
                         {ok, Tarball} ->
                             {ok, #{
                                 type => docs, tarball => Tarball, name => binarify(PkgName), version => binarify(Vsn)
