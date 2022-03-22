@@ -377,15 +377,17 @@ printable_public_key(PubKey) ->
     "SHA256:" ++ Encoded.
 
 
--ifdef(OTP_23).
--spec ssh_encode(binary()) -> binary().
-ssh_encode(InData) ->
-    public_key:ssh_encode(InData, ssh2_pubkey).
--elif(POST_OTP_22 and not OTP_23).
+-ifdef(OTP_RELEASE). % OTP >= 21
+-if(?OTP_RELEASE >= 24).
 -spec ssh_encode(binary()) -> binary().
 ssh_encode(InData) ->
     ssh_file:encode(InData, ssh2_pubkey).
--else.
+-else. % OTP < 24
+-spec ssh_encode(binary()) -> binary().
+ssh_encode(InData) ->
+    public_key:ssh_encode(InData, ssh2_pubkey).
+-endif.
+-else. % OTP < 21
 -spec ssh_encode(binary()) -> binary().
 ssh_encode(InData) ->
     public_key:ssh_encode(InData, ssh2_pubkey).
