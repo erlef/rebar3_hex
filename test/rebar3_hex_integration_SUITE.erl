@@ -42,6 +42,9 @@ all() ->
     , org_key_list_test
     , org_list_test
     , org_bad_command_test
+    , build_package_test
+    , build_docs_test
+    , build_test
     , publish_test
     , publish_no_prompt_test
     , publish_package_with_pointless_app_arg_test
@@ -511,6 +514,38 @@ deauth_test(Config) ->
     #{rebar_state := State} = Setup = setup_state(P, Config),
     expects_repo_config(Setup),
     ?assertMatch({ok, State}, rebar3_hex_user:do(State)).
+
+build_package_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_build, args => ["package"]},
+          app => #{name => "valid"},
+          mocks => []
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    ?assertMatch({ok, _}, rebar3_hex_build:do(State)).
+
+build_docs_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_build, args => ["docs"]},
+          app => #{name => "valid_docs"},
+          mocks => []
+         },
+    #{rebar_state := State, repo := _Repo} = Setup = setup_state(P, Config),
+    %State1 = rebar_state:set(State, hex, [{repos, [Repo]}, {doc, edoc}]),
+    expects_repo_config(Setup),
+    ?assertMatch({ok, _}, rebar3_hex_build:do(State)).
+
+
+build_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_build, args => []},
+          app => #{name => "valid"},
+          mocks => []
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    ?assertMatch({ok, _}, rebar3_hex_build:do(State)).
 
 publish_test(Config) ->
     P = #{
@@ -1100,7 +1135,7 @@ setup_state(P, Config) ->
     lists:foreach(fun(W) -> setup_mocks_for(W, Setup) end, Mocks),
 
     #{command := #{provider := Provider, args := Args}} = Setup,
-    {ok, State1} = test_utils:mock_command(Provider, Args, [{repos, [Repo]}], State),
+    {ok, State1} = test_utils:mock_command(Provider, Args, [{repos, [Repo]}, {doc, edoc}], State),
 
     Setup#{rebar_state => State1}.
 
@@ -1307,6 +1342,7 @@ expects_registration_confirmation_output(RepoName, Email) ->
     expects_output([{TokenInfo, [RepoName]}, {ReqInfo, [Email]}]).
 
 expects_repo_config(#{repo := Repo}) ->
+    meck:expect(rebar3_hex_config, all_repos, fun(_) -> [Repo] end),
     meck:expect(rebar3_hex_config, repo, fun(_) -> {ok, Repo} end),
     meck:expect(rebar3_hex_config, repo, fun(_, <<"hexpm">>) -> {ok, test_utils:default_config()} end).
 
@@ -1325,11 +1361,11 @@ expects_update_auth_config( #{username := Username, repo := Repo}) ->
 
 expects_update_auth_config_for(RepoName) ->
     Fun = fun(Cfg, State) ->
-                  case Cfg of 
-                      #{RepoName := _Repo} -> 
+                  case Cfg of
+                      #{RepoName := _Repo} ->
                           {ok, State};
-                      Got -> 
-                        meck:exception(error, {expected, RepoName, got, Got})  
+                      Got ->
+                        meck:exception(error, {expected, RepoName, got, Got})
                     end
                   end,
     meck:expect(rebar3_hex_config, update_auth_config, Fun).
@@ -1438,7 +1474,7 @@ expect_local_password_prompt(#{password := Password, password_confirmation := Pa
                     Password;
                 <<"Local Password (confirm): ">> ->
                     PasswordConfirm;
-                <<"New local Password: ">> -> 
+                <<"New local Password: ">> ->
                     Password;
                 <<"New local Password (confirm): ">> ->
                     PasswordConfirm

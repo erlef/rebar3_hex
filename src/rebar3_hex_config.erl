@@ -3,12 +3,14 @@
 
 -export([ api_key_name/1
         , api_key_name/2
+        , all_repos/1
         , encrypt_write_key/3
         , decrypt_write_key/3
         , repos_key_name/0
         , org_key_name/2
         , parent_repos/1
         , get_hex_config/3
+        , default_repo/1
         , repo/1
         , repo/2
         , update_auth_config/2
@@ -95,11 +97,15 @@ key_name_prefix(Key) -> Key.
 update_auth_config(Config, State) ->
     rebar_hex_repos:update_auth_config(Config, State).
 
+all_repos(State) ->
+    Resources = rebar_state:resources(State),
+    #{repos := Repos} = rebar_resource_v2:find_resource_state(pkg, Resources),
+    Repos.
+
 -spec repo(rebar_state:t()) -> {ok, map()} | {error, repo_error()}.
 repo(State) ->
     {Args, _} = rebar_state:command_parsed_args(State),
-    Resources = rebar_state:resources(State),
-    #{repos := Repos} = rebar_resource_v2:find_resource_state(pkg, Resources),
+    Repos = all_repos(State),
     case proplists:get_value(repo, Args, undefined) of
         undefined ->
             Res = [R || R <- Repos, maps:get(name, R) =/= ?DEFAULT_HEX_REPO],
@@ -119,10 +125,9 @@ repo(State) ->
     end.
 
 repo(State, RepoName) ->
-    Resources = rebar_state:resources(State),
-    #{repos := Repos} = rebar_resource_v2:find_resource_state(pkg, Resources),
     BinName = rebar_utils:to_binary(RepoName),
-    MaybeFound1 = get_repo(BinName, Repos),
+    Repos = all_repos(State),
+    MaybeFound1 = get_repo(BinName, all_repos(State)),
     MaybeParentRepo = <<"hexpm:">>,
     MaybeFound2 =  get_repo(<<MaybeParentRepo/binary, BinName/binary>>, Repos),
     case {MaybeFound1, MaybeFound2} of
@@ -181,8 +186,6 @@ to_bool("false") -> false;
 to_bool(_) -> true.
 
 parent_repos(State) ->
-    Resources = rebar_state:resources(State),
-    #{repos := Repos} = rebar_resource_v2:find_resource_state(pkg, Resources),
     Fun = fun(#{name := Name} = Repo, Acc) ->
                   [Parent|_] = rebar3_hex_io:str_split(Name, <<":">>),
                   case maps:is_key(Parent, Acc) of
@@ -192,8 +195,11 @@ parent_repos(State) ->
                         maps:put(name, Repo, Acc)
                   end
           end,
-    Map = lists:foldl(Fun, #{}, Repos),
+    Map = lists:foldl(Fun, #{}, all_repos(State)),
     maps:values(Map).
+
+default_repo(State) ->
+    rebar_hex_repos:get_repo_config(?DEFAULT_HEX_REPO, all_repos(State)).
 
 get_repo(BinaryName, Repos) ->
     try rebar_hex_repos:get_repo_config(BinaryName, Repos) of
@@ -232,10 +238,10 @@ hex_config_read(#{read_key := ReadKey} = HexConfig) ->
 hex_config_read(_Config) ->
     {error, no_read_key}.
 
-maybe_set_api_organization(#{name := Name} = Repo) -> 
+maybe_set_api_organization(#{name := Name} = Repo) ->
     case binary:split(Name, <<":">>) of
-        [_] -> 
+        [_] ->
             Repo;
-        [_,Org] -> 
+        [_,Org] ->
             Repo#{api_organization => Org}
     end.

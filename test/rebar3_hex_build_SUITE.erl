@@ -10,6 +10,7 @@ all() ->
         create_package_with_git_deps_test,
         create_package_with_alias_deps,
         create_package_with_binary_versions,
+        create_docs_with_no_repo_set,
         create_docs_test,
         create_docs_unknown_provider_test,
         create_docs_no_provider_test,
@@ -20,10 +21,9 @@ all() ->
 
 create_package_test(Config) ->
     StubConfig = #{type => app, dir => data_dir(Config), name => "valid"},
-    {State, Repo, App} = test_utils:make_stub(StubConfig),
-    {ok, #{tarball := Tarball} = Package} = rebar3_hex_build:create_package(State, Repo, App),
+    {State, _Repo, App} = test_utils:make_stub(StubConfig),
+    {ok, #{tarball := Tarball} = Package} = rebar3_hex_build:create_package(State, App),
     ?assert(maps:is_key(tarball, Package)),
-    ?assert(maps:is_key(repo_name, Package)),
     ?assert(maps:is_key(version, Package)),
     ?assert(maps:is_key(files, Package)),
     ?assert(maps:is_key(has_checkouts, Package)),
@@ -38,9 +38,9 @@ create_package_test(Config) ->
                                          [{N, P}|Acc];
                                     _ ->
                                         case file:read_file(P) of
-                                            {ok, Bin} -> 
+                                            {ok, Bin} ->
                                                 [{N, Bin}|Acc];
-                                            _ -> 
+                                            _ ->
                                                 Acc
                                         end
                                 end
@@ -51,18 +51,18 @@ create_package_test(Config) ->
 
 create_package_with_git_deps_test(Config) ->
     StubConfig = #{type => app, dir => data_dir(Config), name => "valid", profile => with_git_deps},
-    {State, Repo, App} = test_utils:make_stub(StubConfig),
-    {error, _} = rebar3_hex_build:create_package(State, Repo, App).
+    {State, _Repo, App} = test_utils:make_stub(StubConfig),
+    {error, _} = rebar3_hex_build:create_package(State, App).
 
 create_package_with_binary_versions(Config) ->
     StubConfig = #{type => app, dir => data_dir(Config), name => "valid", profile => with_binary_versions},
-    {State, Repo, App} = test_utils:make_stub(StubConfig),
-    {ok, _} = rebar3_hex_build:create_package(State, Repo, App).
+    {State, _Repo, App} = test_utils:make_stub(StubConfig),
+    {ok, _} = rebar3_hex_build:create_package(State, App).
 
 create_package_with_alias_deps(Config) ->
     StubConfig = #{type => app, dir => data_dir(Config), name => "valid", profile => with_alias_deps},
-    {State, Repo, App} = test_utils:make_stub(StubConfig),
-    {ok, _} = rebar3_hex_build:create_package(State, Repo, App).
+    {State, _Repo, App} = test_utils:make_stub(StubConfig),
+    {ok, _} = rebar3_hex_build:create_package(State, App).
 
 create_docs_test(Config) ->
     StubConfig = #{type => app, dir => data_dir(Config), name => "valid"},
@@ -90,7 +90,14 @@ create_docs_no_provider_test(Config) ->
     StubConfig = #{type => app, dir => data_dir(Config), name => "no_doc_config"},
     {State, Repo, App} = test_utils:make_stub(StubConfig),
     Repo1 = maps:remove(doc, Repo),
-    ?assertMatch({error, no_doc_config}, rebar3_hex_build:create_docs(State, Repo1, App)).
+    State1 = rebar_state:set(State, hex, [{repos, [Repo]}]),
+    ?assertMatch({error, no_doc_config}, rebar3_hex_build:create_docs(State1, Repo1, App)).
+
+create_docs_with_no_repo_set(Config) ->
+    StubConfig = #{type => app, dir => data_dir(Config), name => "no_repo_set"},
+    {State, _Repo, App} = test_utils:make_stub(StubConfig),
+    State1 = rebar_state:set(State, hex, [{doc, edoc}]),
+    ?assertMatch({ok, _}, rebar3_hex_build:create_docs(State1, #{name => <<"some_repo">>}, App)).
 
 create_docs_doc_dir_test(Config) ->
     #{dir := RootDir} = StubConfig = #{type => app, dir => data_dir(Config), name => "doc_attr"},

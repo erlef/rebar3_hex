@@ -1,34 +1,34 @@
-% @doc `rebar3 hex build' - Build packages and docs 
+% @doc `rebar3 hex build' - Build packages and docs
 %
 %% Builds a new local version of your package.
 %%
-%% By default this provider will build both a package tarball and docs tarball. 
-%%  
-%% The package and docs .tar files are created in the current directory, but is not pushed to the repository. An app 
-%% named foo at version 1.2.3 will be built as foo-1.2.3.tar. Likewise the docs .tar would be built as 
-%% foo-1.2.4-docs.tar. 
+%% By default this provider will build both a package tarball and docs tarball.
+%%
+%% The package and docs .tar files are created in the current directory, but is not pushed to the repository. An app
+%% named foo at version 1.2.3 will be built as foo-1.2.3.tar. Likewise the docs .tar would be built as
+%% foo-1.2.4-docs.tar.
 %%
 %% ```
-%% $ rebar3 hex build 
+%% $ rebar3 hex build
 %% '''
-%% 
-%% You may also build only a package or docs tarball utilizing the same available command line options. 
 %%
-%% ``` 
-%% $ rebar3 hex build package 
+%% You may also build only a package or docs tarball utilizing the same available command line options.
+%%
+%% ```
+%% $ rebar3 hex build package
 %% '''
 %%
 %% ```
-%% $ rebar3 hex build docs 
+%% $ rebar3 hex build docs
 %% '''
-%% 
-%% <h2>Configuration</h2> 
+%%
+%% <h2>Configuration</h2>
 %% Packages are configured via `src/<myapp>.app.src'  attributes.
-%% 
-%% == Required configuration == 
-%% 
+%%
+%% == Required configuration ==
+%%
 %% <ul>
-%%  <li> 
+%%  <li>
 %%      `application' - application name. This is required per Erlang/OTP thus it should always be present anyway.
 %%  </li>
 %   <li>
@@ -40,44 +40,44 @@
 %%  </li>
 %% </ul>
 %%
-%% 
-%% == Optional configuration == 
-%% In addition, the following meta attributes are supported and highly recommended : 
+%%
+%% == Optional configuration ==
+%% In addition, the following meta attributes are supported and highly recommended :
 %%
 %% <ul>
-%%  <li> 
+%%  <li>
 %%      `description' - a brief description about your application.
 %%  </li>
-%%  
+%%
 %%  <li>
 %%      `pkg_name' - The name of the package in case you want to publish the package with a different name than the
 %%       application name.
 %%  </li>
-%%  
+%%
 %%  <li>
 %%      `links' - A map where the key is a link name and the value is the link URL. Optional but highly
 %%      recommended.
 %%  </li>
-%%  
-%%  <li> `files' - A list of files and directories to include in the package. Defaults to standard project directories, 
-%%        so you usually don't need to set this property. 
+%%
+%%  <li> `files' - A list of files and directories to include in the package. Defaults to standard project directories,
+%%        so you usually don't need to set this property.
 %%  </li>
-%%  <li> 
-%%      `include_paths' - A list of paths containing files you wish to include in a release. 
+%%  <li>
+%%      `include_paths' - A list of paths containing files you wish to include in a release.
 %%  </li>
-%%  <li> 
-%%      `exclude_paths' - A list of paths containing files you wish to exclude in a release. 
+%%  <li>
+%%      `exclude_paths' - A list of paths containing files you wish to exclude in a release.
 %%  </li>
-%%  <li> 
+%%  <li>
 %%      `exclude_patterns' - A list of regular expressions used to exclude files that may have been accumulated via
 %%      `files' and `include_paths' and standard project paths.
-%%  </li> 
-%%  <li> 
-%%      `build_tools' - List of build tools that can build the package. It's very rare that you need to set this. 
+%%  </li>
+%%  <li>
+%%      `build_tools' - List of build tools that can build the package. It's very rare that you need to set this.
 %%  </li>
 %% </ul>
 %%
-%% Below is an example : 
+%% Below is an example :
 %%
 %% ```
 %% {application, myapp,
@@ -95,15 +95,15 @@
 %% <h2> Command line options </h2>
 %%
 %% <ul>
-%%  <li> `-r', `--repo' - Specify the repository to work with. This option is required when 
-%%      you have multiple repositories configured, including organizations. The argument must 
-%%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm'). 
-%%      Defaults to `hexpm'. 
+%%  <li> `-r', `--repo' - Specify the repository to work with. This option is required when
+%%      you have multiple repositories configured, including organizations. The argument must
+%%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm').
+%%      Defaults to `hexpm'.
 %%   </li>
-%%   <li> `-u', `--unpack' - Builds the tarball and unpacks contents into a directory. Useful for making sure the tarball 
+%%   <li> `-u', `--unpack' - Builds the tarball and unpacks contents into a directory. Useful for making sure the tarball
 %%        contains all needed files before publishing. See --output below for setting the output path.
 %%   </li>
-%%   <li> `-o', `--output' - Sets output path. When used with --unpack it means the directory 
+%%   <li> `-o', `--output' - Sets output path. When used with --unpack it means the directory
 %%   (Default: `<app>-<version>'). Otherwise, it specifies tarball path (Default: `<app>-<version>.tar').
 %%   Artifacts will be written to `_build/<profile>/lib/<your_app>/' by default.
 %%   </li>
@@ -111,7 +111,7 @@
 
 -module(rebar3_hex_build).
 
--export([create_package/3, create_docs/3, create_docs/4]).
+-export([create_package/2, create_docs/3, create_docs/4]).
 
 -include("rebar3_hex.hrl").
 
@@ -171,49 +171,60 @@ init(State) ->
 %% @private
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()}.
 do(State) ->
-    case rebar3_hex:task_state(State) of
-        {ok, Task} ->
-            handle_task(Task);
-        {error, Reason} ->
-            ?RAISE(Reason)
-    end.
+    Task = rebar3_hex:task_state(State, get_repo(State)),
+    handle_task(Task).
+
+get_repo(State) ->
+     {Args, _} = rebar_state:command_parsed_args(State),
+     case proplists:get_value(repo, Args, undefined) of
+         undefined ->
+             rebar3_hex_config:default_repo(State);
+         RepoName ->
+            rebar3_hex_config:repo(State, RepoName)
+     end.
 
 %% @private
 -spec format_error(any()) -> iolist().
-format_error({build_package, Error}) when is_list(Error) -> 
+format_error({build_package, Error}) when is_list(Error) ->
     io_lib:format("Error building package : ~ts", [Error]);
 
-format_error({build_docs, {error, no_doc_config}}) -> 
+format_error({build_docs, {error, no_doc_config}}) ->
     no_doc_config_messsage();
 
-format_error({build_docs, {error, {doc_provider_not_found, PrvName}}}) -> 
+format_error({build_docs, {error, {doc_provider_not_found, PrvName}}}) ->
     doc_provider_not_found(PrvName);
 
-format_error({build_docs, {error, missing_doc_index}}) -> 
+format_error({build_docs, {error, missing_doc_index}}) ->
     doc_missing_index_message();
 
-format_error({build_docs, Error}) when is_list(Error) -> 
+format_error({build_docs, Error}) when is_list(Error) ->
     io_lib:format("Error building docs : ~ts", [Error]);
 
-format_error(app_switch_required) -> 
+format_error(repo_required_for_docs) ->
+   Str =  "Error :~n\tA repo argument is required when building docs if multiple repos exist"
+    " and at least one has doc configuration.~n\tSpecify a repo argument or run"
+    " rebar3 hex build package if you only need to build a package.",
+    io_lib:format(Str, []);
+
+format_error(app_switch_required) ->
      "--app switch is required when building packages or docs in a umbrella with multiple apps";
 
 format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
 
-no_doc_config_messsage() -> 
+no_doc_config_messsage() ->
     "No doc provider has been specified in your hex config.\n"
     "Be sure to add a doc provider to the hex config you rebar configuration file.\n\n"
     "Example : {hex, [{doc, ex_doc}]\n".
 
-doc_missing_index_message() -> 
+doc_missing_index_message() ->
     "An index.html file was not found in docs after running docs provider.\n"
     "Be sure the docs provider is configured correctly and double check it by running it on its own\n".
 
 doc_provider_not_found(Provider) ->
     io_lib:format("The doc provider ~ts specified in your hex config could not be found", [Provider]).
 
-handle_task(#{apps := [_,_|_]}) -> 
+handle_task(#{apps := [_,_|_]}) ->
     ?RAISE(app_switch_required);
 
 handle_task(#{state := State, repo := Repo, apps := [App], args := #{task := docs} = Args}) ->
@@ -226,8 +237,8 @@ handle_task(#{state := State, repo := Repo, apps := [App], args := #{task := doc
             ?RAISE({build_docs, Error})
     end;
 
-handle_task(#{state := State, repo := Repo, apps := [App], args := #{task := package} = Args}) ->
-    case create_package(State, Repo, App) of
+handle_task(#{state := State, apps := [App], args := #{task := package} = Args}) ->
+    case create_package(State, App) of
         {ok, Pkg} ->
             AbsDir = write_or_unpack(App, Pkg, Args),
             rebar3_hex_io:say("Your package contents can be inspected at ~ts", [AbsDir]),
@@ -237,7 +248,7 @@ handle_task(#{state := State, repo := Repo, apps := [App], args := #{task := pac
     end;
 
 handle_task(#{state := State, repo := Repo, apps := [App], args := Args}) ->
-    case create_package(State, Repo, App) of
+    case create_package(State, App) of
         {ok, Pkg} ->
             AbsOutput = write_or_unpack(App, Pkg, Args),
             rebar3_hex_io:say("Your package tarball is available at ~ts", [AbsOutput]),
@@ -246,13 +257,13 @@ handle_task(#{state := State, repo := Repo, apps := [App], args := Args}) ->
                     AbsFile = write_or_unpack(App, Docs, Args),
                     rebar3_hex_io:say("Your docs tarball is available at ~ts", [AbsFile]),
                     {ok, State};
-                {error, no_doc_config} -> 
+                {error, no_doc_config} ->
                     rebar_api:warn(no_doc_config_messsage(), []),
                     {ok, State};
-                {error, {doc_provider_not_found, PrvName}} -> 
+                {error, {doc_provider_not_found, PrvName}} ->
                     rebar_api:warn(doc_provider_not_found(PrvName), []),
                     {ok, State};
-                {error, missing_doc_index} -> 
+                {error, missing_doc_index} ->
                     rebar_api:warn(doc_missing_index_message(), []),
                     {ok, State};
                 Error ->
@@ -271,24 +282,24 @@ output_path(package, Name, Version, #{unpack := true}) ->
 output_path(package, Name, Version, _Args) ->
     io_lib:format("~ts-~ts.tar", [Name, Version]).
 
-write_or_unpack(App, #{type := Type, tarball := Tarball, name := Name, version := Version}, Args) -> 
+write_or_unpack(App, #{type := Type, tarball := Tarball, name := Name, version := Version}, Args) ->
     OutputDir = output_dir(App, Args),
     Out = output_path(Type, Name, Version, Args),
     AbsOut = filename:join(OutputDir, Out),
-    case Args of 
-        #{unpack := true} -> 
+    case Args of
+        #{unpack := true} ->
             file:make_dir(AbsOut),
-            case Type of 
-                docs -> 
+            case Type of
+                docs ->
                     hex_tarball:unpack_docs(Tarball, AbsOut);
-                package -> 
+                package ->
                     hex_tarball:unpack(Tarball, AbsOut)
             end;
-        _ -> 
+        _ ->
             file:write_file(AbsOut, Tarball)
     end,
     AbsOut.
-        
+
 %% We are exploiting a feature of ensuredir that that creates all
 %% directories up to the last element in the filename, then ignores
 %% that last element. This way we ensure that the dir is created
@@ -307,7 +318,7 @@ output_dir(App, _) ->
     Dir.
 
 %% @private
-create_package(State, #{name := RepoName} = _Repo, App) ->
+create_package(State, App) ->
     Name = rebar_app_info:name(App),
     Version = rebar3_hex_app:vcs_vsn(State, App),
     {application, _, AppDetails} = rebar3_hex_file:update_app_src(App, Version),
@@ -354,7 +365,6 @@ create_package(State, #{name := RepoName} = _Repo, App) ->
                     Package = #{
                         type => package,
                         name => PkgName,
-                        repo_name => RepoName,
                         deps => Deps1,
                         version => Version,
                         metadata => Metadata,
@@ -392,7 +402,7 @@ include_files(Name, AppDir, AppDetails) ->
     AppSrc = {application, to_atom(Name), AppDetails},
     FilePaths = proplists:get_value(files, AppDetails, ?DEFAULT_FILES),
     %% In versions prior to v7 the name of the for including paths and excluding paths was include_files and
-    %% exclude_files. We don't document this anymore, but we do support it to avoid breaking changes. However, 
+    %% exclude_files. We don't document this anymore, but we do support it to avoid breaking changes. However,
     %% users should be instructed to use *_paths. Likewise for exclude_regexps which is now documented as
     %% exclude_patterns.
     IncludePaths = proplists:get_value(include_paths, AppDetails, proplists:get_value(include_files, AppDetails, [])),
@@ -521,6 +531,10 @@ docs_detected(DocDir) ->
 doc_opts(State, Repo) ->
     case Repo of
         #{doc := #{provider := PrvName}} when is_atom(PrvName) ->
+            Deprecation = "Setting doc options in repo configuration has been deprecated."
+                          " You should configure a docmentation provider in top level hex "
+                          " configuration now.",
+            rebar_api:warn(Deprecation, []),
             {ok, PrvName};
         _ ->
             Opts = rebar_state:opts(State),

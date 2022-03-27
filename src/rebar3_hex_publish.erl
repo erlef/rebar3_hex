@@ -401,9 +401,9 @@ publish(State, Repo, App, Args) ->
 -dialyzer({nowarn_function, publish_package/4}).
 publish_package(State, Repo, App, Args) ->
     assert_valid_app(State, App),
-    Package = create_package(State, Repo, App),
+    Package = create_package(State, App),
     maybe_print_checkouts_warnings(App, Package),
-    print_package_info(Package),
+    print_package_info(Package, Repo),
     maybe_say_coc(Repo),
     MaybeCheckoutWarnings = maybe_checkout_warnings(Package),
     case maybe_prompt(Args, "Proceed" ++ MaybeCheckoutWarnings ++ "?") of
@@ -430,16 +430,16 @@ publish_package(State, Repo, App, Args) ->
             abort
     end.
 
-create_package(State, Repo, App) ->
-    case rebar3_hex_build:create_package(State, Repo, App) of
+create_package(State, App) ->
+    case rebar3_hex_build:create_package(State, App) of
         {ok, Package} ->
             Package;
         Err ->
             ?RAISE({create_package, Err})
     end.
 
-print_package_info(Package) ->
-    #{metadata := Meta, files := Files, deps := Deps, name := Name, repo_name := RepoName, version := Version} = Package,
+print_package_info(Package, #{name := RepoName} = _Repo) ->
+    #{metadata := Meta, files := Files, deps := Deps, name := Name, version := Version} = Package,
     rebar3_hex_io:say("Publishing ~ts ~ts to ~ts", [Name, Version, RepoName]),
     rebar3_hex_io:say("  Description: ~ts", [rebar_utils:to_list(maps:get(<<"description">>, Meta, <<"">>))]),
     rebar3_hex_io:say("  Dependencies:~n    ~ts", [format_deps(Deps)]),
