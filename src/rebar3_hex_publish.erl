@@ -441,11 +441,11 @@ create_package(State, Repo, App) ->
 print_package_info(Package) ->
     #{metadata := Meta, files := Files, deps := Deps, name := Name, repo_name := RepoName, version := Version} = Package,
     rebar3_hex_io:say("Publishing ~ts ~ts to ~ts", [Name, Version, RepoName]),
-    rebar3_hex_io:say("  Description: ~ts", [rebar_utils:to_list(maps:get(<<"description">>, Meta))]),
+    rebar3_hex_io:say("  Description: ~ts", [rebar_utils:to_list(maps:get(<<"description">>, Meta, <<"">>))]),
     rebar3_hex_io:say("  Dependencies:~n    ~ts", [format_deps(Deps)]),
     rebar3_hex_io:say("  Included files:~n    ~ts", [string:join([F || {F, _} <- Files], "\n    ")]),
-    rebar3_hex_io:say("  Licenses: ~ts", [format_licenses(maps:get(<<"licenses">>, Meta))]),
-    rebar3_hex_io:say("  Links:~n    ~ts", [format_links(maps:get(<<"links">>, Meta))]),
+    rebar3_hex_io:say("  Licenses: ~ts", [format_licenses(maps:get(<<"licenses">>, Meta, []))]),
+    rebar3_hex_io:say("  Links:~n    ~ts", [format_links(maps:get(<<"links">>, Meta, []))]),
     rebar3_hex_io:say("  Build tools: ~ts", [format_build_tools(maps:get(<<"build_tools">>, Meta))]).
 
 format_build_tools(BuildTools) ->
