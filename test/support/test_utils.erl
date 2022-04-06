@@ -66,7 +66,7 @@ make_stub(#{type := umbrella, dir := Dir, name := Name, apps := Apps} = StubConf
     #{repo := Repo} = StubConfig1,
     RootDir = filename:join(Dir, [Name]),
     make_stub(StubConfig#{type => app, dir => Dir}),
-    lists:foreach(fun(#{name := _AppName} = App) -> 
+    lists:foreach(fun(#{name := _AppName} = App) ->
             AppDir = filename:join(RootDir, ["apps/"]),
             make_stub(App#{type => app, dir => AppDir})
         end, Apps),
@@ -80,7 +80,7 @@ init_state(Dir, Repo, #{profile := Profile}) ->
     LibDirs = rebar_dir:lib_dirs(State),
     rebar_app_discover:do(State, LibDirs).
 
-put_defaults(Cfg) -> 
+put_defaults(Cfg) ->
     Cfg1 = maybe_put_default_repo(Cfg),
     Cfg2 = maybe_put_default_profile(Cfg1),
     maybe_put_default_app_src_spec(Cfg2).
@@ -128,18 +128,28 @@ write_lock_file(Dir, #{profile := Profile}) ->
 write_config_file(Dir, #{profile := Profile}) ->
     Filename = filename:join([Dir, "rebar.config"]),
     ok = filelib:ensure_dir(Filename),
-    ok = ec_file:write_term(Filename, config(Profile)).
+    ok = write_terms(Filename, config(Profile)).
+
+write_terms(FileName, Terms) ->
+    TermsStrs = [ format_term(T) || T <- Terms],
+    file:write_file(FileName, string:join(TermsStrs, " ")).
+
+format_term(Term) ->
+    lists:flatten(io_lib:fwrite("~p. ", [Term])).
 
 config(default) ->
-    {deps, [{hex_core, "0.8.2"}, {verl, "1.1.1"}]};
+    [
+     {hex, [{doc, edoc}]},
+     {deps, [{hex_core, "0.8.2"}, {verl, "1.1.1"}]}
+    ];
 config(with_git_deps) ->
-    {deps, [
+    [{deps, [
         {hex_core, "0.8.2"}, {verl, "1.1.1"}, {rebar, {git, "git://github.com/erlang/rebar3.git"}}
-    ]};
+    ]}];
 config(with_binary_versions) ->
-    {deps, [{hex_core, <<"0.8.2">>}, {verl, <<"1.1.1">>}]};
+    [{deps, [{hex_core, <<"0.8.2">>}, {verl, <<"1.1.1">>}]}];
 config(with_alias_deps) ->
-    {deps, [{hex_core}, {verl}]}.
+    [{deps, [{hex_core}, {verl}]}].
 
 locks(with_binary_versions) ->
     locks(default);
@@ -198,7 +208,7 @@ rebar_state(AppsDir, Repo, Deps) ->
         {base_dir, filename:join([AppsDir, "_build"])},
         {command_parsed_args, []},
         {resources, []},
-        {hex, [{repos, [Repo]}]}
+        {hex, [{repos, [Repo]}, {doc, edoc}]}
     ],
     Config1 = rebar_config:merge_locks(Config, Deps),
     State = rebar_state:new(Config1),

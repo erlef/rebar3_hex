@@ -7,6 +7,7 @@
         , get_required/2
         , task_args/1
         , task_state/1
+        , task_state/2
         , repo_opt/0
         , help_opt/0
         ]).
@@ -15,10 +16,10 @@
 
 -type task() :: #{raw_opts := proplists:proplist(),
                   raw_args := list(),
-                  args := map(), 
-                  repo := map(), 
-                  apps := [rebar_app_info:t()], 
-                  state := rebar_state:t(), 
+                  args := map(),
+                  repo := map(),
+                  apps := [rebar_app_info:t()],
+                  state := rebar_state:t(),
                   multi_app := boolean()
                  }.
 
@@ -71,26 +72,30 @@ task_args(State) ->
 %% as returned from rebar_state:command_parsed_args/1 as raw_args and raw_opts.
 -spec task_state(rebar_state:t()) -> {ok, task()} | {error, term()}.
 task_state(State) ->
-    {Opts0, Args0} = rebar_state:command_parsed_args(State),
      case rebar3_hex_config:repo(State) of
-         {ok, Repo} -> 
-             Opts = get_args(State),
-             CurrentTask = maps:get(task, Opts, undefined),
-             Opts1 = Opts#{task => CurrentTask},
-             case rebar_state:project_apps(State) of 
-                 [] ->
-                     {ok, #{raw_opts => Opts0, raw_args => Args0, args => Opts1, repo => Repo, state => State, multi_app => false, apps => []}};
-                 [_App] = Apps ->
-                    {ok, #{raw_opts => Opts0, raw_args => Args0, args => Opts1, repo => Repo, state => State, multi_app => false, apps => Apps}};
-                 [_|_] = Apps ->
-                    {ok, #{raw_opts => Opts0, raw_args => Args0, args => Opts1, repo => Repo, state => State, multi_app => true, apps => Apps}}
-             end;
-         Err -> 
+         {ok, Repo} ->
+             {ok, task_state(State, Repo)};
+        Err ->
             Err
      end.
 
+-spec task_state(rebar_state:t(), map()) -> task().
+task_state(State, Repo) ->
+    {Opts0, Args0} = rebar_state:command_parsed_args(State),
+    Opts = get_args(State),
+    CurrentTask = maps:get(task, Opts, undefined),
+    Opts1 = Opts#{task => CurrentTask},
+    case rebar_state:project_apps(State) of
+        [] ->
+            #{raw_opts => Opts0, raw_args => Args0, args => Opts1, repo => Repo, state => State, multi_app => false, apps => []};
+        [_App] = Apps ->
+            #{raw_opts => Opts0, raw_args => Args0, args => Opts1, repo => Repo, state => State, multi_app => false, apps => Apps};
+        [_|_] = Apps ->
+            #{raw_opts => Opts0, raw_args => Args0, args => Opts1, repo => Repo, state => State, multi_app => true, apps => Apps}
+     end.
+
 -spec get_args(rebar_state:t()) -> map().
-get_args(State) -> 
+get_args(State) ->
     {Opts, Args} = rebar_state:command_parsed_args(State),
     Opts1 = lists:foldl(fun (Arg, Acc) ->
                                 case is_atom(Arg) of
@@ -100,14 +105,14 @@ get_args(State) ->
                                         case Arg of
                                             {task, Task} ->
                                                 [{task, list_to_atom(Task)} | Acc];
-                                             _ -> 
+                                             _ ->
                                               [Arg | Acc]
                                         end
                                 end
                         end,
                         [],
                         Opts),
-    
+
     Opts2 = lists:foldl(fun (Arg, Acc) ->
                                 case is_atom(Arg) of
                                     true ->
