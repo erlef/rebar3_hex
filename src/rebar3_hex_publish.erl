@@ -518,7 +518,7 @@ maybe_warn_about_doc_config(State, Repo) ->
                                                " ",
                                                "{extras, [<<\"README.md\">>, <<\"LICENSE.md\">>]},",
                                                " ",
-                                               "{main, <<\"readme\">>}]}"
+                                               "{main, <<\"readme\">>}]}."
                                               ]
                                     );
         _ -> 
