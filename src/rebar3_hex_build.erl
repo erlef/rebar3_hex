@@ -142,6 +142,9 @@
     format_error/1
 ]).
 
+%% Helpers 
+-export([doc_opts/2]).
+
 %% ===================================================================
 %% Public API
 %% ===================================================================
@@ -518,6 +521,7 @@ resolve_dir(App, PrvName) ->
 docs_detected(DocDir) ->
     filelib:is_file(DocDir ++ "/index.html").
 
+-spec doc_opts(rebar_state:t(), map()) -> {ok, atom()} | undefined.
 doc_opts(State, Repo) ->
     case Repo of
         #{doc := #{provider := PrvName}} when is_atom(PrvName) ->

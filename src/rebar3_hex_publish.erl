@@ -385,6 +385,7 @@ handle_task(_) ->
 
 -dialyzer({nowarn_function, publish/4}).
 publish(State, Repo, App, Args) ->
+    maybe_warn_about_doc_config(State, Repo),
     HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     case publish_package(State, HexConfig, App, Args) of
         abort ->
@@ -490,6 +491,38 @@ maybe_prompt(_Args, Message) ->
             proceed;
         _ ->
             abort
+    end.
+
+maybe_warn_about_doc_config(State, Repo) -> 
+    case rebar3_hex_build:doc_opts(State, Repo) of
+        undefined -> 
+            Warning = "No doc provider configuration was found, therefore docs can not be published.~n~n"
+                      "You may resolve this by adding a doc provider property to your projects hex config.~n~n"
+                      "To configure rebar3_ex_doc as your doc provider (recommended but requires >= OTP 24) ~n~n"
+                      "Add the following configuration to your rebar.config : ~n~n"
+                      "{project_plugins, [rebar3_ex_doc]}.~n~n"
+                      "{hex, [{doc, ex_doc}]}.~n~n"
+                      "~s~n"
+                      "~10.s~s~n"
+                      "~10.s~s~n"
+                      "~10.s~s~n~n"
+                      "Alternatively if using OTP < 24 or you prefer edoc, add the following to your rebar.config :~n~n"
+                      "{hex, [{doc, edoc}]}.~n~n"
+                      "If you always intend to publish packages without docs and wish to silence this warning "
+                      "you should use : ~n~nrebar3 hex publish package~n~n"
+                      "Note : In version 7.1 this warning will be treated as an error~n",
+                      rebar_api:warn(Warning, [
+                                               "{ex_doc, [", 
+                                               " ", 
+                                               "{source_url, <<\"https://github.com/namespace/your_app\">>},",
+                                               " ",
+                                               "{extras, [<<\"README.md\">>, <<\"LICENSE.md\">>]},",
+                                               " ",
+                                               "{main, <<\"readme\">>}]}"
+                                              ]
+                                    );
+        _ -> 
+            ok
     end.
 
 hex_opts(Opts) ->
