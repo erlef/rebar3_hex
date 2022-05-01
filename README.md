@@ -35,9 +35,9 @@ Example :
 ```erlang
 
 {ex_doc, [
-    {source_url, <<"https://github.com/namespace/your_app">>},
-    {extras, [<<"README.md">>, <<"LICENSE">>]},
-    {main, <<"readme">>}
+    {extras, ["README.md", "LICENSE"]},
+    {main, "README.md"},
+    {source_url, "https://github.com/namespace/your_app"}
 ]}.
 
 {hex, [{doc, ex_doc}]}.
