@@ -22,6 +22,7 @@ get_deps_test(_Config) ->
             {<<"verl">>, [
                 {<<"app">>, <<"verl">>},
                 {<<"optional">>, false},
+	        {<<"repository">>,<<"hexpm">>},
                 {<<"requirement">>, <<"1.1.1">>}
             ]}
         ]},

@@ -56,9 +56,9 @@ locks_to_deps(Deps) ->
     lists:foldl(fun(D, Acc) -> lock_to_dep(D, Acc) end, [], Deps).
 
 lock_to_dep({A, {pkg, N, V, _, _}, 0}, Acc) ->
-    [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"requirement">>, V}]} | Acc];
+    [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"repository">>,<<"hexpm">>}, {<<"requirement">>, V}]} | Acc];
 lock_to_dep({A, {pkg, N, V, _}, 0}, Acc) ->
-    [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"requirement">>, V}]} | Acc];
+    [{N, [{<<"app">>, A}, {<<"optional">>, false}, {<<"repository">>,<<"hexpm">>}, {<<"requirement">>, V}]} | Acc];
 lock_to_dep(_, Acc) ->
     Acc.
 
