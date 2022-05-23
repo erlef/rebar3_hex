@@ -49,6 +49,11 @@
 %%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm').
 %%      Defaults to `hexpm'.
 %%   </li>
+%%  <li>`--level' - Specify the ownership level, either `full' or `maintainer'. Both ownership levels allow publishing 
+%%      and retiring of packages. However, only an owner with `full' access may add, remove other owners, or transfer a 
+%%      package to another owner. 
+%%      Defaults to `full'.
+%%   </li>
 %% </ul>
 
 -module(rebar3_hex_owner).
@@ -161,16 +166,14 @@ support() ->
     "publish and revert releases and even remove other package owners.~n~n"
     "Supported command combinations: ~n~n"
     "  rebar3 hex owner add <package> <username>~n~n"
-    "  rebar3 hex owner add <package> <username> <level>~n~n"
-    "  rebar3 hex owner add <package> <username> <level> <transfer>~n~n"
+    "  rebar3 hex owner add <package> <username> --level <level>~n~n"
     "  rebar3 hex owner list <package>~n~n"
     "  rebar3 hex owner remove <package> <username>~n~n"
     "  rebar3 hex owner transfer <package> <username>~n~n"
     "Argument descriptions: ~n ~n"
     "  <username> - a valid hex username or email address for a hex user~n~n"
     "  <package>  - a valid hex package name~n~n"
-    "  <level>    - one of full or maintainer~n~n"
-    "  <transfer> - boolean value indicating whether to transfer a specified package or not~n~n".
+    "  <level>    - one of full or maintainer~n~n".
 
 %% @private
 -spec format_error(any()) -> iolist().
