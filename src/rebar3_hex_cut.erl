@@ -138,8 +138,9 @@ format_error(Reason) ->
 %% Public API
 %% ===================================================================
 
-cut(State, Repo, App, #{increment := MaybeType} = Args) ->
+cut(State, Repo, App, #{} = Args) ->
     {Version, ResolvedVersion} = version_info(State, App),
+    MaybeType = maps:get(increment, Args, undefined),
     Type = get_increment(MaybeType, ResolvedVersion),
     NewVersion = increment_version(Type, ResolvedVersion),
     AppSrcFile = rebar_app_info:app_file_src(App),
