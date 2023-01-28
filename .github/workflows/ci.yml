@@ -3,7 +3,7 @@ name: test
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     types: [opened, synchronize]
 
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        otp: ['22', '23', '24']
+        otp: ['24', '25']
         rebar3: ['3.16.1']
     steps:
       - uses: actions/checkout@v2
@@ -31,4 +31,4 @@ jobs:
         uses: codecov/codecov-action@v1
         with:
           files: _build/test/covertool/rebar3_hex.covertool.xml
-          name: ${{matrix.otp_vsn}}
+          name: ${{matrix.otp}}
