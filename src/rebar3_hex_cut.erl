@@ -1,17 +1,17 @@
-%% @doc `rebar3 hex cut' - Publish with git tag and version bump features 
+%% @doc `rebar3 hex cut' - Publish with git tag and version bump features
 %%
 %% Increments tags and publishes.
 %%
-%% Incrementing and tagging are both optional features of this provider. 
+%% Incrementing and tagging are both optional features of this provider.
 %%
 %% By default you'll be prompted what type of increment to make to the version or it can be supplied as an argument to
-%% the command `-i', `--increment' switch. 
+%% the command `-i', `--increment' switch.
 %%
 %% `cut' will also optionally create version bump commit, create a tag with a name corresponding to the new version, and
-%%  prompt you if you'd like to push the tag up to your git repository. 
+%%  prompt you if you'd like to push the tag up to your git repository.
 %%
-%% 
-%% Below is a full example of `cut' in action : 
+%%
+%% Below is a full example of `cut' in action :
 %%
 %% ```
 %% rebar3 hex cut
@@ -53,15 +53,15 @@
 %% Push new tag to origin? ("Y")>
 %% ===> Pushing new tag v0.1.4...
 %% '''
-%% 
+%%
 %% <ul>
-%%  <li>`--repo' - Specify the repository to work with. This option is required when 
-%%      you have multiple repositories configured, including organizations. The argument must 
+%%  <li>`--repo' - Specify the repository to work with. This option is required when
+%%      you have multiple repositories configured, including organizations. The argument must
 %%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm').
 %%      Defaults to `hexpm'.
 %%   </li>
-%%   <li>`-i', `--increment' - Specify the type of version increment to perform without being prompted at runtime. 
-%%       Supported types are : 
+%%   <li>`-i', `--increment' - Specify the type of version increment to perform without being prompted at runtime.
+%%       Supported types are :
 %%          <ul>
 %%              <li><b>major</b></li>
 %%              <li><b>minor</b></li>
@@ -151,13 +151,7 @@ cut(State, Repo, App, #{} = Args) ->
 
             case try_publish(State, Repo, App, Args) of
                 {ok, _State} ->
-                    case rebar3_hex_io:ask("Push new tag to origin?", boolean, "Y") of
-                        true ->
-                            maybe_push_tag(Version),
-                            {ok, State};
-                        false ->
-                            {ok, State}
-                    end;
+                    maybe_push_tag(NewVersion);
                 _ ->
                     delete_tag(NewVersion),
                    {ok, State}
