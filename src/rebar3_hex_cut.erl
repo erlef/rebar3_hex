@@ -213,12 +213,18 @@ try_publish(State, Repo, App, Args) ->
         {error, publish_failed}
   end.
 
+increment_version(other, _CurrentVersion) ->
+     CustomVersion =  rebar3_hex_io:ask("New Version ", string),
+     Parsed = parse_version(CustomVersion),
+     rebar3_hex_version:format(Parsed);
+
 increment_version(Type, VersionStr) when is_list(VersionStr) orelse is_binary(VersionStr) ->
     Parsed = parse_version(VersionStr),
     increment_version(Type, Parsed);
 
 increment_version(Type, Version) ->
-    rebar3_hex_version:format(rebar3_hex_version:increment(Type, Version)).
+    Inc = rebar3_hex_version:increment(Type, Version),
+    rebar3_hex_version:format(Inc).
 
 get_increment(undefined, Version) ->
     rebar3_hex_io:say("Select semver increment or other (Current ~s):", [Version]),
@@ -228,7 +234,7 @@ get_increment(undefined, Version) ->
     rebar3_hex_io:say("4) other", []),
     case rebar3_hex_io:ask("[1-4] ", number) of
         4 ->
-            rebar3_hex_io:ask("New Version ", string);
+            other;
         TypeInt ->
             case int_to_increment(TypeInt) of
                 error ->
