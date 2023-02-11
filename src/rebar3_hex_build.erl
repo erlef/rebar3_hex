@@ -142,7 +142,7 @@
     format_error/1
 ]).
 
-%% Helpers 
+%% Helpers
 -export([doc_opts/2]).
 
 %% ===================================================================
@@ -189,6 +189,9 @@ get_repo(State) ->
 %% @private
 -spec format_error(any()) -> iolist().
 format_error({build_package, Error}) when is_list(Error) ->
+    io_lib:format("Error building package : ~ts", [Error]);
+
+format_error({build_package, {error, Error}}) when is_list(Error) ->
     io_lib:format("Error building package : ~ts", [Error]);
 
 format_error({build_docs, {error, no_doc_config}}) ->
