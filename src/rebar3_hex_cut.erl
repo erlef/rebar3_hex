@@ -215,8 +215,8 @@ try_publish(State, Repo, App, Args) ->
 
 increment_version(other, _CurrentVersion) ->
      CustomVersion =  rebar3_hex_io:ask("New Version ", string),
-     Parsed = parse_version(CustomVersion),
-     rebar3_hex_version:format(Parsed);
+     _parsed = parse_version(CustomVersion),
+     rebar_utils:to_binary(CustomVersion);
 
 increment_version(Type, VersionStr) when is_list(VersionStr) orelse is_binary(VersionStr) ->
     Parsed = parse_version(VersionStr),
