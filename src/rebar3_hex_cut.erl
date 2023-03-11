@@ -10,6 +10,8 @@
 %% `cut' will also optionally create version bump commit, create a tag with a name corresponding to the new version, and
 %%  prompt you if you'd like to push the tag up to your git repository.
 %%
+%% You may opt-out of prefixing tags and commits with a `v' prefix (i.e., v1.2.3) using
+%% `--prefix-tag false' switch.
 %%
 %% Below is a full example of `cut' in action :
 %%
@@ -98,6 +100,8 @@ init(State) ->
                                 {desc, ""},
                                 {opts, [{increment, $i, "increment", {string, undefined},
                                          "Type of semver increment: major, minor or patch"},
+                                        {prefix_tag, $p, "prefix-tag", {boolean, true},
+                                         "Prefix tags with v (i.e., v1.2.3) "},
                                         rebar3_hex:repo_opt()]}
                                 ]),
     State1 = rebar_state:add_provider(State, Provider),
@@ -141,39 +145,46 @@ format_error(Reason) ->
 cut(State, Repo, App, #{} = Args) ->
     {Version, ResolvedVersion} = version_info(State, App),
     MaybeType = maps:get(increment, Args, undefined),
+    MaybePrefix = maps:get(prefix_tag, Args, true),
     Type = get_increment(MaybeType, ResolvedVersion),
     NewVersion = increment_version(Type, ResolvedVersion),
+    MaybePrefixedVersion = maybe_prefix_version(NewVersion, MaybePrefix),
     AppSrcFile = rebar_app_info:app_file_src(App),
 
     case Version of
         _Git when Version =:= git orelse Version =:= "git" ->
-            create_tag(NewVersion),
+            create_tag(MaybePrefixedVersion),
 
             case try_publish(State, Repo, App, Args) of
                 {ok, _State} ->
-                    maybe_push_tag(NewVersion);
+                    maybe_push_tag(MaybePrefixedVersion);
                 _ ->
-                    delete_tag(NewVersion),
+                    delete_tag(MaybePrefixedVersion),
                    {ok, State}
             end;
         _ ->
             Spec = rebar3_hex_file:update_app_src(App, NewVersion),
             NewAppSrcFile = io_lib:format("~tp.\n", [Spec]),
             ok = rebar_file_utils:write_file_if_contents_differ(AppSrcFile, NewAppSrcFile),
-            ask_commit_and_push(NewVersion),
+            ask_commit_and_push(MaybePrefixedVersion),
             case try_publish(State, Repo, rebar_app_info:original_vsn(App, NewVersion), Args) of
                 {ok, _} ->
-                    maybe_create_and_push_tag(NewVersion),
+                    maybe_create_and_push_tag(MaybePrefixedVersion),
                     {ok, State};
                 {error, publish_failed} ->
-                    delete_tag(NewVersion),
+                    delete_tag(MaybePrefixedVersion),
                     {ok, State}
             end
 
     end.
 
+maybe_prefix_version(Vsn, true) ->
+    io_lib:format("v~s?", [Vsn]);
+maybe_prefix_version(Vsn, false) ->
+    Vsn.
+
 maybe_create_and_push_tag(Version) ->
-    PromptStr = io_lib:format("Create new git tag v~s?", [Version]),
+    PromptStr = io_lib:format("Create new git tag ~s?", [Version]),
     case rebar3_hex_io:ask(PromptStr, boolean, "Y") of
         true ->
             create_tag(Version),
@@ -183,8 +194,8 @@ maybe_create_and_push_tag(Version) ->
     end.
 
 create_tag(Version) ->
-    rebar_api:info("Creating new tag v~s...", [Version]),
-    rebar_utils:sh(io_lib:format("git tag v~s", [Version]), []).
+    rebar_api:info("Creating new tag ~s...", [Version]),
+    rebar_utils:sh(io_lib:format("git tag ~s", [Version]), []).
 
 maybe_push_tag(Version) ->
     case rebar3_hex_io:ask("Push new tag to origin?", boolean, "Y") of
@@ -195,12 +206,12 @@ maybe_push_tag(Version) ->
     end.
 
 push_tag(Version) ->
-    rebar_api:info("Pushing new tag v~s...", [Version]),
-    rebar_utils:sh(io_lib:format("git push origin v~s", [Version]), []).
+    rebar_api:info("Pushing new tag ~s...", [Version]),
+    rebar_utils:sh(io_lib:format("git push origin ~s", [Version]), []).
 
 delete_tag(Version) ->
-    rebar_api:info("Deleting new tag v~s...", [Version]),
-    rebar_utils:sh(io_lib:format("git tag -d v~s", [Version]), []).
+    rebar_api:info("Deleting new tag ~s...", [Version]),
+    rebar_utils:sh(io_lib:format("git tag -d ~s", [Version]), []).
 
 try_publish(State, Repo, App, Args) ->
  try rebar3_hex_publish:publish(State, Repo, App, Args) of
@@ -271,9 +282,9 @@ normalize_increment("major") -> major;
 normalize_increment(_) -> error.
 
 ask_commit_and_push(NewVersion) ->
-    case rebar3_hex_io:ask(io_lib:format("Create 'v~s' commit?", [NewVersion]), boolean, "Y") of
+    case rebar3_hex_io:ask(io_lib:format("Create '~s' commit?", [NewVersion]), boolean, "Y") of
         true ->
-            rebar_utils:sh(io_lib:format("git commit -a -m 'v~s'", [NewVersion]), []),
+            rebar_utils:sh(io_lib:format("git commit -a -m '~s'", [NewVersion]), []),
             case rebar3_hex_io:ask("Push master to origin master?", boolean, "N") of
                 true ->
                     rebar_utils:sh("git push origin master:master", []);
