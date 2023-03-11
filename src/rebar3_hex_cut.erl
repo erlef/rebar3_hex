@@ -179,7 +179,7 @@ cut(State, Repo, App, #{} = Args) ->
     end.
 
 maybe_prefix_version(Vsn, true) ->
-    io_lib:format("v~s?", [Vsn]);
+    io_lib:format("v~s", [Vsn]);
 maybe_prefix_version(Vsn, false) ->
     Vsn.
 
