@@ -210,7 +210,7 @@ handle_task(#{args := #{task := register}} = Task) ->
     create_user(Username, Email, Password, Repo, State);
 
 handle_task(#{args := #{task := auth}} = Task) ->
-    #{repo := Repo, state := State} = Task,
+    #{repo := #{name := RepoName} = Repo, state := State} = Task,
     Username = get_string_input("Username"),
     Password = get_password(account),
 
@@ -244,9 +244,8 @@ handle_task(#{args := #{task := auth}} = Task) ->
     ReposKey = generate_key(RepoConfig1, ReposKeyName, ReposPermissions),
 
     % By default a repositories key is created which gives user access to all repositories
-    % that they are granted access to server side. For the time being we default
-    % to hexpm for user auth entries as there is currently no other use case.
-    rebar3_hex_config:update_auth_config(#{?DEFAULT_HEX_REPO => #{
+    % that they are granted access to server side.
+    rebar3_hex_config:update_auth_config(#{RepoName => #{
                                                      username => Username,
                                                      write_key => WriteKeyEncrypted,
                                                      read_key => ReadKey,
