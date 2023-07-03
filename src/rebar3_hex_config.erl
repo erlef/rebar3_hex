@@ -241,7 +241,7 @@ hex_config_read(_Config) ->
 maybe_set_api_organization(#{name := Name} = Repo) ->
     case binary:split(Name, <<":">>) of
         [_] ->
-            Repo;
+            Repo#{api_organization => undefined};
         [_,Org] ->
             Repo#{api_organization => Org}
     end.
