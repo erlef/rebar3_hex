@@ -210,7 +210,7 @@ handle_task(#{args := #{task := register}} = Task) ->
     create_user(Username, Email, Password, Repo, State);
 
 handle_task(#{args := #{task := auth}} = Task) ->
-    #{repo := #{name := RepoName} = Repo, state := State} = Task,
+    #{repo := #{repo_name := RepoName} = Repo, state := State} = Task,
     Username = get_string_input("Username"),
     Password = get_password(account),
 
