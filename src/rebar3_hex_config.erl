@@ -133,10 +133,12 @@ repo(State, RepoName) ->
     case {MaybeFound1, MaybeFound2} of
         {{ok, Repo1}, undefined} ->
             Repo2 = set_http_adapter(merge_with_env(Repo1)),
-            {ok, maybe_set_api_organization(Repo2)};
+            Repo3 = maybe_set_api_organization(Repo2),
+            {ok, maybe_set_api_repository(Repo3)};
         {undefined, {ok, Repo2}} ->
             Repo3 = set_http_adapter(merge_with_env(Repo2)),
-            {ok, maybe_set_api_organization(Repo3)};
+            Repo4 = maybe_set_api_organization(Repo3),
+            {ok, maybe_set_api_repository(Repo4)};
         {undefined, undefined} ->
             {error, {not_valid_repo, RepoName}}
     end.
@@ -241,7 +243,12 @@ hex_config_read(_Config) ->
 maybe_set_api_organization(#{name := Name} = Repo) ->
     case binary:split(Name, <<":">>) of
         [_] ->
-            Repo;
+            Repo#{api_organization => undefined};
         [_,Org] ->
             Repo#{api_organization => Org}
     end.
+
+maybe_set_api_repository(#{api_repository := _} = Repo) ->
+  Repo;
+maybe_set_api_repository(#{} = Repo) ->
+  Repo#{api_repository => undefined}.
