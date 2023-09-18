@@ -189,5 +189,5 @@ $ rebar3 hex search
 ```
 
 # Further reading 
-See [Publishing packages](https://hex.pm/docs/rebar3_publish) on hexpm for more setup and usage instructions. See the 
+See [Publishing packages](https://hex.pm/docs/rebar3-publish) on hexpm for more setup and usage instructions. See the 
 [docs](https://hexdocs.pm/rebar3_hex) for detailed documentation for all available providers.
