@@ -411,6 +411,8 @@ include_files(Name, AppDir, AppDetails) ->
     %% exclude_files. We don't document this anymore, but we do support it to avoid breaking changes. However,
     %% users should be instructed to use *_paths. Likewise for exclude_regexps which is now documented as
     %% exclude_patterns.
+    maybe_warn_about(include_files, proplists:get_value(include_files, AppDetails, undefined)),
+    maybe_warn_about(exclude_regexps, proplists:get_value(exclude_regexps, AppDetails, undefined)),
     IncludePaths = proplists:get_value(include_paths, AppDetails, proplists:get_value(include_files, AppDetails, [])),
     ExcludePaths = proplists:get_value(exclude_paths, AppDetails, proplists:get_value(exclude_files, AppDetails, [])),
     ExcludeRes = proplists:get_value(exclude_patterns, AppDetails, proplists:get_value(exclude_regexps, AppDetails, [])),
@@ -432,6 +434,22 @@ include_files(Name, AppDir, AppDetails) ->
     AppFileSrc = filename:join("src", rebar_utils:to_list(Name) ++ ".app.src"),
     AppSrcBinary = binarify(lists:flatten(io_lib:format("~tp.\n", [AppSrc]))),
     lists:keystore(AppFileSrc, 1, WithIncludes, {AppFileSrc, AppSrcBinary}).
+
+maybe_warn_about(_, undefined) -> ok;
+maybe_warn_about(include_files, _) ->
+     Deprecation = "include_files has been deprecated, which will be "
+                        ++ "removed in a later version of rebar3_hex."
+                        ++ "You should now use include_paths instead. See "
+                        ++ "rebar3 help hex build or the docs for "
+                        ++ "rebar3_hex_build for more info.",
+     rebar_api:warn(Deprecation, []);
+maybe_warn_about(exclude_regexps, _) ->
+     Deprecation = "exclude_regexps has been deprecated, which will be "
+                        ++ "removed in a later version of rebar3_hex."
+                        ++ "You should now use exclude_paths instead. See "
+                        ++ "rebar3 help hex build or the docs for "
+                        ++ "rebar3_hex_build for more info.",
+     rebar_api:warn(Deprecation, []).
 
 exclude_file(Path, ExcludeFiles, ExcludeRe) ->
     lists:keymember(Path, 2, ExcludeFiles) orelse
