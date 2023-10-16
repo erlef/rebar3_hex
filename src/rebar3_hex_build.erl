@@ -440,15 +440,15 @@ maybe_warn_about(include_files, _) ->
      Deprecation = "include_files has been deprecated, and will be "
                         ++ "removed in a later version of rebar3_hex. "
                         ++ "You should use include_paths instead. See "
-                        ++ "\"rebar3 help hex build\" or file \"rebar3_hex_build\" "
-                        ++ "docs for more info.",
+                        ++ "\"rebar3 help hex build\" or \"rebar3_hex_build\" "
+                        ++ "module docs for more info.",
      rebar_api:warn(Deprecation, []);
 maybe_warn_about(exclude_regexps, _) ->
      Deprecation = "exclude_regexps has been deprecated, and will be "
                         ++ "removed in a later version of rebar3_hex. "
                         ++ "You should use exclude_paths instead. See "
                         ++ "\"rebar3 help hex build\" or \"rebar3_hex_build\" "
-                        ++ "docs for more info.",
+                        ++ "module docs for more info.",
      rebar_api:warn(Deprecation, []).
 
 exclude_file(Path, ExcludeFiles, ExcludeRe) ->
