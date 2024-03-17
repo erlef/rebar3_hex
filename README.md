@@ -5,7 +5,10 @@
 [![Docs](https://img.shields.io/badge/hex-docs-green.svg?style=flat)](https://hexdocs.pm/rebar3_hex)
 [![Erlang Versions](https://img.shields.io/badge/Supported%20Erlang%2FOTP-22.0%20to%2024.0-blue)](http://www.erlang.org)
 
-rebar3_hex is a rebar3 plugin which bundles providers for interacting with the Erlang ecosystem package manager [hex.pm](https://hex.pm/).
+rebar3_hex is a plugin for [Rebar3](https://www.rebar3.org/) that bundles providers to interact with [Hex](https://hex.pm/).
+
+> 💡 **rebar3_hex is a tool for package authors**  
+> If your Erlang project is not meant to be published on Hex, Rebar3 itself should be enough for you.
 
 ## Setup
 
