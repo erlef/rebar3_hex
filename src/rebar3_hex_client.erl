@@ -26,18 +26,18 @@
 
 -define(is_success(N), N >= 200 andalso N =< 299).
 
-create_user(HexConfig, Username, Password, Email) -> 
+create_user(HexConfig, Username, Password, Email) ->
    Res = hex_api_user:create(HexConfig, Username, Password, Email),
     response(Res).
 
-reset_password(HexConfig, User) -> 
+reset_password(HexConfig, User) ->
     Res = hex_api_user:reset_password(HexConfig, User),
     response(Res).
 
-me(HexConfig) -> 
+me(HexConfig) ->
     Res = hex_api_user:me(HexConfig),
     response(Res).
- 
+
 key_add(HexConfig, <<KeyName/binary>>, Perms) ->
     Res = hex_api_key:add(HexConfig, KeyName, Perms),
     response(Res);
@@ -76,7 +76,7 @@ publish(HexConfig, Tarball, Opts) ->
     Res = hex_api_release:publish(HexConfig, Tarball, Opts),
     response(Res).
 
-delete_release(HexConfig, Name, Version) -> 
+delete_release(HexConfig, Name, Version) ->
     Res = hex_api_release:delete(HexConfig, Name, Version),
     response(Res).
 
@@ -95,14 +95,15 @@ delete_docs(Config, Name, Version) ->
     Res = hex_api:delete(Config, ["packages", Name, "releases", Version, "docs"]),
     response(Res).
 
-retire(Config, Package, Version, Reason, Message) -> 
+-dialyzer({nowarn_function, retire/5}).
+retire(Config, Package, Version, Reason, Message) ->
     Msg = #{<<"reason">> => Reason,
             <<"message">> => Message
            },
     Res = hex_api_release:retire(Config, Package, Version, Msg),
     response(Res).
 
-unretire(Config, Package, Version) -> 
+unretire(Config, Package, Version) ->
     Res = hex_api_release:unretire(Config, Package, Version),
     response(Res).
 
@@ -122,7 +123,7 @@ response({ok, {422, _Headers, #{<<"message">> := <<"Validation error(s)">>} = Re
     {error, Res};
 response({ok, {422, _Headers, Res}}) ->
     {error, Res};
-response({ok, {500, _Headers, Res}}) -> 
+response({ok, {500, _Headers, Res}}) ->
     {error, Res};
 response({_, _} = Unknown) ->
     Unknown.
