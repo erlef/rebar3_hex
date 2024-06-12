@@ -7,8 +7,8 @@
 %% $ rebar3 hex retire PACKAGE VERSION --unretire
 %% '''
 %%
-%% Mark a package as retired when you no longer recommend it's usage. A retired package is still resolvable and usable 
-%% but it will be flagged as retired in the repository and a message will be displayed to users when they use the 
+%% Mark a package as retired when you no longer recommend it's usage. A retired package is still resolvable and usable
+%% but it will be flagged as retired in the repository and a message will be displayed to users when they use the
 %% package.
 %%
 %% <h2> Retirement reasons </h2>
@@ -24,8 +24,8 @@
 %% <h2> Command line options </h2>
 %%
 %% <ul>
-%%  <li>`--repo' - Specify the repository to work with. This option is required when 
-%%      you have multiple repositories configured, including organizations. The argument must 
+%%  <li>`--repo' - Specify the repository to work with. This option is required when
+%%      you have multiple repositories configured, including organizations. The argument must
 %%      be a fully qualified repository name (e.g, `hexpm', `hexpm:my_org', `my_own_hexpm').
 %%   </li>
 %% </ul>
@@ -63,6 +63,7 @@ init(State) ->
     {ok, State1}.
 
 %% @private
+-dialyzer({no_return, do/1}).
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, {?MODULE, rebar3_hex_config:repo_error()}}.
 do(State) ->
         case rebar3_hex_config:repo(State) of
@@ -124,6 +125,7 @@ format_error(bad_command) ->
 format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
 
+-dialyzer({nowarn_function, retire/6}).
 retire(State, PkgName, Version, Repo, RetireReason, RetireMessage) ->
     HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     Msg = #{<<"reason">> => RetireReason,
