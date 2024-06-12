@@ -495,7 +495,7 @@ create_docs(State, Repo, App, Args) ->
                     PkgName = rebar_utils:to_list(proplists:get_value(pkg_name, AppDetails, Name)),
                     OriginalVsn = rebar_app_info:original_vsn(App),
                     Vsn = rebar_utils:vcs_vsn(App, OriginalVsn, State),
-                    case create_docs_tarball(Files) of
+                    case hex_tarball:create_docs(Files) of
                         {ok, Tarball} ->
                             {ok, #{
                                 type => docs, tarball => Tarball, name => binarify(PkgName), version => binarify(Vsn)
@@ -596,14 +596,6 @@ create_package_tarball(Metadata, Files) ->
             Tarball;
         {error, Reason} ->
             {error, hex_tarball:format_error(Reason)};
-        Error ->
-            Error
-    end.
-
-create_docs_tarball(Files) ->
-    case hex_tarball:create_docs(Files) of
-        {ok, Tarball} ->
-            {ok, Tarball};
         Error ->
             Error
     end.
