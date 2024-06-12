@@ -95,10 +95,9 @@ delete_docs(Config, Name, Version) ->
     Res = hex_api:delete(Config, ["packages", Name, "releases", Version, "docs"]),
     response(Res).
 
--dialyzer({nowarn_function, retire/5}).
-retire(Config, Package, Version, Reason, Message) ->
-    Msg = #{<<"reason">> => Reason,
-            <<"message">> => Message
+retire(Config, Package, Version, Reason, Message) -> 
+    Msg = #{reason => Reason,
+            message => Message
            },
     Res = hex_api_release:retire(Config, Package, Version, Msg),
     response(Res).
