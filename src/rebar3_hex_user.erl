@@ -367,7 +367,7 @@ whoami(#{name := Name} = Repo, State) ->
         undefined ->
             ?RAISE(not_authenticated);
         ReadKey ->
-            case rebar3_hex_client:me(maps:remove(name, Repo#{api_key => ReadKey})) of
+            case rebar3_hex_client:me(Repo#{api_key => ReadKey}) of
                 {ok, #{<<"username">> := Username,
                                        <<"email">> := Email}} ->
                     rebar3_hex_io:say("~ts : ~ts (~ts)", [Name, Username, Email]),
