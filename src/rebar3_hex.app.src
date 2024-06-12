@@ -4,4 +4,4 @@
   {applications, [kernel,stdlib,hex_core]},
   {maintainers, ["Tristan Sloughter", "Bryan Paxton"]},
   {licenses, ["Apache-2.0"]},
-  {links, [{"Github", "https://github.com/tsloughter/rebar3_hex"}]}]}.
+  {links, [{"GitHub", "https://github.com/erlef/rebar3_hex"}]}]}.
