@@ -362,7 +362,6 @@ handle_task(#{args := #{task := key, fetch := true, key_name := KeyName}} = Task
 handle_task(_) ->
     ?RAISE(bad_command).
 
--dialyzer({no_fail_call, whoami/2}).
 whoami(#{name := Name} = Repo, State) ->
     case maps:get(read_key, Repo, undefined) of
         undefined ->
@@ -436,7 +435,6 @@ confirm_password(Type, Fun, ExpectedPw, MaxRetries) ->
             do_get_password(Type, Fun,  MaxRetries - 1)
     end.
 
--dialyzer({no_fail_call, create_user/5}).
 create_user(Username, Email, Password, Repo, State) ->
     case rebar3_hex_client:create_user(Repo, Username, Password, Email) of
         {ok, _} ->
@@ -493,8 +491,6 @@ decrypt_write_key(Username, LocalPassword, Key, MaxRetries) ->
     end.
 -endif.
 
--dialyzer({nowarn_function, generate_key/3}).
-%%-dialyzer({nowarn_function, hex_api_key:add/3}).
 generate_key(HexConfig, KeyName, Perms) ->
     case rebar3_hex_key:generate(HexConfig, KeyName, Perms) of
         {ok, #{<<"secret">> := Secret}} ->
@@ -512,11 +508,9 @@ hostname() ->
 api_key_name() ->
     rebar_utils:to_binary(hostname()).
 
--dialyzer({nowarn_function, api_key_name/1}).
 api_key_name(Postfix) ->
     rebar_utils:to_binary([hostname(), "-api-", Postfix]).
 
--dialyzer({nowarn_function, repos_key_name/0}).
 repos_key_name() ->
     rebar_utils:to_binary([hostname(), "-repositories"]).
 

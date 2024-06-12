@@ -213,7 +213,6 @@ format_error({get_repo_by_name, {error,{not_valid_repo,ParentName}}}) ->
 format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
 
--dialyzer({nowarn_function, auth/2}).
 -spec auth(rebar_state:t(), binary()) -> {ok, rebar_state:t()}.
 auth(State, RepoName) ->
     {Opts, _} = rebar_state:command_parsed_args(State),

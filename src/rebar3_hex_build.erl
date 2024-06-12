@@ -484,7 +484,6 @@ create_docs(State, Repo, App) ->
     create_docs(State, Repo, App, #{doc_dir => undefined}).
 
 %% @private
--dialyzer({nowarn_function, create_docs/4}).
 create_docs(State, Repo, App, Args) ->
     case maybe_gen_docs(State, Repo, App, Args) of
         {ok, DocDir} ->
@@ -591,7 +590,6 @@ binarify({Key, Value}) ->
 binarify(Term) ->
     Term.
 
--dialyzer({nowarn_function, create_package_tarball/2}).
 create_package_tarball(Metadata, Files) ->
     case hex_tarball:create(Metadata, Files) of
         {ok, #{tarball := Tarball, inner_checksum := _Checksum}} ->
@@ -602,7 +600,6 @@ create_package_tarball(Metadata, Files) ->
             Error
     end.
 
--dialyzer({nowarn_function, create_docs_tarball/1}).
 create_docs_tarball(Files) ->
     case hex_tarball:create_docs(Files) of
         {ok, Tarball} ->
