@@ -10,13 +10,13 @@ on:
 jobs:
   test:
     name: Erlang/OTP ${{matrix.otp}} / rebar3 ${{matrix.rebar3}}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        otp: ['24', '25']
-        rebar3: ['3.16.1']
+        otp: ['25', '26', '27']
+        rebar3: ['3.23.0']
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.otp}}
@@ -28,7 +28,7 @@ jobs:
       - name: Code coverage
         run: rebar3 as test do cover,covertool generate
       - name: Upload coverage report
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v4
         with:
           files: _build/test/covertool/rebar3_hex.covertool.xml
           name: ${{matrix.otp}}
