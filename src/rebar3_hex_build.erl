@@ -501,17 +501,13 @@ create_docs(State, Repo, App, Args) ->
                                 type => docs, tarball => Tarball, name => binarify(PkgName), version => binarify(Vsn)
                             }};
                         {error, Reason} ->
-                            {error, hex_tarball:format_error(Reason)};
-                        Err ->
-                            Err
+                            {error, hex_tarball:format_error(Reason)}
                     end;
                 false ->
                     {error, missing_doc_index}
             end;
         {error, _} = Err ->
-            Err;
-        Err ->
-            {error, Err}
+            Err
     end.
 
 maybe_gen_docs(_State, _Repo, App, #{doc_dir := DocDir}) when is_list(DocDir) ->
@@ -595,9 +591,7 @@ create_package_tarball(Metadata, Files) ->
         {ok, #{tarball := Tarball, inner_checksum := _Checksum}} ->
             Tarball;
         {error, Reason} ->
-            {error, hex_tarball:format_error(Reason)};
-        Error ->
-            Error
+            {error, hex_tarball:format_error(Reason)}
     end.
 
 -spec to_atom(atom() | string() | binary() | integer() | float()) ->
