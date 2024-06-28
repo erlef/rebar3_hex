@@ -63,7 +63,6 @@ init(State) ->
     {ok, State1}.
 
 %% @private
--dialyzer({no_return, do/1}).
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, {?MODULE, rebar3_hex_config:repo_error()}}.
 do(State) ->
         case rebar3_hex_config:repo(State) of
@@ -125,7 +124,6 @@ format_error(bad_command) ->
 format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
 
--dialyzer({nowarn_function, retire/6}).
 retire(State, PkgName, Version, Repo, RetireReason, RetireMessage) ->
     HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     Msg = #{<<"reason">> => RetireReason,
