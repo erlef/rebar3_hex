@@ -35,7 +35,7 @@ reset_password(HexConfig, User) ->
     response(Res).
 
 me(HexConfig) ->
-    Res = hex_api_user:me(HexConfig),
+    Res = hex_api_user:me(to_hex_core_config(HexConfig)),
     response(Res).
 
 key_add(HexConfig, <<KeyName/binary>>, Perms) ->
@@ -69,11 +69,11 @@ key_delete_all(HexConfig) ->
     response(Res).
 
 test_key(HexConfig, Perms) ->
-   Res = hex_api_auth:test(HexConfig, Perms),
+   Res = hex_api_auth:test(to_hex_core_config(HexConfig), Perms),
    response(Res).
 
 publish(HexConfig, Tarball, Opts) ->
-    Res = hex_api_release:publish(HexConfig, Tarball, Opts),
+    Res = hex_api_release:publish(to_hex_core_config(HexConfig), Tarball, Opts),
     response(Res).
 
 delete_release(HexConfig, Name, Version) ->
@@ -95,7 +95,6 @@ delete_docs(Config, Name, Version) ->
     Res = hex_api:delete(Config, ["packages", Name, "releases", Version, "docs"]),
     response(Res).
 
--dialyzer({nowarn_function, retire/5}).
 retire(Config, Package, Version, Reason, Message) ->
     Msg = #{<<"reason">> => Reason,
             <<"message">> => Message
@@ -161,3 +160,7 @@ join_lists(Sep, List) ->
 
 to_binary(Subject) ->
     rebar_utils:to_binary(Subject).
+
+to_hex_core_config(#{name := Name} = HexConfig) ->
+    NewHexConfig = HexConfig#{repo_name := Name},
+    maps:remove(name, NewHexConfig).

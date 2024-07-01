@@ -383,7 +383,6 @@ handle_task(#{args := #{task := undefined, app := AppName},  apps := Apps, multi
 handle_task(_) -> 
     ?RAISE(bad_command).
 
--dialyzer({nowarn_function, publish/4}).
 publish(State, Repo, App, Args) ->
     maybe_warn_about_doc_config(State, Repo),
     HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
@@ -399,7 +398,6 @@ publish(State, Repo, App, Args) ->
 %%% package publishing and related functions
 %%% ===================================================================
 
--dialyzer({nowarn_function, publish_package/4}).
 publish_package(State, Repo, App, Args) ->
     assert_valid_app(State, App),
     Package = create_package(State, App),

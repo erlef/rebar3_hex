@@ -484,7 +484,6 @@ create_docs(State, Repo, App) ->
     create_docs(State, Repo, App, #{doc_dir => undefined}).
 
 %% @private
--dialyzer({nowarn_function, create_docs/4}).
 create_docs(State, Repo, App, Args) ->
     case maybe_gen_docs(State, Repo, App, Args) of
         {ok, DocDir} ->
@@ -496,23 +495,19 @@ create_docs(State, Repo, App, Args) ->
                     PkgName = rebar_utils:to_list(proplists:get_value(pkg_name, AppDetails, Name)),
                     OriginalVsn = rebar_app_info:original_vsn(App),
                     Vsn = rebar_utils:vcs_vsn(App, OriginalVsn, State),
-                    case create_docs_tarball(Files) of
+                    case hex_tarball:create_docs(Files) of
                         {ok, Tarball} ->
                             {ok, #{
                                 type => docs, tarball => Tarball, name => binarify(PkgName), version => binarify(Vsn)
                             }};
                         {error, Reason} ->
-                            {error, hex_tarball:format_error(Reason)};
-                        Err ->
-                            Err
+                            {error, hex_tarball:format_error(Reason)}
                     end;
                 false ->
                     {error, missing_doc_index}
             end;
         {error, _} = Err ->
-            Err;
-        Err ->
-            {error, Err}
+            Err
     end.
 
 maybe_gen_docs(_State, _Repo, App, #{doc_dir := DocDir}) when is_list(DocDir) ->
@@ -591,24 +586,12 @@ binarify({Key, Value}) ->
 binarify(Term) ->
     Term.
 
--dialyzer({nowarn_function, create_package_tarball/2}).
 create_package_tarball(Metadata, Files) ->
     case hex_tarball:create(Metadata, Files) of
         {ok, #{tarball := Tarball, inner_checksum := _Checksum}} ->
             Tarball;
         {error, Reason} ->
-            {error, hex_tarball:format_error(Reason)};
-        Error ->
-            Error
-    end.
-
--dialyzer({nowarn_function, create_docs_tarball/1}).
-create_docs_tarball(Files) ->
-    case hex_tarball:create_docs(Files) of
-        {ok, Tarball} ->
-            {ok, Tarball};
-        Error ->
-            Error
+            {error, hex_tarball:format_error(Reason)}
     end.
 
 -spec to_atom(atom() | string() | binary() | integer() | float()) ->

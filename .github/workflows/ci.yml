@@ -13,8 +13,17 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        otp: ['25', '26', '27']
-        rebar3: ['3.23.0']
+        include:
+          - otp: 27
+            os: ubuntu-24.04
+            rebar3: 3.23
+            dialyzer: true
+          - otp: 26
+            os: ubuntu-24.04
+            rebar3: 3.23
+          - otp: 25
+            os: ubuntu-24.04
+            rebar3: 3.23
     steps:
       - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
@@ -23,6 +32,7 @@ jobs:
           rebar3-version: ${{matrix.rebar3}}
       - name: Static analysis
         run: rebar3 dialyzer
+        if: ${{ matrix.dialyzer == true }}
       - name: Common Tests
         run: rebar3 ct
       - name: Code coverage
