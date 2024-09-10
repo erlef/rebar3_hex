@@ -97,7 +97,7 @@ $ rebar3 hex publish
 ```
 
 `cut` is available to provide some additional functionality around versioning and git tags. See the
-[docs](https://hexdocs.pm/hex/rebar3_hex_cut.html) for more information.
+[docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_cut.html) for more information.
 
 ``` shell
 $ rebar3 hex cut
