@@ -1202,10 +1202,11 @@ setup_mocks_for(owner, #{password := Password} = Setup) ->
 
 setup_mocks_for(whoami, #{username := Username,
                           email := Email,
-                          repo := #{name := Name}}) ->
+                          repo := #{name := Name}} = Setup) ->
 
     Args =  [<<Name/binary>>, <<Username/binary>>, <<Email/binary>>],
     Expects = [{"~ts : ~ts (~ts)", Args}],
+    expects_repo_config(Setup),
     expects_output(Expects);
 
 setup_mocks_for(reset_password, #{username := Username}) ->
