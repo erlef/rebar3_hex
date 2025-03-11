@@ -368,16 +368,19 @@ whoami(#{name := Name} = Repo, State) ->
             ?RAISE(not_authenticated);
         ReadKey ->
             case rebar3_hex_client:me(Repo#{api_key => ReadKey}) of
-                {ok, #{<<"username">> := Username,
-                                       <<"email">> := Email}} ->
-                    rebar3_hex_io:say("~ts : ~ts (~ts)", [Name, Username, Email]),
+                {ok, #{<<"username">> := UserName} = Res} ->
+                    Header = ["Repo", "User Name", "Full Name", "Email"],
+                    FullName = maps:get(<<"full_name">>, Res, <<"private">>),
+                    Email = maps:get(<<"email">>, Res, <<"private">>),
+                    Body = [binary_to_list(Name), binary_to_list(UserName), binary_to_list(FullName), binary_to_list(Email)],
+                    ok = rebar3_hex_results:print_table([Header] ++ [Body]),
                     {ok, State};
                 {error, #{<<"message">> := Message}} ->
                     ?RAISE({whoami, Message});
                 Err  ->
                     ?RAISE({whoami, Err})
             end
-    end.
+      end.
 
 get_string_input(Prompt) ->
     MaxRetries = 3,
