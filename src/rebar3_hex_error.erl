@@ -32,4 +32,9 @@ format_error({Cmd, {error, {failed_connect, [{to_address,_},
 
 format_error(Reason) ->
     rebar_log:log(diagnostic, "Unknown error: ~p", [Reason]),
-    "An unknown error was encountered. Run with DIAGNOSTIC=1 for more details.".
+    case rebar_log:get_level() of
+        4 ->
+            "An unknown error was encountered";
+        _ ->
+            "An unknown error was encountered. Run with DIAGNOSTIC=1 for more details."
+    end.
