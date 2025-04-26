@@ -212,6 +212,9 @@ format_error(repo_required_for_docs) ->
     " rebar3 hex build package if you only need to build a package.",
     io_lib:format(Str, []);
 
+format_error({app_not_found, AppName})  ->
+    io_lib:format("App ~s specified with --app switch not found in project", [AppName]);
+
 format_error(app_switch_required) ->
      "--app switch is required when building packages or docs in a umbrella with multiple apps";
 
@@ -229,6 +232,14 @@ doc_missing_index_message() ->
 
 doc_provider_not_found(Provider) ->
     io_lib:format("The doc provider ~ts specified in your hex config could not be found", [Provider]).
+
+handle_task(#{apps := [_,_|_] = Apps, args := #{app := AppName}} = T) ->
+    case rebar3_hex_app:find(Apps, AppName) of
+        {ok, App} ->
+          handle_task(T#{apps := [App]});
+        _Error ->
+            ?RAISE({app_not_found, AppName})
+    end;
 
 handle_task(#{apps := [_,_|_]}) ->
     ?RAISE(app_switch_required);
