@@ -43,7 +43,11 @@ all() ->
     , org_list_test
     , org_bad_command_test
     , build_package_test
+    , build_umbrella_package_test
+    , build_umbrella_package_bad_name_test
     , build_docs_test
+    , build_umbrella_docs_test
+    , build_umbrella_docs_bad_name_test
     , build_test
     , publish_test
     , publish_no_prompt_test
@@ -525,6 +529,36 @@ build_package_test(Config) ->
     expects_repo_config(Setup),
     ?assertMatch({ok, _}, rebar3_hex_build:do(State)).
 
+build_umbrella_package_test(Config) ->
+     P = #{
+          command => #{provider => rebar3_hex_build, args => ["--app", "foo"]},
+          umbrella => #{
+                        name => "umbrella",
+                        apps => [#{name => "foo", selected => true}, #{name => "bar"}, #{name => "baz"}]
+                       },
+          mocks => []
+         },
+
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    ?assertMatch({ok, _}, rebar3_hex_build:do(State)).
+
+build_umbrella_package_bad_name_test(Config) ->
+     P = #{
+          command => #{provider => rebar3_hex_build, args => ["--app", "eh"]},
+          umbrella => #{
+                        name => "umbrella",
+                        apps => [#{name => "foo", selected => true}, #{name => "bar"}, #{name => "baz"}]
+                       },
+          mocks => []
+         },
+
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    Exp = {error,{rebar3_hex_build,{app_not_found,"eh"}}},
+    ?assertError(Exp, rebar3_hex_build:do(State)).
+
+
 build_docs_test(Config) ->
     P = #{
           command => #{provider => rebar3_hex_build, args => ["docs"]},
@@ -532,9 +566,37 @@ build_docs_test(Config) ->
           mocks => []
          },
     #{rebar_state := State, repo := _Repo} = Setup = setup_state(P, Config),
-    %State1 = rebar_state:set(State, hex, [{repos, [Repo]}, {doc, edoc}]),
     expects_repo_config(Setup),
     ?assertMatch({ok, _}, rebar3_hex_build:do(State)).
+
+build_umbrella_docs_test(Config) ->
+     P = #{
+          command => #{provider => rebar3_hex_build, args => ["docs", "--app", "foo"]},
+          umbrella => #{
+                        name => "umbrella",
+                        apps => [#{name => "foo", selected => true}, #{name => "bar"}, #{name => "baz"}]
+                       },
+          mocks => []
+         },
+
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    ?assertMatch({ok, _}, rebar3_hex_build:do(State)).
+
+build_umbrella_docs_bad_name_test(Config) ->
+     P = #{
+          command => #{provider => rebar3_hex_build, args => ["docs", "--app", "eh"]},
+          umbrella => #{
+                        name => "umbrella",
+                        apps => [#{name => "foo", selected => true}, #{name => "bar"}, #{name => "baz"}]
+                       },
+          mocks => []
+         },
+
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    Exp = {error,{rebar3_hex_build,{app_not_found,"eh"}}},
+    ?assertError(Exp, rebar3_hex_build:do(State)).
 
 
 build_test(Config) ->
