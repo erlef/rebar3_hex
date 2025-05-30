@@ -3,7 +3,7 @@
 [![Build Status](https://github.com/erlef/rebar3_hex/actions/workflows/ci.yml/badge.svg)](https://github.com/erlef/rebar3_hex/actions/workflows/ci.yml)
 [![Hex pm](https://img.shields.io/hexpm/v/rebar3_hex.svg)](https://hex.pm/packages/rebar3_hex)
 [![Docs](https://img.shields.io/badge/hex-docs-green.svg?style=flat)](https://hexdocs.pm/rebar3_hex)
-[![Erlang Versions](https://img.shields.io/badge/Supported%20Erlang%2FOTP-25.0%20to%2027.0-blue)](http://www.erlang.org)
+[![Erlang Versions](https://img.shields.io/badge/Supported%20Erlang%2FOTP-26.0%20to%2028.0-blue)](http://www.erlang.org)
 
 rebar3_hex is a plugin for [Rebar3](https://www.rebar3.org/) that bundles providers to interact with [Hex](https://hex.pm/).
 
