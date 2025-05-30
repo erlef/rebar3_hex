@@ -196,7 +196,7 @@ format_error({build_package, {error, Error}}) when is_list(Error) ->
 
 format_error({build_package,{error,{non_hex_deps,Deps}}}) ->
     DepsStr = lists:join(",", Deps),
-    Error = "Dependencies excluded from the package (only Hex packages can be dependencies) : ~s",
+    Error = "Some dependencies were excluded from the package; only Hex packages can be dependencies: ~s",
     io_lib:format(Error, [DepsStr]);
 
 format_error({build_docs, {error, no_doc_config}}) ->
