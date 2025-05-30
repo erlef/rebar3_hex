@@ -205,6 +205,9 @@ format_error({non_hex_deps, Excluded}) ->
 format_error({create_package, {error, Err}}) when is_list(Err) ->
     io_lib:format("Error creating package : ~ts", [Err]);
 
+format_error({create_package,{error,{non_hex_deps, _}} = Error}) -> 
+    rebar3_hex_build:format_error({build_package, Error});
+
 %% create docs errors
 format_error({create_docs, {error, {doc_provider_not_found, PrvName}}}) ->
    io_lib:format("The ~ts documentation provider could not be found", [PrvName]);
