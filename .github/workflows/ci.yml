@@ -14,16 +14,16 @@ jobs:
     strategy:
       matrix:
         include:
+          - otp: 28
+            os: ubuntu-24.04
+            rebar3: 3.25
+            dialyzer: true
           - otp: 27
             os: ubuntu-24.04
-            rebar3: 3.23
-            dialyzer: true
+            rebar3: 3.25
           - otp: 26
             os: ubuntu-24.04
-            rebar3: 3.23
-          - otp: 25
-            os: ubuntu-24.04
-            rebar3: 3.23
+            rebar3: 3.25
     steps:
       - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
