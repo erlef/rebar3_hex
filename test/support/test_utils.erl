@@ -119,6 +119,9 @@ write_app_src_file(Dir, #{name := Name, app_src := #{version := Vsn}}) ->
     ok = filelib:ensure_dir(Filename),
     ok = ec_file:write_term(Filename, get_app_metadata(Name, Vsn)).
 
+write_lock_file(_, #{profile := no_lock_file}) ->
+  "rebar.lock";
+
 write_lock_file(Dir, #{profile := Profile}) ->
     Filename = filename:join([Dir, "rebar.lock"]),
     ok = filelib:ensure_dir(Filename),
@@ -149,8 +152,12 @@ config(with_git_deps) ->
 config(with_binary_versions) ->
     [{deps, [{hex_core, <<"0.8.2">>}, {verl, <<"1.1.1">>}]}];
 config(with_alias_deps) ->
-    [{deps, [{hex_core}, {verl}]}].
+    [{deps, [{hex_core}, {verl}]}];
+config(no_lock_file) ->
+  config(default).
 
+locks(no_lock_file) ->
+  [];
 locks(with_binary_versions) ->
     locks(default);
 locks(with_alias_deps) ->

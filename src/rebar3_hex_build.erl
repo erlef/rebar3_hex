@@ -211,6 +211,9 @@ format_error({build_docs, {error, missing_doc_index}}) ->
 format_error({build_docs, Error}) when is_list(Error) ->
     io_lib:format("Error building docs : ~ts", [Error]);
 
+format_error({create_package, no_lock_file}) ->
+  "No lockfile detected. Be sure to run rebar3 hex build package under the default profile prior to building or publishing under an alternative profile.";
+
 format_error(repo_required_for_docs) ->
    Str =  "Error :~n\tA repo argument is required when building docs if multiple repos exist"
     " and at least one has doc configuration.~n\tSpecify a repo argument or run"
@@ -339,11 +342,18 @@ output_dir(App, _) ->
     filelib:ensure_dir(filename:join(Dir, "tmp")),
     Dir.
 
+lock_file_exists(State) ->
+  Dir = rebar_state:dir(State),
+  LockFile = filename:join(Dir, "rebar.lock"),
+  filelib:is_regular(LockFile).
+
 %% @private
 create_package(State, App) ->
     Name = rebar_app_info:name(App),
     Version = rebar3_hex_app:vcs_vsn(State, App),
     {application, _, AppDetails} = rebar3_hex_file:update_app_src(App, Version),
+
+    lock_file_exists(State) orelse ?RAISE({create_package, no_lock_file}),
 
     LockDeps = rebar_state:get(State, {locks, default}, []),
     case rebar3_hex_app:get_deps(LockDeps) of
