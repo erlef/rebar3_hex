@@ -58,7 +58,7 @@ create_package_with_git_deps_test(Config) ->
 create_package_no_lock_file(Config) ->
     StubConfig = #{type => app, dir => data_dir(Config), name => "no_lock_file", profile => no_lock_file},
     {State, _Repo, App} = test_utils:make_stub(StubConfig),
-    ?assertError({error, {rebar3_hex_build, {create_package, no_lock_file}}}, rebar3_hex_build:create_package(State, App)).
+    ?assertError({error, {rebar3_hex_build, {create_package, no_lock_file, _Profiles}}}, rebar3_hex_build:create_package(State, App)).
 
 create_package_with_binary_versions(Config) ->
     StubConfig = #{type => app, dir => data_dir(Config), name => "valid", profile => with_binary_versions},
