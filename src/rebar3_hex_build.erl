@@ -211,8 +211,19 @@ format_error({build_docs, {error, missing_doc_index}}) ->
 format_error({build_docs, Error}) when is_list(Error) ->
     io_lib:format("Error building docs : ~ts", [Error]);
 
-format_error({create_package, no_lock_file}) ->
-  "No lockfile detected. Be sure to run rebar3 hex build package under the default profile prior to building or publishing under an alternative profile.";
+format_error({create_package, no_lock_file, default}) -> 
+  "No lockfile detected.";
+
+format_error({create_package, no_lock_file, CurrentProfiles}) ->
+    case lists:any(fun(P) -> P =:= lock end, CurrentProfiles) of 
+      true ->
+        "No lockfile detected.";
+      false -> 
+        Err = "No lockfile detected and one can not be generated running under the current profile.~n~n" 
+          ++  "Be sure to run rebar3 deps, rebar3 lock, or rebar3 hex build under the default ~n"
+          ++  "profile prior to building or publishing under an alternative profile.~n",
+          io_lib:format(Err, [])
+    end;
 
 format_error(repo_required_for_docs) ->
    Str =  "Error :~n\tA repo argument is required when building docs if multiple repos exist"
@@ -353,7 +364,7 @@ create_package(State, App) ->
     Version = rebar3_hex_app:vcs_vsn(State, App),
     {application, _, AppDetails} = rebar3_hex_file:update_app_src(App, Version),
 
-    lock_file_exists(State) orelse ?RAISE({create_package, no_lock_file}),
+    lock_file_exists(State) orelse ?RAISE({create_package, no_lock_file, rebar_state:current_profiles(State)}),
 
     LockDeps = rebar_state:get(State, {locks, default}, []),
     case rebar3_hex_app:get_deps(LockDeps) of
