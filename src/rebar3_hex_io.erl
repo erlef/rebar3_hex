@@ -133,11 +133,8 @@ get(integer, []) ->
 get(number, String) ->
     get(integer, String);
 get(integer, String) ->
-    case (catch list_to_integer(String)) of
-        {'Exit', _} ->
-            no_clue;
-        Integer ->
-            Integer
+    try list_to_integer(String)
+    catch _:_ -> no_clue
     end;
 get(string, []) ->
     no_data;
