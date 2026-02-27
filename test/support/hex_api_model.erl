@@ -97,74 +97,16 @@ handle('DELETE', [<<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], 
    end;
 
 handle('POST', [<<"publish">>], Req) ->
-    case authenticate(Req) of
-       {ok, #{username := Username, email := Email}} ->
-           {ok, Meta, _Checksum}     = body_to_meta(Req),
-           App = maps:get(<<"app">>, Meta),
+    handle_publish(Req);
 
-           Res = #{
-             <<"version">> => maps:get(<<"version">>, Meta),
-             <<"has_docs">> => false,
-             <<"downloads">> => undefined,
-             <<"inserted_at">> => timestamp(),
-             <<"updated_at">> => timestamp(),
-             <<"retirement">> => undefined,
-             <<"package_url">> => <<?BASE_USER_URL/bitstring, App/bitstring>>,
-             <<"html_url">> => <<?BASE_USER_URL/bitstring, App/bitstring>>,
-             <<"docs_html_url">> => undefined,
-             <<"requirements">> => maps:get(<<"requirements">>, Meta),
-             <<"meta">> => #{
-                 <<"app">> => App,
-                 <<"build_tools">> => maps:get(<<"build_tools">>, Meta),
-                 <<"elixir">> => undefined
-                },
-             <<"publisher">> => #{
-                 <<"email">> => Email,
-                 <<"url">> => <<?BASE_USER_URL/bitstring, Username/bitstring>>,
-                 <<"username">> => Username
-                }
-            },
-           respond_with(201, Req, Res);
-       unauthorized ->
-            respond_with(403, Req, #{<<"message">> => <<"account not authorized for this action">>});
-       error ->
-           respond_with(401, Req, #{})
-   end;
+handle('POST', [<<"packages">>, _Name, <<"releases">>], Req) ->
+    handle_publish(Req);
 
 handle('POST', [<<"repos">>, _Repo, <<"publish">>], Req) ->
-    case authenticate(Req) of
-       {ok, #{username := Username, email := Email}} ->
-            {ok, Meta, _Checksum}     = body_to_meta(Req),
-            App = maps:get(<<"app">>, Meta),
+    handle_publish(Req);
 
-           Res = #{
-             <<"version">> => maps:get(<<"version">>, Meta),
-             <<"has_docs">> => false,
-             <<"downloads">> => undefined,
-             <<"inserted_at">> => timestamp(),
-             <<"updated_at">> => timestamp(),
-             <<"retirement">> => undefined,
-             <<"package_url">> => <<?BASE_USER_URL/bitstring, App/bitstring>>,
-             <<"html_url">> => <<?BASE_USER_URL/bitstring, App/bitstring>>,
-             <<"docs_html_url">> => undefined,
-             <<"requirements">> => maps:get(<<"requirements">>, Meta),
-             <<"meta">> => #{
-                 <<"app">> => App,
-                 <<"build_tools">> => maps:get(<<"build_tools">>, Meta),
-                 <<"elixir">> => undefined
-                },
-             <<"publisher">> => #{
-                 <<"email">> => Email,
-                 <<"url">> => <<?BASE_USER_URL/bitstring, Username/bitstring>>,
-                 <<"username">> => Username
-                }
-            },
-           respond_with(201, Req, Res);
-       unauthorized ->
-            respond_with(403, Req, #{<<"message">> => <<"account not authorized for this action">>});
-        error ->
-           respond_with(401, Req, #{})
-   end;
+handle('POST', [<<"repos">>, _Repo, <<"packages">>, _Name, <<"releases">>], Req) ->
+    handle_publish(Req);
 
 handle('POST', [<<"packages">>,_Name,<<"releases">>,_Ver,<<"retire">>], Req) ->
     case authenticate(Req) of
@@ -315,6 +257,41 @@ handle_event(_Event, _Data, _Args) ->
     ok.
 
 %% Helpers
+handle_publish(Req) ->
+    case authenticate(Req) of
+       {ok, #{username := Username, email := Email}} ->
+           {ok, Meta, _Checksum}     = body_to_meta(Req),
+           App = maps:get(<<"app">>, Meta),
+
+           Res = #{
+             <<"version">> => maps:get(<<"version">>, Meta),
+             <<"has_docs">> => false,
+             <<"downloads">> => undefined,
+             <<"inserted_at">> => timestamp(),
+             <<"updated_at">> => timestamp(),
+             <<"retirement">> => undefined,
+             <<"package_url">> => <<?BASE_USER_URL/bitstring, App/bitstring>>,
+             <<"html_url">> => <<?BASE_USER_URL/bitstring, App/bitstring>>,
+             <<"docs_html_url">> => undefined,
+             <<"requirements">> => maps:get(<<"requirements">>, Meta),
+             <<"meta">> => #{
+                 <<"app">> => App,
+                 <<"build_tools">> => maps:get(<<"build_tools">>, Meta),
+                 <<"elixir">> => undefined
+                },
+             <<"publisher">> => #{
+                 <<"email">> => Email,
+                 <<"url">> => <<?BASE_USER_URL/bitstring, Username/bitstring>>,
+                 <<"username">> => Username
+                }
+            },
+           respond_with(201, Req, Res);
+       unauthorized ->
+            respond_with(403, Req, #{<<"message">> => <<"account not authorized for this action">>});
+       error ->
+           respond_with(401, Req, #{})
+   end.
+
 timestamp() ->
     {{Y, M, D}, {H, Mi, S}} = calendar:universal_time(),
     Format = "~b-~2..0b-~2..0bT~2..0b:~2..0b:~2..0b",
