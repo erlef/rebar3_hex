@@ -28,10 +28,10 @@ jobs:
             os: ubuntu-24.04
             rebar3: 3.25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
-      - uses: erlef/setup-beam@v1
+      - uses: erlef/setup-beam@fc68ffb90438ef2936bbb3251622353b3dcb2f93 # v1.24.0
         with:
           otp-version: ${{matrix.otp}}
           rebar3-version: ${{matrix.rebar3}}
@@ -43,7 +43,7 @@ jobs:
       - name: Code coverage
         run: rebar3 as test do cover,covertool generate
       - name: Upload coverage report
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4.6.0
         with:
           files: _build/test/covertool/rebar3_hex.covertool.xml
           name: ${{matrix.otp}}
