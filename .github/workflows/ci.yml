@@ -26,6 +26,8 @@ jobs:
             rebar3: 3.25
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.otp}}
