@@ -7,6 +7,9 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Erlang/OTP ${{matrix.otp}} / rebar3 ${{matrix.rebar3}}
@@ -25,8 +28,10 @@ jobs:
             os: ubuntu-24.04
             rebar3: 3.25
     steps:
-      - uses: actions/checkout@v4
-      - uses: erlef/setup-beam@v1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: erlef/setup-beam@fc68ffb90438ef2936bbb3251622353b3dcb2f93 # v1.24.0
         with:
           otp-version: ${{matrix.otp}}
           rebar3-version: ${{matrix.rebar3}}
@@ -38,7 +43,7 @@ jobs:
       - name: Code coverage
         run: rebar3 as test do cover,covertool generate
       - name: Upload coverage report
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
         with:
           files: _build/test/covertool/rebar3_hex.covertool.xml
           name: ${{matrix.otp}}
