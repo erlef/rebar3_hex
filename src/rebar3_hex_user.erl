@@ -15,12 +15,15 @@
 %% <h2> Authorize a new user </h2>
 %%
 %% ```
-%% $ rebar3 hex user auth [--key-name KEY_NAME]
+%% $ rebar3 hex user auth
 %% '''
+%%
+%% This opens a browser to complete authentication. Use `--no-browser' to
+%% disable automatic browser opening.
 %%
 %% <h2> Deauthorize the user </h2>
 %%
-%% Deauthorizes the user from the local machine by removing the API key from the Hex config.
+%% Deauthorizes the user from the local machine by removing the API tokens from the Hex config.
 %%
 %% ```
 %% $ rebar3 hex user deauth
@@ -67,12 +70,6 @@
 %% rebar3 hex user reset_password account
 %% '''
 %%
-%% <h2>  Reset local password </h2>
-%%
-%% ```
-%% rebar3 hex user reset_password local
-%% '''
-%%
 %% <h2> Command line options </h2>
 %%
 %% <ul>
@@ -100,6 +97,9 @@
 %%          <li>`repositories' - Access to repositories for all organizations you are member of.</li>
 %%      </ul>
 %%    </li>
+%%    <li>
+%%      `--browser / --no-browser' - Open browser automatically during authentication (default: true).
+%%    </li>
 %% </ul>
 
 -module(rebar3_hex_user).
@@ -108,8 +108,6 @@
          do/1,
          format_error/1]).
 
--export([encrypt_write_key/3,
-         decrypt_write_key/2]).
 
 -include("rebar3_hex.hrl").
 
@@ -135,7 +133,9 @@ init(State) ->
                                          rebar3_hex:repo_opt(),
                                          {all, $a, "all", boolean, "all."},
                                          {key_name, $k, "key-name", string, "key-name"},
-                                         {permission, $p, "permission", list, "perms."}
+                                         {permission, $p, "permission", list, "perms."},
+                                         {browser, $b, "browser", {boolean, true},
+                                          "Open browser automatically (default: true)"}
                                         ]
                                  }]),
     State1 = rebar_state:add_provider(State, Provider),
@@ -153,17 +153,13 @@ do(State) ->
 
 %% @private
 -spec format_error(any()) -> iolist().
-format_error({decrypt_write_key, no_write_key}) ->
-    "No write key found for user in this repository. "
-    "Be sure you have authenticated first with : rebar3 hex user auth";
-
 format_error({whoami, Reason}) when is_binary(Reason) ->
     io_lib:format("Fetching currently authenticated user failed: ~ts", [Reason]);
 format_error({input_required, InputName}) ->
     Str = io_lib:format("The task you are attempting to run requires a ~ts. ", [InputName]),
     Str ++ io_lib:format("Try running this again and be sure to give a ~ts when prompted.", [InputName]);
-format_error(bad_local_password) ->
-    "Failure to decrypt write key: bad local password";
+format_error(passwords_do_not_match) ->
+    "Password confirmation failed. The passwords must match.";
 format_error({registration_failure, Errors}) when is_map(Errors) ->
     Reason = rebar3_hex_client:pretty_print_errors(Errors),
     io_lib:format("Registration of user failed: ~ts", [Reason]);
@@ -175,27 +171,27 @@ format_error({key_revoke_all, {error, #{<<"message">> := Msg}}}) ->
     io_lib:format("Error revoking all keys : ~ts", [Msg]);
 format_error({key_list, {error, #{<<"message">> := Msg}}}) ->
     io_lib:format("Error listing keys : ~ts", [Msg]);
-format_error(passwords_do_not_match) ->
-    "Password confirmation failed. The passwords must match.";
-format_error(local_password_too_big) ->
-    "Local passwords can not exceed 32 characters.";
 format_error({reset_account_password, Reason}) when is_binary(Reason) ->
     io_lib:format("Error reseting account password: ~ts", [Reason]);
 format_error(not_authenticated) ->
     "Not authenticated as any user currently for this repository";
+format_error({auth_failed, Reason}) ->
+    io_lib:format("Authentication failed: ~p", [Reason]);
+format_error({revoke_failed, Status, Body}) ->
+    io_lib:format("Failed to revoke token (~p): ~p", [Status, Body]);
 format_error(bad_command) ->
     "Invalid arguments, expected one of:\n\n"
     "rebar3 hex user register\n"
     "rebar3 hex user auth\n"
+    "rebar3 hex user auth --no-browser\n"
     "rebar3 hex user deauth\n"
     "rebar3 hex user whoami\n"
-    "rebar3 hex key generate\n"
-    "rebar3 hex key revoke --key-name KEY_NAME\n"
-    "rebar3 hex key revoke --all\n"
-    "rebar3 hex key list\n"
-    "rebar3 hex key fetch --key-name KEY_NAME\n"
-    "rebar3 hex reset_password account\n"
-    "rebar3 hex reset_password local\n";
+    "rebar3 hex user key generate\n"
+    "rebar3 hex user key revoke --key-name KEY_NAME\n"
+    "rebar3 hex user key revoke --all\n"
+    "rebar3 hex user key list\n"
+    "rebar3 hex user key fetch --key-name KEY_NAME\n"
+    "rebar3 hex user reset_password account\n";
 format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
 
@@ -210,60 +206,65 @@ handle_task(#{args := #{task := register}} = Task) ->
     create_user(Username, Email, Password, Repo, State);
 
 handle_task(#{args := #{task := auth}} = Task) ->
-    #{repo := #{repo_name := RepoName} = Repo, state := State} = Task,
-    Username = get_string_input("Username"),
-    Password = get_password(account),
+    #{state := State, raw_opts := Opts} = Task,
+    
+    OpenBrowser = proplists:get_value(browser, Opts, true),
+    {ok, Config} = rebar_hex_repos:get_repo_config(<<"hexpm">>, State),
+    ClientId = rebar_hex_auth:client_id(),
+    GlobalOAuthKey = rebar_hex_auth:global_oauth_key(),
 
-    Auth = base64:encode_to_string(<<Username/binary, ":", Password/binary>>),
-    RepoConfig0 = Repo#{api_key => rebar_utils:to_binary("Basic " ++ Auth)},
+    maybe_revoke_existing(Config, ClientId, GlobalOAuthKey, State),
 
-    %% write key
-    WriteKeyName = api_key_name(),
-    WritePermissions = [#{<<"domain">> => <<"api">>}],
-    WriteKey = generate_key(RepoConfig0, WriteKeyName, WritePermissions),
+    Scope = <<"api:write">>,
+    PromptUser = fun(VerificationUri, UserCode) ->
+        rebar3_hex_io:say(""),
+        rebar3_hex_io:say("Open this URL in your browser to authenticate:"),
+        rebar3_hex_io:say("~ts", [VerificationUri]),
+        rebar3_hex_io:say(""),
+        rebar3_hex_io:say("Enter code: ~ts", [UserCode]),
+        rebar3_hex_io:say(""),
+        rebar3_hex_io:say("Waiting for authentication..."),
+        ok
+    end,
 
-    rebar3_hex_io:say("You have authenticated on Hex using your account password. However, "
-                "Hex requires you to have a local password that applies only to this machine for security "
-                "purposes. Please enter it."),
-
-
-    LocalPassword = get_password(local),
-    rebar3_hex_io:say("Generating keys..."),
-
-    WriteKeyEncrypted = encrypt_write_key(Username, LocalPassword, WriteKey),
-
-    %% read key
-    RepoConfig1 = Repo#{api_key => WriteKey},
-    ReadKeyName = api_key_name("read"),
-    ReadPermissions = [#{<<"domain">> => <<"api">>, <<"resource">> => <<"read">>}],
-    ReadKey = generate_key(RepoConfig1, ReadKeyName, ReadPermissions),
-
-    %% repo key
-    ReposKeyName = repos_key_name(),
-    ReposPermissions = [#{<<"domain">> => <<"repositories">>}],
-    ReposKey = generate_key(RepoConfig1, ReposKeyName, ReposPermissions),
-
-    % By default a repositories key is created which gives user access to all repositories
-    % that they are granted access to server side.
-    rebar3_hex_config:update_auth_config(#{RepoName => #{
-                                                     username => Username,
-                                                     write_key => WriteKeyEncrypted,
-                                                     read_key => ReadKey,
-                                                     repo_key => ReposKey}}, State),
-    rebar3_hex_io:say("You are now ready to interact with your hex repositories."),
-    {ok, State};
+    FlowOpts = [{open_browser, OpenBrowser}],
+    case hex_api_oauth:device_auth_flow(Config, ClientId, Scope, PromptUser, FlowOpts) of
+        {ok, #{access_token := AccessToken, expires_at := ExpiresAt} = Tokens} ->
+            RefreshToken = maps:get(refresh_token, Tokens, undefined),
+            rebar_hex_auth:persist_tokens(AccessToken, RefreshToken, ExpiresAt, State),
+            rebar3_hex_io:say(""),
+            rebar3_hex_io:say("Authentication successful!"),
+            %% Show authenticated user
+            BearerToken = <<"Bearer ", AccessToken/binary>>,
+            AuthConfig = Config#{api_key => BearerToken},
+            case hex_api_user:me(AuthConfig) of
+                {ok, {200, _, UserInfo}} ->
+                    Username = maps:get(<<"username">>, UserInfo, <<"unknown">>),
+                    Email = maps:get(<<"email">>, UserInfo, <<"unknown">>),
+                    rebar3_hex_io:say("Authenticated as: ~ts (~ts)", [Username, Email]);
+                _ ->
+                    ok
+            end,
+            {ok, State};
+        {error, Reason} ->
+            ?RAISE({auth_failed, Reason})
+    end;
 
 handle_task(#{args := #{task := deauth}} = Task) ->
-    #{repo := Repo, state := State} = Task,
-    case Repo of
-        #{username := Username, name := RepoName} ->
-            rebar3_hex_config:update_auth_config(#{RepoName => #{}}, State),
-            rebar3_hex_io:say("User `~s` removed from the local machine. "
-                     "To authenticate again, run `rebar3 hex user auth` "
-                     "or create a new user with `rebar3 hex user register`", [Username]),
+    #{state := State} = Task,
+    
+    {ok, Config} = rebar_hex_repos:get_repo_config(<<"hexpm">>, State),
+    ClientId = rebar_hex_auth:client_id(),
+    GlobalOAuthKey = rebar_hex_auth:global_oauth_key(),
+
+    case rebar_hex_repos:get_repo_auth_config(GlobalOAuthKey, State) of
+        #{access_token := AccessToken} when is_binary(AccessToken) ->
+            _ = hex_api_oauth:revoke_token(Config, ClientId, AccessToken),
+            rebar_hex_repos:remove_from_auth_config(GlobalOAuthKey, State),
+            rebar3_hex_io:say("Authentication removed."),
             {ok, State};
         _ ->
-            rebar3_hex_io:say("Not authenticated as any user currently for this repository"),
+            rebar3_hex_io:say("Not authenticated."),
             {ok, State}
     end;
 
@@ -280,30 +281,24 @@ handle_task(#{args := #{task := reset_password, account := true}} = Task) ->
             ?RAISE({reset_account_password, Error})
     end;
 
-%% TODO: Write a test
-handle_task(#{args := #{task := reset_password, local := true}} = Task) ->
-    #{repo := Repo, state := State} = Task,
-    case Repo of
-        #{username := Username, write_key := EncryptedWriteKey, read_key := ReadKey, repo_key := ReposKey} ->
-            DecryptedWriteKey = decrypt_write_key(Username, EncryptedWriteKey),
-            LocalPassword = get_password(new_local),
-            NewEncryptedWriteKey = encrypt_write_key(Username, LocalPassword, DecryptedWriteKey),
-            rebar3_hex_config:update_auth_config(#{?DEFAULT_HEX_REPO => #{
-                                                     username => Username,
-                                                     write_key => NewEncryptedWriteKey,
-                                                     read_key => ReadKey,
-                                                     repo_key => ReposKey}}, State),
-
-            {ok, State};
-        _ ->
-            rebar3_hex_io:say("Not authenticated as any user currently for this repository"),
-            {ok, State}
-    end;
-
 handle_task(#{args := #{task := whoami}} = Task) ->
     #{repo := Repo, state := State} = Task,
-    whoami(Repo, State),
-    {ok, State};
+    #{name := RepoName} = Repo,
+    case rebar_hex_auth:with_api(read, Repo, State, [{optional, false}], fun(Config) ->
+        rebar3_hex_client:me(Config)
+    end) of
+        {ok, #{<<"username">> := UserName} = Res} ->
+            Header = ["Repo", "User Name", "Full Name", "Email"],
+            FullName = maps:get(<<"full_name">>, Res, <<"private">>),
+            Email = maps:get(<<"email">>, Res, <<"private">>),
+            Body = [binary_to_list(RepoName), binary_to_list(UserName), binary_to_list(FullName), binary_to_list(Email)],
+            ok = rebar3_hex_results:print_table([Header] ++ [Body]),
+            {ok, State};
+        {error, #{<<"message">> := Message}} ->
+            ?RAISE({whoami, Message});
+        Err ->
+            ?RAISE({whoami, Err})
+    end;
 
 handle_task(#{args := #{task := key, generate := true} = Args} = Task) ->
     #{raw_opts := Opts, repo := Repo, state := State} = Task,
@@ -320,8 +315,9 @@ handle_task(#{args := #{task := key, generate := true} = Args} = Task) ->
 
 handle_task(#{args := #{task := key, revoke := true, all := true}} = Task) ->
     #{repo := Repo, state := State} = Task,
-    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
-    case rebar3_hex_key:revoke_all(Config) of
+    case rebar_hex_auth:with_api(write, Repo, State, [], fun(Config) ->
+        rebar3_hex_key:revoke_all(Config)
+    end) of
         ok ->
             rebar3_hex_io:say("All keys successfully revoked", []),
             {ok, State};
@@ -331,8 +327,9 @@ handle_task(#{args := #{task := key, revoke := true, all := true}} = Task) ->
 
 handle_task(#{args := #{task := key, revoke := true, key_name := KeyName}} = Task) ->
     #{repo := Repo, state := State} = Task,
-    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
-    case rebar3_hex_key:revoke(Config, KeyName) of
+    case rebar_hex_auth:with_api(write, Repo, State, [], fun(Config) ->
+        rebar3_hex_key:revoke(Config, KeyName)
+    end) of
         ok ->
             rebar3_hex_io:say("Key successfully revoked", []),
             {ok, State};
@@ -341,9 +338,10 @@ handle_task(#{args := #{task := key, revoke := true, key_name := KeyName}} = Tas
     end;
 
 handle_task(#{repo := Repo, state := State, args := #{task := key, list := true}}) ->
-    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, read),
-    case rebar3_hex_key:list(Config) of
-         ok ->
+    case rebar_hex_auth:with_api(read, Repo, State, [{optional, false}], fun(Config) ->
+        rebar3_hex_key:list(Config)
+    end) of
+        ok ->
             {ok, State};
         Error ->
             ?RAISE({key_list, Error})
@@ -351,9 +349,10 @@ handle_task(#{repo := Repo, state := State, args := #{task := key, list := true}
 
 handle_task(#{args := #{task := key, fetch := true, key_name := KeyName}} = Task) ->
     #{repo := Repo, state := State} = Task,
-    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, read),
-    case rebar3_hex_key:fetch(Config, KeyName) of
-         ok ->
+    case rebar_hex_auth:with_api(read, Repo, State, [{optional, false}], fun(Config) ->
+        rebar3_hex_key:fetch(Config, KeyName)
+    end) of
+        ok ->
             {ok, State};
         Error ->
             ?RAISE({key_list, Error})
@@ -361,26 +360,6 @@ handle_task(#{args := #{task := key, fetch := true, key_name := KeyName}} = Task
 
 handle_task(_) ->
     ?RAISE(bad_command).
-
-whoami(#{name := Name} = Repo, State) ->
-    case maps:get(read_key, Repo, undefined) of
-        undefined ->
-            ?RAISE(not_authenticated);
-        ReadKey ->
-            case rebar3_hex_client:me(Repo#{api_key => ReadKey}) of
-                {ok, #{<<"username">> := UserName} = Res} ->
-                    Header = ["Repo", "User Name", "Full Name", "Email"],
-                    FullName = maps:get(<<"full_name">>, Res, <<"private">>),
-                    Email = maps:get(<<"email">>, Res, <<"private">>),
-                    Body = [binary_to_list(Name), binary_to_list(UserName), binary_to_list(FullName), binary_to_list(Email)],
-                    ok = rebar3_hex_results:print_table([Header] ++ [Body]),
-                    {ok, State};
-                {error, #{<<"message">> := Message}} ->
-                    ?RAISE({whoami, Message});
-                Err  ->
-                    ?RAISE({whoami, Err})
-            end
-      end.
 
 get_string_input(Prompt) ->
     MaxRetries = 3,
@@ -398,44 +377,28 @@ do_get_string_input(Prompt, MaxRetries) ->
             rebar_utils:to_binary(Username)
     end.
 
-local_password_check(Pw) ->
-    byte_size(Pw) < 32 orelse "Local passwords can not be greater than 32 characters, please try again".
-
 get_password(account) ->
-    get_password(<<"Account">>, fun(_) -> true end);
-
-get_password(new_local) ->
-    get_password(<<"New local">>, fun(Pw) -> local_password_check(Pw) end);
-
-get_password(local) ->
-    get_password(<<"Local">>, fun(Pw) -> local_password_check(Pw) end).
-
-get_password(Type, Fun) when is_binary(Type) ->
+    get_password(<<"Account">>);
+get_password(Type) when is_binary(Type) ->
     MaxRetries = 3,
-    do_get_password(Type, Fun, MaxRetries).
+    do_get_password(Type, MaxRetries).
 
-do_get_password(_, _, 0) ->
+do_get_password(_, 0) ->
     ?RAISE(passwords_do_not_match);
 
-do_get_password(Type, Fun, MaxRetries) ->
+do_get_password(Type, MaxRetries) ->
     Rest = <<" Password: ">>,
     Password = rebar3_hex_io:get_password(<<Type/binary, Rest/binary>>),
-    case Fun(Password) of
-        true ->
-            confirm_password(Type, Fun, Password, MaxRetries);
-        Err ->
-            rebar_api:warn(Err, []),
-            do_get_password(Type, Fun, MaxRetries - 1)
-    end.
+    confirm_password(Type, Password, MaxRetries).
 
-confirm_password(Type, Fun, ExpectedPw, MaxRetries) ->
+confirm_password(Type, ExpectedPw, MaxRetries) ->
     Rest = <<" Password (confirm): ">>,
     case rebar3_hex_io:get_password(<<Type/binary, Rest/binary>>) of
         Pw when Pw =:= ExpectedPw ->
             Pw;
         _ ->
             rebar_api:warn("Passwords do not match, please try again", []),
-            do_get_password(Type, Fun,  MaxRetries - 1)
+            do_get_password(Type, MaxRetries - 1)
     end.
 
 create_user(Username, Email, Password, Repo, State) ->
@@ -443,56 +406,13 @@ create_user(Username, Email, Password, Repo, State) ->
         {ok, _} ->
             rebar3_hex_io:say("You are required to confirm your email to access your account, "
                         "a confirmation email has been sent to ~s", [Email]),
-            rebar3_hex_io:say("Then run `rebar3 hex auth -r ~ts` to create and configure api tokens locally.",
-                        [maps:get(repo_name, Repo)]),
+            rebar3_hex_io:say("Then run `rebar3 hex user auth` to authenticate.", []),
             {ok, State};
         {error, #{<<"errors">> := Errors}} ->
             ?RAISE({registration_failure, Errors});
         Error ->
             ?RAISE({registration_failure, Error})
     end.
-
-%% @private
-encrypt_write_key(Username, LocalPassword, WriteKey) ->
-    rebar3_hex_config:encrypt_write_key(Username, LocalPassword, WriteKey).
-
-%% @private
-%-spec decrypt_write_key(binary(), {binary(), {binary(), binary()}} | undefined) -> binary().
-decrypt_write_key(_Username, undefined) ->
-    {decrypt_write_key, no_write_key};
-decrypt_write_key(Username, Key) ->
-    MaxRetries = 2,
-    LocalPassword = rebar3_hex_io:get_password(<<"Local Password: ">>),
-    decrypt_write_key(Username, LocalPassword, Key, MaxRetries).
-
-
--ifdef(POST_OTP_22).
-decrypt_write_key(_, _, _, 0) ->
-    ?RAISE(bad_local_password);
-
-decrypt_write_key(Username, LocalPassword, Key, MaxRetries) ->
-    case rebar3_hex_config:decrypt_write_key(Username, LocalPassword, Key) of
-        error ->
-            rebar_api:warn("Sorry, try again.", []),
-            LocalPassword1 = rebar3_hex_io:get_password(<<"Local Password: ">>),
-            decrypt_write_key(Username, LocalPassword1, Key, MaxRetries - 1);
-        Result ->
-            Result
-    end.
--else.
-decrypt_write_key(_, _, _, 0) ->
-    ?RAISE(bad_local_password);
-
-decrypt_write_key(Username, LocalPassword, Key, MaxRetries) ->
-    case rebar3_hex_config:decrypt_write_key(Username, LocalPassword, Key) of
-        error ->
-            rebar_api:warn("Sorry, try again.", []),
-            LocalPassword1 = rebar3_hex_io:get_password(<<"Local Password: ">>),
-            decrypt_write_key(Username, LocalPassword1, Key, MaxRetries - 1);
-        Result ->
-            Result
-    end.
--endif.
 
 generate_key(HexConfig, KeyName, Perms) ->
     case rebar3_hex_key:generate(HexConfig, KeyName, Perms) of
@@ -504,17 +424,14 @@ generate_key(HexConfig, KeyName, Perms) ->
             ?RAISE({generate_key, Error})
     end.
 
-hostname() ->
-    {ok, Name} = inet:gethostname(),
-    Name.
-
-api_key_name() ->
-    rebar_utils:to_binary(hostname()).
-
-api_key_name(Postfix) ->
-    rebar_utils:to_binary([hostname(), "-api-", Postfix]).
-
-repos_key_name() ->
-    rebar_utils:to_binary([hostname(), "-repositories"]).
-
+maybe_revoke_existing(Config, ClientId, GlobalOAuthKey, State) ->
+    case rebar_hex_repos:get_repo_auth_config(GlobalOAuthKey, State) of
+        #{access_token := AccessToken} when is_binary(AccessToken) ->
+            BearerToken = <<"Bearer ", AccessToken/binary>>,
+            AuthedConfig = Config#{api_key => BearerToken},
+            _ = hex_api_oauth:revoke_token(AuthedConfig, ClientId, AccessToken),
+            ok;
+        _ ->
+            ok
+    end.
 

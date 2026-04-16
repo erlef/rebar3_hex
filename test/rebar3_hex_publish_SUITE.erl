@@ -27,10 +27,6 @@ format_error_test(_Config) ->
         {{no_license, myapp}, <<"myapp.app.src : missing or empty licenses property">>},
         {{has_maintainers, myapp}, <<"myapp.app.src : deprecated field maintainers found">>},
         {{has_contributors, myapp}, <<"myapp.app.src : deprecated field contributors found">>},
-        {{get_hex_config, no_write_key},
-            <<"No write key found for user. Be sure to authenticate first with: rebar3 hex user auth">>},
-
-
         {
             {create_package, {error, "some error"}},
             <<"Error creating package : some error">>

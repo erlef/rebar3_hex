@@ -105,26 +105,22 @@ handle_command(State, Repo) ->
         {"add", Package, UsernameOrEmail, Level, Transfer} ->
             case valid_level(Level) of
                 true ->
-                    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
-                    add(Config, Package, UsernameOrEmail, Level, Transfer, State),
+                    add(State, Repo, Package, UsernameOrEmail, Level, Transfer),
                     ok = rebar3_hex_io:say("Added ~ts to ~ts", [UsernameOrEmail, Package]),
                     State;
                 false ->
                     ?RAISE({error, "level must be one of full or maintainer"})
             end;
         {"remove", Package, UsernameOrEmail} ->
-            Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
-            remove(Config, Package, UsernameOrEmail, State),
+            remove(State, Repo, Package, UsernameOrEmail),
             ok = rebar3_hex_io:say("Removed ~ts to ~ts", [UsernameOrEmail, Package]),
             State;
         {"transfer", Package, UsernameOrEmail} ->
-            Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
-            add(Config, Package, UsernameOrEmail, <<"full">>, true, State),
+            add(State, Repo, Package, UsernameOrEmail, <<"full">>, true),
             ok = rebar3_hex_io:say("Transferred ~ts to ~ts", [Package, UsernameOrEmail]),
             State;
         {"list", Package} ->
-            Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, read),
-            list(Config, Package, State);
+            list(State, Repo, Package);
         _Command ->
             ?RAISE(bad_command)
     end.
@@ -202,11 +198,13 @@ valid_level(<<"full">>) -> true;
 valid_level(<<"maintainer">>) -> true;
 valid_level(_) -> false.
 
-add(HexConfig, Package, UsernameOrEmail, Level, Transfer, State) ->
-    case hex_api_package_owner:add(HexConfig, Package, UsernameOrEmail, Level, Transfer) of
-        {ok, {Code, _Headers, _Body}} when Code =:= 204 orelse Code =:= 201->
-            State;
-		{ok, {422, _Headers, #{<<"errors">> := Errors, <<"message">> := Message}}} ->
+add(State, Repo, Package, UsernameOrEmail, Level, Transfer) ->
+    case rebar_hex_auth:with_api(write, Repo, State, [], fun(Config) ->
+        hex_api_package_owner:add(Config, Package, UsernameOrEmail, Level, Transfer)
+    end) of
+        {ok, {Code, _Headers, _Body}} when Code =:= 204 orelse Code =:= 201 ->
+            ok;
+        {ok, {422, _Headers, #{<<"errors">> := Errors, <<"message">> := Message}}} ->
             ?RAISE({validation_errors, add, Package, UsernameOrEmail, Errors, Message});
         {ok, {Status, _Headers, _Body}} ->
             ?RAISE({status, Status, Package, UsernameOrEmail});
@@ -214,18 +212,22 @@ add(HexConfig, Package, UsernameOrEmail, Level, Transfer, State) ->
             ?RAISE({error, Package, UsernameOrEmail, Reason})
     end.
 
-remove(HexConfig, Package, UsernameOrEmail, State) ->
-    case hex_api_package_owner:delete(HexConfig, Package, UsernameOrEmail) of
+remove(State, Repo, Package, UsernameOrEmail) ->
+    case rebar_hex_auth:with_api(write, Repo, State, [], fun(Config) ->
+        hex_api_package_owner:delete(Config, Package, UsernameOrEmail)
+    end) of
         {ok, {204, _Headers, _Body}} ->
-            State;
+            ok;
         {ok, {Status, _Headers, _Body}} ->
             ?RAISE({status, Status, Package, UsernameOrEmail});
         {error, Reason} ->
             ?RAISE({error, Package, UsernameOrEmail, Reason})
     end.
 
-list(HexConfig, Package, State) ->
-    case hex_api_package_owner:list(HexConfig, Package) of
+list(State, Repo, Package) ->
+    case rebar_hex_auth:with_api(read, Repo, State, [{optional, false}], fun(Config) ->
+        hex_api_package_owner:list(Config, Package)
+    end) of
         {ok, {200, _Headers, List}} ->
             Owners = [owner(Owner) || Owner <- List],
             OwnersString = rebar_string:join(Owners, "\n"),

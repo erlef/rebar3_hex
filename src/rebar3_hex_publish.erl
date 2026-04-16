@@ -299,9 +299,8 @@ handle_task(#{args := #{task := package, revert := Vsn}, apps := [App]} = Task) 
 handle_task(#{args := #{task := package}, apps := [App]} = Task) ->
     maybe_warn_about_single_app_args(Task),
     #{args := Args, repo := Repo, state := State} = Task,
-    HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     rebar_api:info("package argument given, will not publish docs", []),
-    publish_package(State, HexConfig, App, Args);
+    publish_package(State, Repo, App, Args);
 
 handle_task(#{args := #{task := package, app := AppName}, apps := Apps} = Task) ->
     #{args := Args, repo := Repo, state := State} = Task,
@@ -309,9 +308,8 @@ handle_task(#{args := #{task := package, app := AppName}, apps := Apps} = Task) 
         {error, app_not_found} ->
             ?RAISE({app_not_found, AppName});
         {ok, App} ->
-            HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
             rebar_api:info("package argument given, will not publish docs", []),
-            publish_package(State, HexConfig, App, Args)
+            publish_package(State, Repo, App, Args)
     end,
     {ok, State};
 
@@ -388,12 +386,11 @@ handle_task(_) ->
 
 publish(State, Repo, App, Args) ->
     maybe_warn_about_doc_config(State, Repo),
-    HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
-    case publish_package(State, HexConfig, App, Args) of
+    case publish_package(State, Repo, App, Args) of
         abort ->
             {ok, State};
         _ ->
-            publish_docs(State, HexConfig, App, Args)
+            publish_docs(State, Repo, App, Args)
     end.
 
 
@@ -417,14 +414,16 @@ publish_package(State, Repo, App, Args) ->
                     rebar_api:info("--dry-run enabled : will not publish package.", []),
                     {ok, State};
                 _ ->
-                    case rebar3_hex_client:publish(Repo, Tarball, HexOpts) of
+                    case rebar_hex_auth:with_api(write, Repo, State, [], fun(Config) ->
+                        rebar3_hex_client:publish(Config, Tarball, HexOpts)
+                    end) of
                         {ok, _Res} ->
                             #{name := Name, version := Version} = Package,
                             rebar_api:info("Published ~ts ~ts", [Name, Version]),
                             {ok, State};
-                      Error ->
-                        #{name := Name, version := Version} = Package,
-                        ?RAISE({publish_package, Name, Version, Error})
+                        Error ->
+                            #{name := Name, version := Version} = Package,
+                            ?RAISE({publish_package, Name, Version, Error})
                     end
             end;
         abort ->
@@ -466,10 +465,10 @@ format_links(Links) ->
     string:join(LinksList, "\n    ").
 
 %% if publishing to the public repo or to a private organization link to the code of conduct
-maybe_say_coc(#{parent := <<"hexpm">>}) ->
-    rebar3_hex_io:say("Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct", []);
-maybe_say_coc(#{name := <<"hexpm">>}) ->
+maybe_say_coc(#{repo_name := <<"hexpm">>, repo_organization := undefined}) ->
     rebar3_hex_io:say("Be aware, you are publishing to the public Hexpm repository.", []),
+    rebar3_hex_io:say("Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct", []);
+maybe_say_coc(#{repo_name := <<"hexpm">>}) ->
     rebar3_hex_io:say("Before publishing, please read Hex CoC: https://hex.pm/policies/codeofconduct", []);
 maybe_say_coc(_) ->
     ok.
@@ -494,7 +493,7 @@ maybe_prompt(_Args, Message) ->
             abort
     end.
 
-maybe_warn_about_doc_config(State, Repo) -> 
+maybe_warn_about_doc_config(State, Repo) ->
     case rebar3_hex_build:doc_opts(State, Repo) of
         undefined -> 
             Warning = "No doc provider configuration was found, therefore docs can not be published.~n~n"
@@ -537,15 +536,16 @@ hex_opts(Opts) ->
 %%% ===================================================================
 
 publish_docs(State, Repo, App, Args) ->
-    case create_docs(State, Repo, App, Args) of 
-        #{tarball := Tar, name := Name, version := Vsn} -> 
+    case create_docs(State, Repo, App, Args) of
+        #{tarball := Tar, name := Name, version := Vsn} ->
             case Args of
                 #{dry_run := true} ->
                     rebar_api:info("--dry-run enabled : will not publish docs.", []),
                     {ok, State};
                 _ ->
-                    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
-                    case rebar3_hex_client:publish_docs(Config, Name, Vsn, Tar) of
+                    case rebar_hex_auth:with_api(write, Repo, State, [], fun(Config) ->
+                        rebar3_hex_client:publish_docs(Config, Name, Vsn, Tar)
+                    end) of
                         {ok, _} ->
                             rebar_api:info("Published docs for ~ts ~ts", [Name, Vsn]),
                             {ok, State};
@@ -553,7 +553,7 @@ publish_docs(State, Repo, App, Args) ->
                             ?RAISE({publish_docs, Name, Vsn, Reason})
                     end
             end;
-        ok -> 
+        ok ->
             {ok, State}
     end.
 
@@ -573,10 +573,11 @@ create_docs(State, Repo, App, Args) ->
 
 revert_package(State, Repo, AppName, Vsn) ->
     BinAppName = rebar_utils:to_binary(AppName),
-    BinVsn =  rebar_utils:to_binary(Vsn),
+    BinVsn = rebar_utils:to_binary(Vsn),
     assert_valid_version_arg(BinVsn),
-    HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
-    case rebar3_hex_client:delete_release(HexConfig, BinAppName, BinVsn) of
+    case rebar_hex_auth:with_api(write, Repo, State, [], fun(Config) ->
+        rebar3_hex_client:delete_release(Config, BinAppName, BinVsn)
+    end) of
         {ok, _} ->
             rebar_api:info("Successfully deleted package ~ts ~ts", [AppName, Vsn]),
             Prompt = io_lib:format("Also delete tag v~ts?", [Vsn]),
@@ -592,10 +593,11 @@ revert_package(State, Repo, AppName, Vsn) ->
 
 revert_docs(State, Repo, AppName, Vsn) ->
     BinAppName = rebar_utils:to_binary(AppName),
-    BinVsn =  rebar_utils:to_binary(Vsn),
+    BinVsn = rebar_utils:to_binary(Vsn),
     assert_valid_version_arg(BinVsn),
-    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
-    case rebar3_hex_client:delete_docs(Config, BinAppName, BinVsn) of
+    case rebar_hex_auth:with_api(write, Repo, State, [], fun(Config) ->
+        rebar3_hex_client:delete_docs(Config, BinAppName, BinVsn)
+    end) of
         {ok, _} ->
             rebar_api:info("Successfully deleted docs for ~ts ~ts", [AppName, Vsn]),
             {ok, State};

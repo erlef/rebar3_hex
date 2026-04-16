@@ -56,6 +56,14 @@ handle('POST', [<<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], Re
            respond_with(401, Req, #{})
    end;
 
+handle('POST', [<<"repos">>, _Repo, <<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], Req) ->
+    case authenticate(Req) of
+       {ok, #{username := _Username, email := _Email}} ->
+           respond_with(201, Req, <<>>);
+       error ->
+           respond_with(401, Req, #{})
+   end;
+
 handle('GET', [<<"packages">>, _Name, <<"owners">>], Req) ->
     case authenticate(Req) of
        {ok, #{username := _Username, email := _Email}} ->
