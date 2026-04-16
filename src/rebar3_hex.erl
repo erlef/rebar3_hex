@@ -26,14 +26,37 @@
 -export_type([task/0]).
 
 init(State) ->
-    lists:foldl(fun provider_init/2, {ok, State}, [rebar3_hex_user,
-                                                   rebar3_hex_build,
-                                                   rebar3_hex_cut,
-                                                   rebar3_hex_owner,
-                                                   rebar3_hex_organization,
-                                                   rebar3_hex_search,
-                                                   rebar3_hex_retire,
-                                                   rebar3_hex_publish]).
+    State1 = override_http_adapters(State),
+    lists:foldl(fun provider_init/2, {ok, State1}, [rebar3_hex_user,
+                                                    rebar3_hex_build,
+                                                    rebar3_hex_cut,
+                                                    rebar3_hex_owner,
+                                                    rebar3_hex_organization,
+                                                    rebar3_hex_repo,
+                                                    rebar3_hex_search,
+                                                    rebar3_hex_retire,
+                                                    rebar3_hex_publish]).
+
+%% Override http_adapter for all repos to use rebar3_hex_httpc_adapter
+override_http_adapters(State) ->
+    Resources = rebar_state:resources(State),
+    Resources1 = lists:map(fun(Resource) ->
+        %% Resource is a #resource{} record: {resource, Type, Module, State, Impl}
+        case element(2, Resource) of
+            pkg ->
+                PkgState = element(4, Resource),
+                case maps:find(repos, PkgState) of
+                    {ok, Repos} ->
+                        Repos1 = [rebar3_hex_config:set_http_adapter(R) || R <- Repos],
+                        setelement(4, Resource, PkgState#{repos := Repos1});
+                    error ->
+                        Resource
+                end;
+            _ ->
+                Resource
+        end
+    end, Resources),
+    rebar_state:set_resources(State, Resources1).
 
 provider_init(Module, {ok, State}) ->
     Module:init(State).

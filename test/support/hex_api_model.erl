@@ -21,8 +21,88 @@
 handle(Req, _Args) ->
     handle(Req#req.method, elli_request:path(Req), Req).
 
-handle('GET', [<<"auth">>], Req) -> 
+handle('GET', [<<"auth">>], Req) ->
     respond_with(200, Req, #{});
+
+%% OAuth Device Authorization Flow endpoints
+handle('POST', [<<"oauth">>, <<"device_authorization">>], Req) ->
+    %% Check if we should simulate an error
+    case hex_db:get_oauth_device(<<"force_error">>) of
+        error ->
+            respond_with(401, Req, #{<<"message">> => <<"unauthorized">>});
+        _ ->
+            %% Store the device code in hex_db so we can track it
+            DeviceCode = <<"test_device_code_", (integer_to_binary(erlang:unique_integer([positive])))/binary>>,
+            UserCode = <<"TEST-CODE">>,
+            hex_db:set_oauth_device(DeviceCode, pending),
+            Res = #{
+                <<"device_code">> => DeviceCode,
+                <<"user_code">> => UserCode,
+                <<"verification_uri">> => <<"http://127.0.0.1:3000/oauth/verify">>,
+                <<"verification_uri_complete">> => <<"http://127.0.0.1:3000/oauth/verify?code=", UserCode/binary>>,
+                <<"expires_in">> => 900,
+                <<"interval">> => 1
+            },
+            respond_with(200, Req, Res)
+    end;
+
+handle('POST', [<<"oauth">>, <<"token">>], Req) ->
+    Data = body_to_terms(Req),
+    case maps:get(<<"grant_type">>, Data, undefined) of
+        <<"urn:ietf:params:oauth:grant-type:device_code">> ->
+            DeviceCode = maps:get(<<"device_code">>, Data),
+            case hex_db:get_oauth_device(DeviceCode) of
+                authorized ->
+                    %% User has authorized - return tokens
+                    ExpiresAt = erlang:system_time(second) + 3600,
+                    Res = #{
+                        <<"access_token">> => <<"test_access_token">>,
+                        <<"refresh_token">> => <<"test_refresh_token">>,
+                        <<"token_type">> => <<"bearer">>,
+                        <<"expires_in">> => 3600,
+                        <<"expires_at">> => ExpiresAt
+                    },
+                    respond_with(200, Req, Res);
+                pending ->
+                    %% Auto-authorize on first poll for testing convenience
+                    hex_db:set_oauth_device(DeviceCode, authorized),
+                    ExpiresAt = erlang:system_time(second) + 3600,
+                    Res = #{
+                        <<"access_token">> => <<"test_access_token">>,
+                        <<"refresh_token">> => <<"test_refresh_token">>,
+                        <<"token_type">> => <<"bearer">>,
+                        <<"expires_in">> => 3600,
+                        <<"expires_at">> => ExpiresAt
+                    },
+                    respond_with(200, Req, Res);
+                undefined ->
+                    respond_with(400, Req, #{<<"error">> => <<"invalid_grant">>})
+            end;
+        <<"refresh_token">> ->
+            %% Handle token refresh
+            ExpiresAt = erlang:system_time(second) + 3600,
+            Res = #{
+                <<"access_token">> => <<"refreshed_access_token">>,
+                <<"refresh_token">> => <<"refreshed_refresh_token">>,
+                <<"token_type">> => <<"bearer">>,
+                <<"expires_in">> => 3600,
+                <<"expires_at">> => ExpiresAt
+            },
+            respond_with(200, Req, Res);
+        _ ->
+            respond_with(400, Req, #{<<"error">> => <<"unsupported_grant_type">>})
+    end;
+
+handle('POST', [<<"oauth">>, <<"revoke">>], Req) ->
+    %% Token revocation - always succeeds
+    respond_with(200, Req, #{});
+
+%% Endpoint to simulate user authorizing the device (for tests to call)
+handle('POST', [<<"oauth">>, <<"authorize_device">>], Req) ->
+    Data = body_to_terms(Req),
+    DeviceCode = maps:get(<<"device_code">>, Data),
+    hex_db:set_oauth_device(DeviceCode, authorized),
+    respond_with(200, Req, #{<<"status">> => <<"authorized">>});
 
 handle('GET', [<<"orgs">>, <<"foo">>, <<"keys">>], Req) ->
     Res = [
@@ -49,6 +129,14 @@ handle('DELETE', [<<"orgs">>, <<"foo">>, <<"keys">>, <<"this-key">>], Req) ->
     respond_with(201, Req, #{});
 
 handle('POST', [<<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], Req) ->
+    case authenticate(Req) of
+       {ok, #{username := _Username, email := _Email}} ->
+           respond_with(201, Req, <<>>);
+       error ->
+           respond_with(401, Req, #{})
+   end;
+
+handle('POST', [<<"repos">>, _Repo, <<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], Req) ->
     case authenticate(Req) of
        {ok, #{username := _Username, email := _Email}} ->
            respond_with(201, Req, <<>>);
@@ -288,6 +376,8 @@ handle_publish(Req) ->
            respond_with(201, Req, Res);
        unauthorized ->
             respond_with(403, Req, #{<<"message">> => <<"account not authorized for this action">>});
+       server_error ->
+            respond_with(500, Req, #{<<"message">> => <<"internal server error">>});
        error ->
            respond_with(401, Req, #{})
    end.
@@ -334,12 +424,23 @@ to(T, Term) when T =:= json andalso T =:= hex_json ->
 
 authenticate(Req) ->
     case elli_request:get_header(<<"Authorization">>, Req) of
+        <<"read_only_key">> ->
+            unauthorized;
+        <<"server_error_key">> ->
+            server_error;
         Key when Key =:= <<"key">> orelse Key =:= <<"123">> ->
             {ok, #{username => <<"mr_pockets">>,
                    email => <<"foo@bar.baz">>,
                    organization => <<"hexpm">>,
                    source => key,
                    key => <<"key">>}};
+        <<"Bearer ", Token/binary>> when Token =:= <<"test_access_token">> orelse
+                                         Token =:= <<"refreshed_access_token">> ->
+            {ok, #{username => <<"mr_pockets">>,
+                   email => <<"foo@bar.baz">>,
+                   organization => <<"hexpm">>,
+                   source => oauth,
+                   token => Token}};
         <<"unauthorized">> ->
             unauthorized;
         _ ->

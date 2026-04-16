@@ -125,10 +125,11 @@ format_error(Reason) ->
     rebar3_hex_error:format_error(Reason).
 
 retire(State, PkgName, Version, Repo, RetireReason, RetireMessage) ->
-    HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     Msg = #{<<"reason">> => RetireReason,
-                <<"message">> => RetireMessage},
-    case hex_api_release:retire(HexConfig, PkgName, Version, Msg) of
+            <<"message">> => RetireMessage},
+    case rebar_hex_auth:with_api(write, Repo, State, [], fun(Config) ->
+        hex_api_release:retire(Config, PkgName, Version, Msg)
+    end) of
         {ok, {204, _Headers, _Body}} ->
             rebar_api:info("Successfully retired package ~ts ~ts", [PkgName, Version]),
             {ok, State};
