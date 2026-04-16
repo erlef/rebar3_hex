@@ -1,11 +1,12 @@
 {"1.2.0",
-[{<<"hex_core">>,{pkg,<<"hex_core">>,<<"0.12.2">>},0},
+[{<<"hex_core">>,
+  {git,"https://github.com/maennchen/hex_core.git",
+       {ref,"b8cea90a9e2e497e9d8553c81b06939d78cf076d"}},
+  0},
  {<<"verl">>,{pkg,<<"verl">>,<<"1.1.1">>},0}]}.
 [
 {pkg_hash,[
- {<<"hex_core">>, <<"116F75685E707624BA79B6F6B06BE4F5E14C5FCCECCF31D4EA3ED4FED6134F8C">>},
  {<<"verl">>, <<"98F3EC48B943AA4AE8E29742DE86A7CD752513687911FE07D2E00ECDF3107E45">>}]},
 {pkg_hash_ext,[
- {<<"hex_core">>, <<"00E402C302BF4B8CEDC2D3425E22B55F8C70A2542D69C87A2E5BA7AF2745F6C6">>},
  {<<"verl">>, <<"0925E51CD92A0A8BE271765B02430B2E2CFF8AC30EF24D123BD0D58511E8FB18">>}]}
 ].
