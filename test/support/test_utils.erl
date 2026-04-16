@@ -18,12 +18,9 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
                                   api_url     => <<"http://127.0.0.1:3000">>,
                                   repo_url    => <<"http://127.0.0.1:3000">>,
                                   repo_verify => false,
-                                  read_key                 => <<"123">>,
                                   repo_public_key          => ?HEXPM_PUBLIC_KEY,
                                   repo_key                => <<"repo_key">>,
-                                  username                 => <<"mr_pockets">>,
-                                  write_key               => rebar3_hex_user:encrypt_write_key(<<"mr_pockets">>,
-                                  <<"special_shoes">>, <<"key">>),
+                                  api_key                 => <<"key">>,
                                   doc => #{provider => edoc}
                                  }
                                )).
@@ -32,9 +29,11 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
 default_config() -> ?REPO_CONFIG.
 
 mock_command(ProviderName, Command, RepoConfig, State0) ->
-    State1 = rebar_state:add_resource(State0, {pkg, rebar_pkg_resource}),
-    State2 = rebar_state:create_resources([{pkg, rebar_pkg_resource}], State1),
-    State3 = rebar_state:set(State2, hex, RepoConfig),
+    %% Set hex config BEFORE creating resources so rebar_pkg_resource:init/2
+    %% picks up our test repos from rebar_hex_repos:from_state/2
+    State1 = rebar_state:set(State0, hex, RepoConfig),
+    State2 = rebar_state:add_resource(State1, {pkg, rebar_pkg_resource}),
+    State3 = rebar_state:create_resources([{pkg, rebar_pkg_resource}], State2),
     State4 = rebar_state:command_args(State3, Command),
     {ok, State5} = ProviderName:init(State4),
 
