@@ -285,7 +285,10 @@ handle_task(#{args := #{task := whoami}} = Task) ->
     #{repo := Repo, state := State} = Task,
     #{name := RepoName} = Repo,
     case rebar_hex_auth:with_api(read, Repo, State, [{optional, false}], fun(Config) ->
-        rebar3_hex_client:me(Config)
+        erlang:display(Config),
+        Resp = rebar3_hex_client:me(Config),
+        erlang:display(Resp),
+        Resp
     end) of
         {ok, #{<<"username">> := UserName} = Res} ->
             Header = ["Repo", "User Name", "Full Name", "Email"],
