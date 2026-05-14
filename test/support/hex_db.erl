@@ -4,7 +4,7 @@
 
 -export([start_link/0, stop/1]).
 
--export([add_user/1]).
+-export([add_user/1, set_oauth_device/2, get_oauth_device/1]).
 
 -export([handle_call/3, handle_info/2, handle_cast/2, init/1]).
 
@@ -31,6 +31,17 @@ add_user(#{<<"username">> := Username, <<"email">> := Email} = User) ->
                     {error, email_exists}
             end;
         false -> {error, user_exists}
+    end.
+
+%% OAuth device authorization tracking
+set_oauth_device(DeviceCode, Status) ->
+    ets:insert(?MODULE, {{oauth_device, DeviceCode}, Status}),
+    ok.
+
+get_oauth_device(DeviceCode) ->
+    case ets:lookup(?MODULE, {oauth_device, DeviceCode}) of
+        [{{oauth_device, DeviceCode}, Status}] -> Status;
+        [] -> undefined
     end.
 
 % Server
