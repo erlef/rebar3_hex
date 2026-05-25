@@ -401,7 +401,7 @@ create_package(State, App) ->
                 | OptionalFiltered
             ]),
 
-            case create_package_tarball(Metadata, PackageFiles) of
+            case create_package_tarball(Metadata, PackageFiles, AppDir) of
                 {error, _} = Err ->
                     Err;
                 Tarball ->
@@ -532,7 +532,8 @@ create_docs(State, Repo, App, Args) ->
                     PkgName = rebar_utils:to_list(proplists:get_value(pkg_name, AppDetails, Name)),
                     OriginalVsn = rebar_app_info:original_vsn(App),
                     Vsn = rebar_utils:vcs_vsn(App, OriginalVsn, State),
-                    case hex_tarball:create_docs(Files) of
+                    HexConfig = hex_core:default_config(),
+                    case hex_tarball:create_docs(Files, HexConfig#{tarball_files_root => DocDir}) of
                         {ok, Tarball} ->
                             {ok, #{
                                 type => docs, tarball => Tarball, name => binarify(PkgName), version => binarify(Vsn)
@@ -623,8 +624,9 @@ binarify({Key, Value}) ->
 binarify(Term) ->
     Term.
 
-create_package_tarball(Metadata, Files) ->
-    case hex_tarball:create(Metadata, Files) of
+create_package_tarball(Metadata, Files, AppDir) ->
+    HexConfig = hex_core:default_config(),
+    case hex_tarball:create(Metadata, Files, HexConfig#{tarball_files_root => AppDir}) of
         {ok, #{tarball := Tarball, inner_checksum := _Checksum}} ->
             Tarball;
         {error, Reason} ->

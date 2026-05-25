@@ -163,4 +163,6 @@ to_binary(Subject) ->
 
 to_hex_core_config(#{name := Name} = HexConfig) ->
     NewHexConfig = HexConfig#{repo_name := Name},
-    maps:remove(name, NewHexConfig).
+    maps:remove(name, NewHexConfig);
+to_hex_core_config(HexConfig) ->
+    HexConfig.
