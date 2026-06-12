@@ -191,6 +191,30 @@ A `search` provider is available to search packages across hex.pm as a convenien
 $ rebar3 hex search
 ```
 
+### Checking for outdated dependencies
+
+The `outdated` provider lists the Hex dependencies declared in your `rebar.config` (including those
+declared only in profiles, such as `test` or `dev`), showing the currently configured version next to
+the latest version available on the repository, and whether an update is possible given the current
+version requirement.
+
+```
+$ rebar3 hex outdated
+```
+
+```
+Dependency        Only  Current  Latest  Status
+credo             dev   1.7.0    1.7.19  Update possible
+dialyxir          dev   1.4.1    1.4.7   Update possible
+ex_check          dev   0.14.0   0.16.0  Update not possible
+ex_doc            dev   0.30.6   0.40.3  Update possible
+ex_unit_notifier  test  1.3.0    1.3.1   Update possible
+excoveralls       test  0.17.1   0.18.5  Update possible
+mix_test_watch    test  1.1.1    1.4.0   Update possible
+```
+
+See the [docs](https://hexdocs.pm/rebar3_hex/rebar3_hex_outdated.html) for more information.
+
 # Further reading
 See [Publishing packages](https://hex.pm/docs/rebar3-publish) on hexpm for more setup and usage instructions. See the
 [docs](https://hexdocs.pm/rebar3_hex) for detailed documentation for all available providers.

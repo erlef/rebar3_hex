@@ -154,13 +154,25 @@ config(with_binary_versions) ->
 config(with_alias_deps) ->
     [{deps, [{hex_core}, {verl}]}];
 config(no_lock_file) ->
-  config(default).
+  config(default);
+config(with_outdated_deps) ->
+    [
+     {hex, [{doc, edoc}]},
+     {deps, [{hex_core, "0.8.2"}, {verl, "1.1.1"}]},
+     {profiles, [
+        {test, [
+            {deps, [{outdated_test_pkg, "~> 1.0"}]}
+        ]}
+     ]}
+    ].
 
 locks(no_lock_file) ->
   [];
 locks(with_binary_versions) ->
     locks(default);
 locks(with_alias_deps) ->
+    locks(default);
+locks(with_outdated_deps) ->
     locks(default);
 locks(default) ->
     [

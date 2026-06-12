@@ -90,6 +90,8 @@ all() ->
     , owner_transfer_test
     , owner_list_test
     , owner_remove_test
+    , outdated_test
+    , outdated_profile_deps_test
     ].
 
 init_per_suite(Config) ->
@@ -1027,6 +1029,43 @@ retire_test(Config) ->
     P5 = #{command => Command5, app => #{name => "valid"}, mocks => [retire]},
     #{rebar_state := State5} = setup_state(P5, Config),
     ?assertMatch({ok, State5}, rebar3_hex_retire:do(State5)).
+
+outdated_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_outdated, args => []},
+          app => #{name => "valid", profile => with_outdated_deps},
+          mocks => []
+         },
+    #{rebar_state := State} = setup_state(P, Config),
+
+    ct:capture_start(),
+    ?assertMatch({ok, State}, rebar3_hex_outdated:do(State)),
+    ct:capture_stop(),
+    Output = lists:flatten(ct:capture_get()),
+
+    ?assert(string:find(Output, "hex_core") =/= nomatch),
+    ?assert(string:find(Output, "Update not possible") =/= nomatch),
+
+    ?assert(string:find(Output, "verl") =/= nomatch),
+    ?assert(string:find(Output, "Up-to-date") =/= nomatch).
+
+outdated_profile_deps_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_outdated, args => []},
+          app => #{name => "valid", profile => with_outdated_deps},
+          mocks => []
+         },
+    #{rebar_state := State} = setup_state(P, Config),
+
+    ct:capture_start(),
+    ?assertMatch({ok, State}, rebar3_hex_outdated:do(State)),
+    ct:capture_stop(),
+    Output = lists:flatten(ct:capture_get()),
+
+    ?assert(string:find(Output, "outdated_test_pkg") =/= nomatch),
+    ?assert(string:find(Output, "test") =/= nomatch),
+    ?assert(string:find(Output, "~> 1.0") =/= nomatch),
+    ?assert(string:find(Output, "Update possible") =/= nomatch).
 
 key_list_test(Config) ->
     P = #{command => #{provider => rebar3_hex_user, args => ["key", "list"]}, app => #{name => "valid"}, mocks => []},
