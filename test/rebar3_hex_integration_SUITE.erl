@@ -66,6 +66,7 @@ all() ->
     , publish_docs_in_umbrella_when_does_not_exist_test
     , publish_replace_test
     , publish_revert_test
+    , publish_revert_with_yes_test
     , publish_revert_in_umbrella_test
     , publish_revert_in_umbrella_without_app_arg_test
     , publish_revert_in_umbrella_app_not_found_test
@@ -824,6 +825,20 @@ publish_revert_test(Config) ->
          },
     #{rebar_state := State} = Setup = setup_state(P, Config),
     expects_repo_config(Setup),
+    ?assertMatch({ok, State}, rebar3_hex_publish:do(State)).
+
+publish_revert_with_yes_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_publish, args => ["--revert", "1.0.0", "--yes"]},
+          app => #{name => "valid", version => "1.0.0", app_src => #{version => "1.0.0"}},
+          mocks => [publish]
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    %% With --yes the revert must run non-interactively: the "Also delete tag"
+    %% prompt must never be shown.
+    meck:expect(rebar3_hex_io, ask,
+                fun(Prompt, _Type, _Str) -> erlang:error({unexpected_prompt, Prompt}) end),
     ?assertMatch({ok, State}, rebar3_hex_publish:do(State)).
 
 publish_revert_in_umbrella_test(Config) ->
