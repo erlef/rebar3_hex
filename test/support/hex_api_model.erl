@@ -56,6 +56,14 @@ handle('POST', [<<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], Re
            respond_with(401, Req, #{})
    end;
 
+handle('GET', [<<"packages">>, Name], Req) when Name =:= <<"hex_core">>; Name =:= <<"verl">>;
+                                                 Name =:= <<"outdated_test_pkg">> ->
+    Releases = [#{<<"version">> => V} || V <- package_releases(Name)],
+    respond_with(200, Req, #{<<"name">> => Name, <<"releases">> => Releases});
+
+handle('GET', [<<"packages">>, _Name], Req) ->
+    respond_with(404, Req, #{<<"message">> => <<"Not Found">>});
+
 handle('GET', [<<"packages">>, _Name, <<"owners">>], Req) ->
     case authenticate(Req) of
        {ok, #{username := _Username, email := _Email}} ->
@@ -257,6 +265,13 @@ handle_event(_Event, _Data, _Args) ->
     ok.
 
 %% Helpers
+package_releases(<<"hex_core">>) ->
+    [<<"0.8.2">>, <<"0.8.3">>, <<"0.9.0">>];
+package_releases(<<"verl">>) ->
+    [<<"1.1.1">>];
+package_releases(<<"outdated_test_pkg">>) ->
+    [<<"1.0.0">>, <<"1.0.5">>].
+
 handle_publish(Req) ->
     case authenticate(Req) of
        {ok, #{username := Username, email := Email}} ->

@@ -33,6 +33,7 @@ init(State) ->
                                                    rebar3_hex_organization,
                                                    rebar3_hex_search,
                                                    rebar3_hex_retire,
+                                                   rebar3_hex_outdated,
                                                    rebar3_hex_publish]).
 
 provider_init(Module, {ok, State}) ->
