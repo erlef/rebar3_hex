@@ -59,12 +59,18 @@ init(State) ->
 do(State) ->
     case rebar3_hex_config:repo(State) of
         {ok, Repo} ->
-            HexConfig = rebar3_hex_config:get_hex_config(?MODULE, Repo, read),
             Deps = gather_deps(State),
             Locks = rebar_state:get(State, {locks, default}, []),
-            Rows = lists:filtermap(fun(Dep) -> dep_row(HexConfig, Locks, Dep) end, Deps),
-            print(Rows),
-            {ok, State};
+            Result = hex_cli_auth:with_api(read, rebar3_hex_config:to_hex_config(Repo), fun(HexConfig) ->
+                lists:filtermap(fun(Dep) -> dep_row(HexConfig, Locks, Dep) end, Deps)
+            end, [{optional, true}]),
+            case Result of
+                {error, Reason} ->
+                    throw(?PRV_ERROR({error, Reason}));
+                Rows ->
+                    print(Rows),
+                    {ok, State}
+            end;
         {error, Reason} ->
             ?RAISE(Reason)
     end.
