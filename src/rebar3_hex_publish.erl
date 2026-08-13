@@ -291,10 +291,10 @@ handle_task(#{apps := []}) ->
 handle_task(#{args := #{task := package, app := undefined}, multi_app := true}) ->
     ?RAISE({publish_package, app_switch_required});
 
-handle_task(#{args := #{task := package, revert := Vsn}, apps := [App]} = Task) ->
+handle_task(#{args := #{task := package, revert := Vsn, yes := Yes}, apps := [App]} = Task) ->
     #{repo := Repo, state := State} = Task,
     AppName = rebar_app_info:name(App),
-    revert_package(State, Repo, AppName, Vsn);
+    revert_package(State, Repo, AppName, Vsn, Yes);
 
 handle_task(#{args := #{task := package}, apps := [App]} = Task) ->
     maybe_warn_about_single_app_args(Task),
@@ -349,18 +349,18 @@ handle_task(#{args := #{task := docs, app := AppName}, apps := Apps} = Task) ->
 handle_task(#{args := #{revert := _, app := undefined}, multi_app := true}) ->
     ?RAISE({revert, app_switch_required});
 
-handle_task(#{args := #{revert := Vsn}, apps := [App]} = Task) ->
+handle_task(#{args := #{revert := Vsn, yes := Yes}, apps := [App]} = Task) ->
     #{repo := Repo, state := State} = Task,
     AppName = rebar_app_info:name(App),
-    revert_package(State, Repo, AppName, Vsn);
+    revert_package(State, Repo, AppName, Vsn, Yes);
 
-handle_task(#{args := #{revert := Vsn, app := AppName}, apps := Apps} = Task) ->
+handle_task(#{args := #{revert := Vsn, app := AppName, yes := Yes}, apps := Apps} = Task) ->
     #{repo := Repo, state := State} = Task,
     case rebar3_hex_app:find(Apps, AppName) of
         {error, app_not_found} ->
             ?RAISE({app_not_found, AppName});
         {ok, _App} ->
-            revert_package(State, Repo, AppName, Vsn)
+            revert_package(State, Repo, AppName, Vsn, Yes)
     end;
 
 %% ===================================================================
@@ -571,7 +571,7 @@ create_docs(State, Repo, App, Args) ->
 %%% package and doc reversion functions
 %%% ===================================================================
 
-revert_package(State, Repo, AppName, Vsn) ->
+revert_package(State, Repo, AppName, Vsn, Yes) ->
     BinAppName = rebar_utils:to_binary(AppName),
     BinVsn =  rebar_utils:to_binary(Vsn),
     assert_valid_version_arg(BinVsn),
@@ -579,15 +579,23 @@ revert_package(State, Repo, AppName, Vsn) ->
     case rebar3_hex_client:delete_release(HexConfig, BinAppName, BinVsn) of
         {ok, _} ->
             rebar_api:info("Successfully deleted package ~ts ~ts", [AppName, Vsn]),
-            Prompt = io_lib:format("Also delete tag v~ts?", [Vsn]),
-            case rebar3_hex_io:ask(Prompt, boolean, "N") of
-                true ->
-                    rebar_utils:sh(io_lib:format("git tag -d v~ts", [Vsn]), []);
-                _ ->
-                    {ok, State}
-            end;
+            maybe_delete_tag(State, Vsn, Yes);
         Reason ->
             ?RAISE({revert_package, BinAppName, BinVsn, Reason})
+    end.
+
+%% When --yes is given we run non-interactively and honor the prompt's default
+%% ("N"), keeping the tag.
+maybe_delete_tag(State, _Vsn, true) ->
+    {ok, State};
+maybe_delete_tag(State, Vsn, false) ->
+    Prompt = io_lib:format("Also delete tag v~ts?", [Vsn]),
+    case rebar3_hex_io:ask(Prompt, boolean, "N") of
+        true ->
+            rebar_utils:sh(io_lib:format("git tag -d v~ts", [Vsn]), []),
+            {ok, State};
+        _ ->
+            {ok, State}
     end.
 
 revert_docs(State, Repo, AppName, Vsn) ->
