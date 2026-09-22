@@ -21,9 +21,17 @@
 %% '''
 %%
 %% == Authorize an organization ==
-%% 
-%% This command will generate an API key used to authenticate access to the organization. See the `rebar3_hex_user' 
-%% tasks to list and control all your active API keys.
+%%
+%% By default you will be authorized to all your organizations when running `rebar3 hex user auth' and this is the
+%% recommended approach. This command is mainly provided for CI and build systems where access to an organization is
+%% needed without authorizing a user.
+%%
+%% For CI, generate an organization key with `rebar3 hex organization key NAME generate' and pass it with
+%% `rebar3 hex organization auth NAME --key KEY'.
+%%
+%% <strong>Deprecation:</strong> Authorizing an organization without `--key' is deprecated and will be removed. It
+%% creates a user key tied to your account; use `rebar3 hex user auth' for development instead, or pass a
+%% pre-generated organization key with `--key' for CI.
 %%
 %% ```
 %% $ rebar3 hex organization auth NAME  [--key KEY] [--key-name KEY_NAME]
@@ -73,8 +81,9 @@
 %% <ul>
 %%  <li>`--all' - Used for revoking all keys for authorized organization. Only valid with the `revoke` task.</li>
 %%  <li>`--key KEY' - Hash of key used to authenticate HTTP requests to organization, if omitted will generate a new key
-%%  with your account credentials. This flag is useful if you have a key pre-generated with 
-%%  `rebar3 hex organization key' and want to authenticate on a CI server or similar system.</li>
+%%  with your account credentials. This flag is useful if you have a key pre-generated with
+%%  `rebar3 hex organization key' and want to authenticate on a CI server or similar system. Omitting `--key' is
+%%  deprecated; authenticate as a user with `rebar3 hex user auth' instead.</li>
 %%  <br/>
 %% <li>`--key-name KEY_NAME' - By default Hex will base the key name on your machine's hostname and the organization 
 %% name, use this option to give your own name.</li>
@@ -220,14 +229,25 @@ auth(State, RepoName) ->
     Key =
         case proplists:get_value(key, Opts, undefined) of
             undefined ->
-                Config = rebar3_hex_config:get_hex_config(?MODULE, ParentRepo, write),
-                Config1 = Config#{api_organization => OrgName},
+                warn_auth_without_key(OrgName),
                 KeyName = proplists:get_value(key_name, Opts, rebar3_hex_config:repos_key_name()),
-                generate_key(Config1, KeyName, default_perms(OrgName));
+                case hex_cli_auth:with_api(write, rebar3_hex_config:to_hex_config(ParentRepo), fun(Config) ->
+                    Config1 = Config#{api_organization => OrgName},
+                    rebar3_hex_key:generate(Config1, KeyName, default_perms(OrgName))
+                end) of
+                    {ok, #{<<"secret">> := Secret}} ->
+                        Secret;
+                    {error, #{<<"errors">> := Errors}} ->
+                        ?RAISE({generate_key, Errors});
+                    {error, #{<<"message">> := Message}} ->
+                        ?RAISE({generate_key, Message});
+                    Error ->
+                        ?RAISE({generate_key, Error})
+                end;
             ProvidedKey ->
                 TestPerms = #{domain => <<"repository">>, resource => OrgName},
-                Config = ParentRepo#{api_key => to_binary(ProvidedKey), 
-                                     api_repository => OrgName, 
+                Config = ParentRepo#{api_key => to_binary(ProvidedKey),
+                                     api_repository => OrgName,
                                      api_organization => OrgName
                                     },
                 case rebar3_hex_client:test_key(Config, TestPerms) of
@@ -237,7 +257,7 @@ auth(State, RepoName) ->
                         ?RAISE({auth, Error})
                 end
         end,
-    rebar3_hex_config:update_auth_config(#{RepoName => #{name => RepoName, repo_key => Key}}, State),
+    rebar_hex_repos:update_repo_auth_config(#{name => RepoName, repo_key => Key}, RepoName, State),
     rebar3_hex_io:say("Successfully authenticated to ~ts", [RepoName]),
     {ok, State}.
 
@@ -249,21 +269,31 @@ deauth(State, RepoName) ->
 
 -spec generate(rebar_state:t(), binary()) -> {ok, rebar_state:t()}.
 generate(State, RepoName) ->
-    {Repo, OrgName} = get_parent_repo_and_org_name(State, RepoName),
+    {ParentRepo, OrgName} = get_parent_repo_and_org_name(State, RepoName),
     {Opts, _} = rebar_state:command_parsed_args(State),
     KeyName = proplists:get_value(key_name, Opts, rebar3_hex_config:repos_key_name()),
-    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
     PermOpts = proplists:get_all_values(permission, Opts),
     Perms = rebar3_hex_key:convert_permissions(PermOpts, default_perms(OrgName)),
-    Key = generate_key(Config#{api_organization => OrgName}, KeyName, Perms),
-    rebar3_hex_io:say("~ts", [Key]),
-    {ok, State}.
+    case hex_cli_auth:with_api(write, rebar3_hex_config:to_hex_config(ParentRepo), fun(Config) ->
+        rebar3_hex_key:generate(Config#{api_organization => OrgName}, KeyName, Perms)
+    end) of
+        {ok, #{<<"secret">> := Key}} ->
+            rebar3_hex_io:say("~ts", [Key]),
+            {ok, State};
+        {error, #{<<"errors">> := Errors}} ->
+            ?RAISE({key_generate, Errors});
+        {error, #{<<"message">> := Message}} ->
+            ?RAISE({key_generate, Message});
+        Error ->
+            ?RAISE({key_generate, Error})
+    end.
 
 -spec list_org_keys(rebar_state:t(), binary()) -> {ok, rebar_state:t()}.
 list_org_keys(State, RepoName) ->
-    {Repo, OrgName} = get_parent_repo_and_org_name(State, RepoName),
-    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, read),
-    case rebar3_hex_key:list(Config#{api_organization => OrgName}) of
+    {ParentRepo, OrgName} = get_parent_repo_and_org_name(State, RepoName),
+    case hex_cli_auth:with_api(read, rebar3_hex_config:to_hex_config(ParentRepo), fun(Config) ->
+        rebar3_hex_key:list(Config#{api_organization => OrgName})
+    end, [{optional, false}]) of
         ok ->
             {ok, State};
         {error, #{<<"errors">> := Errors}} ->
@@ -276,7 +306,7 @@ list_org_keys(State, RepoName) ->
 
 -spec revoke(rebar_state:t(), binary()) -> {ok, rebar_state:t()}.
 revoke(State, RepoName) ->
-    {Repo, OrgName} = get_parent_repo_and_org_name(State, RepoName),
+    {ParentRepo, OrgName} = get_parent_repo_and_org_name(State, RepoName),
     {Opts, _} = rebar_state:command_parsed_args(State),
     KeyName = case proplists:get_value(key_name, Opts, undefined) of
                   undefined ->
@@ -284,8 +314,9 @@ revoke(State, RepoName) ->
                   K ->
                       K
               end,
-    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
-    case rebar3_hex_key:revoke(Config#{api_organization => OrgName}, KeyName) of
+    case hex_cli_auth:with_api(write, rebar3_hex_config:to_hex_config(ParentRepo), fun(Config) ->
+        rebar3_hex_key:revoke(Config#{api_organization => OrgName}, KeyName)
+    end) of
         ok ->
             rebar3_hex_io:say("Key successfully revoked", []),
             {ok, State};
@@ -299,9 +330,10 @@ revoke(State, RepoName) ->
 
 -spec revoke_all(rebar_state:t(), binary()) -> {ok, rebar_state:t()}.
 revoke_all(State, RepoName) ->
-    {Repo, OrgName} = get_parent_repo_and_org_name(State, RepoName),
-    Config = rebar3_hex_config:get_hex_config(?MODULE, Repo, write),
-    case rebar3_hex_key:revoke_all(Config#{api_organization => OrgName}) of
+    {ParentRepo, OrgName} = get_parent_repo_and_org_name(State, RepoName),
+    case hex_cli_auth:with_api(write, rebar3_hex_config:to_hex_config(ParentRepo), fun(Config) ->
+        rebar3_hex_key:revoke_all(Config#{api_organization => OrgName})
+    end) of
         ok ->
             rebar3_hex_io:say("All keys successfully revoked", []),
             {ok, State};
@@ -350,22 +382,22 @@ list_orgs(State) ->
     rebar3_hex_results:print_table([Headers] ++ Rows),
     {ok, State}.
 
+-spec warn_auth_without_key(binary()) -> ok.
+warn_auth_without_key(OrgName) ->
+    rebar_api:warn(
+        "Authorizing an organization without --key is deprecated and will be removed.~n~n"
+        "For development authenticate as a user instead, which gives you access to "
+        "all your organizations:~n~n"
+        "    rebar3 hex user auth~n~n"
+        "For CI generate an organization key and pass it with --key:~n~n"
+        "    rebar3 hex organization key hexpm:~ts generate~n"
+        "    rebar3 hex organization auth hexpm:~ts --key KEY~n",
+        [OrgName, OrgName]
+    ).
+
 -spec default_perms(binary()) -> [map()].
 default_perms(OrgName) ->
     [#{<<"domain">> => <<"repository">>, <<"resource">> => OrgName}].
-
--spec generate_key(map(), binary() | undefined, [map()]) -> binary().
-generate_key(HexConfig, KeyName, Perms) ->
-    case rebar3_hex_key:generate(HexConfig, KeyName, Perms) of
-        {ok, #{<<"secret">> := Secret}} ->
-            Secret;
-        {error, #{<<"errors">> := Errors}} ->
-            ?RAISE({generate_key, Errors});
-        {error, #{<<"message">> := Message}} ->
-            ?RAISE({generate_key, Message});
-        Error ->
-            ?RAISE({generate_key, Error})
-    end.
 
 -spec printable_public_key(binary()) -> nonempty_string().
 printable_public_key(PubKey) ->

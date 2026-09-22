@@ -10,13 +10,11 @@ format_error({not_valid_repo, RepoName}) ->
     io_lib:format("Could not find ~ts in repo configuration. Be sure to authenticate first with rebar3 hex user auth.",
                   [RepoName]);
 
-format_error({get_hex_config, no_read_key}) ->
-    "No read key found for user. Be sure to authenticate first with:"
-    " rebar3 hex user auth";
+format_error({auth_error, no_credentials}) ->
+    "No Hex credentials found. Authenticate with: rebar3 hex user auth";
 
-format_error({get_hex_config, no_write_key}) ->
-    "No write key found for user. Be sure to authenticate first with:"
-    " rebar3 hex user auth";
+format_error({auth_error, Reason}) ->
+    io_lib:format("Authentication error: ~p", [Reason]);
 
 format_error({Cmd, unsupported_params}) ->
     io_lib:format("Either some or all of the parameters supplied for the ~ts command are ", [Cmd])
