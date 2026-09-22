@@ -19,14 +19,14 @@ jobs:
         include:
           - otp: 29
             os: ubuntu-24.04
-            rebar3: 3.27.0
+            rebar3: 3.27.1
             dialyzer: true
           - otp: 28
             os: ubuntu-24.04
-            rebar3: 3.26.0
+            rebar3: 3.27.1
           - otp: 27
             os: ubuntu-24.04
-            rebar3: 3.27.0
+            rebar3: 3.27.1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
