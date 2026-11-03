@@ -8,7 +8,8 @@
          ask/2,
          ask/3,
          select_apps/1,
-         str_split/2
+         str_split/2,
+         open_url/1
         ]).
 
 
@@ -163,3 +164,31 @@ say(Say, Args) when is_list(Args) ->
     io:format(lists:flatten([Say, "~n"]), Args);
 say(Say, Args) ->
     io:format(lists:flatten([Say, "~n"]), [Args]).
+
+%% Opening the browser is best effort. On a headless machine the printed URL
+%% is all the user gets.
+-spec open_url(binary()) -> ok.
+open_url(<<"http://", _/binary>> = Url) ->
+    do_open_url(Url);
+open_url(<<"https://", _/binary>> = Url) ->
+    do_open_url(Url);
+open_url(_Url) ->
+    ok.
+
+do_open_url(Url) ->
+    {Cmd, Args} =
+        case os:type() of
+            {unix, darwin} -> {"open", [binary_to_list(Url)]};
+            {unix, _} -> {"xdg-open", [binary_to_list(Url)]};
+            {win32, _} -> {"cmd", hex_api_oauth:win_cmd_args(binary_to_list(Url))}
+        end,
+    case os:find_executable(Cmd) of
+        false ->
+            ok;
+        Executable ->
+            try open_port({spawn_executable, Executable}, [{args, Args}]) of
+                _Port -> ok
+            catch
+                _:_ -> ok
+            end
+    end.
