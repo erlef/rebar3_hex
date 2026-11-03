@@ -1,0 +1,34 @@
+---
+name: publish
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to Hex.pm
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          otp-version: 28
+          rebar3-version: 3.27.1
+      - name: Load the plugin from this checkout
+        run: |
+          mkdir -p _checkouts/rebar3_hex
+          cp -R src rebar.config rebar.lock _checkouts/rebar3_hex/
+      - name: Publish package and docs
+        run: rebar3 as publish hex publish --yes --wait
