@@ -89,9 +89,37 @@ handle('POST', [<<"oauth">>, <<"token">>], Req) ->
                 <<"expires_at">> => ExpiresAt
             },
             respond_with(200, Req, Res);
+        <<"urn:ietf:params:oauth:grant-type:jwt-bearer">> ->
+            case Data of
+                #{<<"assertion">> := <<"oidc_jwt">>, <<"scope">> := <<"package:hexpm/", _/binary>>} ->
+                    respond_with(200, Req, #{<<"access_token">> => <<"workload_identity_token">>,
+                                             <<"token_type">> => <<"bearer">>,
+                                             <<"expires_in">> => 900});
+                _ ->
+                    respond_with(400, Req, #{<<"error">> => <<"invalid_grant">>,
+                                             <<"error_description">> => <<"no matching workload identity">>})
+            end;
         _ ->
             respond_with(400, Req, #{<<"error">> => <<"unsupported_grant_type">>})
     end;
+
+handle('GET', [<<"oidc">>, <<"audience">>], Req) ->
+    respond_with(200, Req, #{<<"audience">> => <<"hexpm">>});
+
+%% Stands in for the GitHub Actions OIDC token endpoint, which answers in JSON.
+handle('GET', [<<"github-oidc">>], Req) ->
+    case {elli_request:get_header(<<"Authorization">>, Req), elli_request:get_arg(<<"audience">>, Req)} of
+        {<<"Bearer request_token">>, <<"hexpm">>} ->
+            {200, [{<<"Content-type">>, <<"application/json">>}], <<"{\"value\":\"oidc_jwt\"}">>};
+        _ ->
+            {403, [], <<>>}
+    end;
+
+handle('GET', [<<"staged-releases">>, <<"approved">>], Req) ->
+    respond_with(200, Req, #{<<"status">> => <<"approved">>, <<"approval_checksum">> => <<"approval">>});
+
+handle('GET', [<<"staged-releases">>, <<"rejected">>], Req) ->
+    respond_with(200, Req, #{<<"status">> => <<"rejected">>, <<"approval_checksum">> => <<"approval">>});
 
 handle('POST', [<<"oauth">>, <<"revoke">>], Req) ->
     %% Token revocation - always succeeds
@@ -130,6 +158,8 @@ handle('DELETE', [<<"orgs">>, <<"foo">>, <<"keys">>, <<"this-key">>], Req) ->
 
 handle('POST', [<<"packages">>, _Name, <<"releases">>, _Version, <<"docs">>], Req) ->
     case authenticate(Req) of
+       {ok, #{staged := Status}} ->
+           respond_with(201, Req, staged_release(Status));
        {ok, #{username := _Username, email := _Email}} ->
            respond_with(201, Req, <<>>);
        error ->
@@ -362,6 +392,8 @@ package_releases(<<"outdated_test_pkg">>) ->
 
 handle_publish(Req) ->
     case authenticate(Req) of
+       {ok, #{staged := Status}} ->
+           respond_with(201, Req, staged_release(Status));
        {ok, #{username := Username, email := Email}} ->
            {ok, Meta, _Checksum}     = body_to_meta(Req),
            App = maps:get(<<"app">>, Meta),
@@ -456,8 +488,26 @@ authenticate(Req) ->
                    organization => <<"hexpm">>,
                    source => oauth,
                    token => Token}};
+        <<"Bearer workload_identity_token">> ->
+            {ok, #{username => <<"workload_identity">>,
+                   email => <<"workload_identity@bar.baz">>,
+                   organization => <<"hexpm">>,
+                   source => workload_identity}};
+        <<"staged_approved_key">> ->
+            {ok, #{staged => <<"approved">>}};
+        <<"staged_rejected_key">> ->
+            {ok, #{staged => <<"rejected">>}};
         <<"unauthorized">> ->
             unauthorized;
         _ ->
             error
     end.
+
+staged_release(Status) ->
+    #{<<"status">> => <<"staged">>,
+      <<"kind">> => <<"release">>,
+      <<"checksum">> => <<"checksum">>,
+      <<"approval_checksum">> => <<"approval">>,
+      <<"html_url">> => <<"https://127.0.0.1:3000/staged-releases/", Status/binary>>,
+      <<"url">> => <<"http://127.0.0.1:3000/staged-releases/", Status/binary>>,
+      <<"expires_at">> => <<"2026-11-04T00:00:00Z">>}.

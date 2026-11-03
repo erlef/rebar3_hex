@@ -48,6 +48,23 @@
 %% without documentation run `mix rebar3 hex publish package' or to only publish documentation 
 %% run `rebar3 hex publish docs'.
 %%
+%% <h2> Workload Identity </h2>
+%%
+%% Workload Identity, sometimes also known as "Trusted Publishing", lets a GitHub Actions job publish without
+%% storing an API key. When the job has the `id-token: write' permission and no `HEX_API_KEY' or other Hex
+%% credential is configured, `rebar3 hex publish' exchanges the job's OIDC token for a short-lived token that
+%% can only publish this package. Configure a workload identity on hex.pm first. A public package is published
+%% by its own workload identities and by the `write' workload identities with public packages of the
+%% organizations that own it. Neither can create a public package, so its first release has to be published
+%% with a regular account. A package in an organization's repository uses the organization's workload
+%% identities, and one with the `write' role can also create the package.
+%%
+%% <h2> Staged publishing </h2>
+%%
+%% When publishing requires approval, the package and docs are staged. The task prints the approval URL and
+%% expiry. Use `--wait' to wait for approval after staging the package and docs. Rejection or expiry makes the
+%% command fail. Workload Identity tokens are renewed if they expire while waiting.
+%%
 %% <h2> Reverting a package </h2>
 %%
 %% A new package can be reverted or updated within 24 hours of it's initial publish, a new version of an existing 
@@ -70,6 +87,7 @@
 %%      Defaults to `hexpm'. 
 %%   </li>
 %%   <li> `-y', `--yes' - Publishes the package without any confirmation prompts </li>
+%%   <li> `--wait' - Opens the approval URL and waits for the staged release to be approved </li>
 %%   <li> `--replace' - Allows overwriting an existing package version if it exists. Private packages can always be 
 %%          overwritten, public packages can only be overwritten within one hour after they were initially
 %%          published.</li>
@@ -100,6 +118,7 @@
 
 -define(PROVIDER, publish).
 -define(DEPS, [{default, lock}]).
+-define(STAGED_POLL_INTERVAL, 5000).
 
 %% ===================================================================
 %% Public API
@@ -120,6 +139,7 @@ init(State) ->
                                          {doc_dir, undefined, "doc-dir", {string, undefined}, help(yes)},
                                          {dry_run, undefined, "dry-run", {boolean, false}, help(dry_run)},
                                          {replace, undefined, "replace", {boolean, false}, help(replace)},
+                                         {wait, undefined, "wait", {boolean, false}, help(wait)},
                                          {revert, undefined, "revert", string, help(revert)}]}]),
     State1 = rebar_state:add_provider(State, Provider),
     {ok, State1}.
@@ -253,6 +273,24 @@ format_error({revert_docs, Name, Version, {error, #{<<"errors">> := Errors, <<"m
 format_error({revert_docs, Name, Version, {error, #{<<"message">> := Message}}}) ->
     io_lib:format("Failed to revert docs for ~ts - ~ts : ~ts", [Name, Version, Message]);
 
+%% staged publishing errors
+format_error(staged_release_changed_before_docs) ->
+    "Staged release changed before its docs were staged";
+format_error(staged_release_changed) ->
+    "Staged release changed while waiting for approval";
+format_error({staged_release, Status}) when Status =:= <<"rejected">>; Status =:= <<"expired">> ->
+    io_lib:format("Staged release ~ts", [Status]);
+format_error({staged_release, _Status}) ->
+    "Unexpected staged release status";
+format_error({staged_release_status, {error, {staged_url_outside_api, Url}}}) ->
+    io_lib:format("Failed to read staged release status: ~ts is outside the configured API URL",
+                  [printable(Url)]);
+format_error({staged_release_status, Reason}) ->
+    io_lib:format("Failed to read staged release status: ~tp", [Reason]);
+
+%% Workload Identity errors
+format_error({workload_identity, Scope, Reason}) ->
+    "Workload Identity authentication failed, " ++ describe_workload_identity_error(Reason, Scope);
 
 %% TODO: Check if this is dead code
 %% Server errors
@@ -386,11 +424,13 @@ handle_task(_) ->
 
 publish(State, Repo, App, Args) ->
     maybe_warn_about_doc_config(State, Repo),
-    case publish_package(State, Repo, App, Args) of
+    case do_publish_package(State, Repo, App, Args) of
         abort ->
             {ok, State};
-        _ ->
-            publish_docs(State, Repo, App, Args)
+        {PackageResult, Auth} ->
+            {DocsResult, _} = do_publish_docs(State, Repo, Auth, App, Args),
+            finish_combined_publish(PackageResult, DocsResult, Repo, Auth, Args),
+            {ok, State}
     end.
 
 
@@ -399,6 +439,17 @@ publish(State, Repo, App, Args) ->
 %%% ===================================================================
 
 publish_package(State, Repo, App, Args) ->
+    case do_publish_package(State, Repo, App, Args) of
+        abort ->
+            abort;
+        {Result, Auth} ->
+            finish_publish(Result, Repo, Auth, Args),
+            {ok, State}
+    end.
+
+%% Returns the publish result and the repo config that authenticated it, so
+%% the docs publish and the approval wait reuse the same credentials.
+do_publish_package(State, Repo, App, Args) ->
     assert_valid_app(State, App),
     Package = create_package(State, App),
     maybe_print_checkouts_warnings(App, Package),
@@ -408,21 +459,23 @@ publish_package(State, Repo, App, Args) ->
     case maybe_prompt(Args, "Proceed" ++ MaybeCheckoutWarnings ++ "?") of
         proceed ->
             HexOpts = hex_opts(Args),
-            #{tarball := Tarball} = Package,
+            #{tarball := Tarball, name := Name, version := Version} = Package,
             case Args of
                 #{dry_run := true} ->
                     rebar_api:info("--dry-run enabled : will not publish package.", []),
-                    {ok, State};
+                    {dry_run, Repo};
                 _ ->
-                    case hex_cli_auth:with_api(write, rebar3_hex_config:to_hex_config(Repo), fun(Config) ->
+                    Auth = publish_auth(Repo, Name),
+                    case hex_cli_auth:with_api(write, rebar3_hex_config:to_hex_config(Auth), fun(Config) ->
                         rebar3_hex_client:publish(Config, Tarball, HexOpts)
                     end) of
+                        {ok, #{<<"status">> := <<"staged">>} = Staged} ->
+                            print_staged("Package", Staged, Tarball),
+                            {{staged, Name, Staged}, Auth};
                         {ok, _Res} ->
-                            #{name := Name, version := Version} = Package,
                             rebar_api:info("Published ~ts ~ts", [Name, Version]),
-                            {ok, State};
+                            {published, Auth};
                         Error ->
-                            #{name := Name, version := Version} = Package,
                             ?RAISE({publish_package, Name, Version, Error})
                     end
             end;
@@ -536,26 +589,190 @@ hex_opts(Opts) ->
 %%% ===================================================================
 
 publish_docs(State, Repo, App, Args) ->
+    {Result, Auth} = do_publish_docs(State, Repo, undefined, App, Args),
+    finish_publish(Result, Repo, Auth, Args),
+    {ok, State}.
+
+%% Auth is the repo config from the package publish, or undefined when only
+%% the docs are published.
+do_publish_docs(State, Repo, Auth, App, Args) ->
     case create_docs(State, Repo, App, Args) of
         #{tarball := Tar, name := Name, version := Vsn} ->
             case Args of
                 #{dry_run := true} ->
                     rebar_api:info("--dry-run enabled : will not publish docs.", []),
-                    {ok, State};
+                    {dry_run, Repo};
                 _ ->
-                    case hex_cli_auth:with_api(write, rebar3_hex_config:to_hex_config(Repo), fun(Config) ->
+                    DocsAuth = docs_auth(Repo, Auth, Name),
+                    case hex_cli_auth:with_api(write, rebar3_hex_config:to_hex_config(DocsAuth), fun(Config) ->
                         rebar3_hex_client:publish_docs(Config, Name, Vsn, Tar)
                     end) of
+                        {ok, #{<<"status">> := <<"staged">>} = Staged} ->
+                            print_staged("Documentation", Staged, Tar),
+                            {{staged, Name, Staged}, DocsAuth};
                         {ok, _} ->
                             rebar_api:info("Published docs for ~ts ~ts", [Name, Vsn]),
-                            {ok, State};
+                            {published, DocsAuth};
                         Reason ->
                             ?RAISE({publish_docs, Name, Vsn, Reason})
                     end
             end;
         ok ->
-            {ok, State}
+            {no_docs, Repo}
     end.
+
+docs_auth(Repo, undefined, Name) ->
+    publish_auth(Repo, Name);
+docs_auth(_Repo, Auth, _Name) ->
+    Auth.
+
+%%% ===================================================================
+%%% Workload Identity
+%%% ===================================================================
+
+%% Returns Repo with a token scoped to the package when the job can
+%% authenticate with a workload identity. Configured credentials take
+%% precedence, and then Repo is returned unchanged.
+publish_auth(Repo, Name) ->
+    Scope = workload_identity_scope(Repo, Name),
+    case hex_cli_auth:workload_identity_auth(rebar3_hex_config:to_hex_config(Repo), Scope) of
+        {ok, ApiKey} ->
+            rebar_api:info("Authenticated with Workload Identity", []),
+            Repo#{api_key => ApiKey};
+        none ->
+            Repo;
+        {error, Reason} ->
+            ?RAISE({workload_identity, Scope, Reason})
+    end.
+
+workload_identity_scope(#{repo_organization := Org}, Name) when is_binary(Org) ->
+    <<"package:", Org/binary, "/", Name/binary>>;
+workload_identity_scope(_Repo, Name) ->
+    <<"package:hexpm/", Name/binary>>.
+
+describe_workload_identity_error({oidc_audience_failed, Response}, _Scope) ->
+    "could not fetch the OIDC audience from Hex: " ++ describe_response(Response);
+describe_workload_identity_error({oidc_audience_not_allowed, Audience}, _Scope) ->
+    io_lib:format("Hex advertised the OIDC audience \"~ts\" instead of the configured audience, "
+                  "so no OIDC token was requested from GitHub Actions", [printable(Audience)]);
+describe_workload_identity_error({token_exchange_failed, Response}, Scope) ->
+    io_lib:format("Hex did not grant a token for ~ts: ~ts", [Scope, describe_response(Response)]);
+describe_workload_identity_error({oidc_token_request_failed, Status}, _Scope) ->
+    io_lib:format("GitHub Actions refused to issue an OIDC token (HTTP ~b)", [Status]);
+describe_workload_identity_error({oidc_token_unavailable, Reason}, _Scope) ->
+    io_lib:format("could not request an OIDC token from GitHub Actions: ~tp", [Reason]);
+describe_workload_identity_error(oidc_token_missing, _Scope) ->
+    "GitHub Actions answered without an OIDC token";
+describe_workload_identity_error(json_unavailable, _Scope) ->
+    "reading the OIDC token requires Erlang/OTP 27 or later";
+describe_workload_identity_error(Reason, _Scope) ->
+    io_lib:format("~tp", [Reason]).
+
+describe_response({ok, {Status, _Headers, #{<<"error">> := Error} = Body}}) ->
+    case maps:get(<<"error_description">>, Body, undefined) of
+        Description when is_binary(Description) ->
+            io_lib:format("~ts: ~ts (HTTP ~b)", [printable(Error), printable(Description), Status]);
+        _ ->
+            io_lib:format("~ts (HTTP ~b)", [printable(Error), Status])
+    end;
+describe_response({ok, {Status, _Headers, #{<<"message">> := Message}}}) ->
+    io_lib:format("~ts (HTTP ~b)", [printable(Message), Status]);
+describe_response({ok, {Status, _Headers, _Body}}) ->
+    io_lib:format("HTTP ~b", [Status]);
+describe_response({error, Reason}) ->
+    io_lib:format("~tp", [Reason]).
+
+%%% ===================================================================
+%%% Staged publishing
+%%% ===================================================================
+
+print_staged(Kind, Staged, Tarball) ->
+    Url = printable(maps:get(<<"html_url">>, Staged, <<>>)),
+    Expiry = printable(maps:get(<<"expires_at">>, Staged, <<>>)),
+    Checksum = binary:encode_hex(crypto:hash(sha256, Tarball), lowercase),
+    rebar_api:info("~ts staged for approval at ~ts (expires at ~ts)", [Kind, Url, Expiry]),
+    rebar_api:info("~ts SHA-256: ~ts", [Kind, Checksum]).
+
+%% Hex.pm may stage the docs into the release staged by the package publish.
+%% Then one approval covers both, as long as the release did not change in
+%% between.
+finish_combined_publish({staged, _, Package}, {staged, _, #{<<"kind">> := <<"release">>} = Docs} = DocsResult,
+                        Repo, Auth, Args) ->
+    case maps:get(<<"checksum">>, Package, undefined) =:= maps:get(<<"checksum">>, Docs, undefined) of
+        true ->
+            finish_publish(DocsResult, Repo, Auth, Args);
+        false ->
+            ?RAISE(staged_release_changed_before_docs)
+    end;
+finish_combined_publish({staged, _, _} = PackageResult, {staged, _, _} = DocsResult, Repo, Auth, Args) ->
+    finish_publish(PackageResult, Repo, Auth, Args),
+    finish_publish(DocsResult, Repo, Auth, Args);
+finish_combined_publish(_PackageResult, {staged, _, _} = DocsResult, Repo, Auth, Args) ->
+    finish_publish(DocsResult, Repo, Auth, Args);
+finish_combined_publish(PackageResult, _DocsResult, Repo, Auth, Args) ->
+    finish_publish(PackageResult, Repo, Auth, Args).
+
+finish_publish({staged, Name, Staged}, Repo, Auth, #{wait := true}) ->
+    rebar3_hex_io:open_url(maps:get(<<"html_url">>, Staged, <<>>)),
+    rebar_api:info("Waiting for approval...", []),
+    wait_for_approval(Staged, Name, Repo, Auth);
+finish_publish(_Result, _Repo, _Auth, _Args) ->
+    ok.
+
+%% The approval checksum binds the approval to the release staged by this
+%% publish, so an approval of a later restage does not count.
+wait_for_approval(Staged, Name, Repo, Auth) ->
+    Checksum = maps:get(<<"approval_checksum">>, Staged, undefined),
+    {Result, Auth1} = read_staged(maps:get(<<"url">>, Staged, <<>>), Name, Repo, Auth),
+    case Result of
+        {ok, {200, _, #{<<"approval_checksum">> := Checksum, <<"status">> := Status}}} ->
+            case Status of
+                <<"approved">> ->
+                    rebar_api:info("Publish approved", []);
+                <<"staged">> ->
+                    timer:sleep(?STAGED_POLL_INTERVAL),
+                    wait_for_approval(Staged, Name, Repo, Auth1);
+                _ ->
+                    ?RAISE({staged_release, Status})
+            end;
+        {ok, {200, _, _}} ->
+            ?RAISE(staged_release_changed);
+        Other ->
+            ?RAISE({staged_release_status, Other})
+    end.
+
+%% A workload identity token has no refresh token, so hex_cli_auth answers an
+%% expired one with token_refresh_failed. Only the publish can renew it.
+read_staged(Url, Name, Repo, Auth) ->
+    case {get_staged(Url, Auth), Auth =/= Repo} of
+        {{ok, {401, _, _}}, true} ->
+            renew_and_read_staged(Url, Name, Repo);
+        {{error, {auth_error, token_refresh_failed}}, true} ->
+            renew_and_read_staged(Url, Name, Repo);
+        {Result, _} ->
+            {Result, Auth}
+    end.
+
+renew_and_read_staged(Url, Name, Repo) ->
+    Auth = publish_auth(Repo, Name),
+    {get_staged(Url, Auth), Auth}.
+
+%% hex_core joins request paths to the configured API URL, so the status URL
+%% from the publish response must be under it.
+get_staged(Url, #{api_url := ApiUrl} = Auth) ->
+    case string:prefix(Url, <<ApiUrl/binary, "/">>) of
+        nomatch ->
+            {error, {staged_url_outside_api, Url}};
+        Path ->
+            hex_cli_auth:with_api(read, rebar3_hex_config:to_hex_config(Auth), fun(Config) ->
+                hex_api:get(Config, Path)
+            end, [{auth_inline, false}])
+    end.
+
+printable(Value) when is_binary(Value) ->
+    [C || <<C>> <= Value, C >= 32, C =< 126];
+printable(Value) ->
+    printable(rebar_utils:to_binary(Value)).
 
 create_docs(State, Repo, App, Args) ->
     case rebar3_hex_build:create_docs(State, Repo, App, Args) of
@@ -670,6 +887,8 @@ help(replace) ->
     "Allows overwriting an existing package version if it exists. Private "
     "packages can always be overwritten, publicpackages can only be "
     "overwritten within one hour after they were initially published.";
+help(wait) ->
+    "Opens the approval URL and waits for the staged release to be approved";
 help(yes) ->
     "Publishes the package without any confirmation prompts".
 
@@ -694,6 +913,7 @@ support() ->
     "  rebar3 hex publish --revert <version> --app <app> --yes~n~n"
     "  rebar3 hex publish --replace~n~n"
     "  rebar3 hex publish --replace --yes~n~n"
+    "  rebar3 hex publish --wait~n~n"
     "Argument descriptions:~n~n"
     "  <repo>    - a valid repository, only required when multiple repositories are configured~n~n"
     "  <version> - a valid version string, currently only utilized with --revert switch~n~n".

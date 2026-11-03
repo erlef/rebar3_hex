@@ -76,6 +76,12 @@ all() ->
     , publish_unauthorized_test
     , publish_docs_test
     , publish_docs_dry_run_test
+    , publish_workload_identity_test
+    , publish_docs_workload_identity_test
+    , publish_workload_identity_error_test
+    , publish_staged_test
+    , publish_staged_wait_test
+    , publish_staged_wait_rejected_test
     , retire_test
     , key_list_test
     , key_get_test
@@ -1037,6 +1043,91 @@ publish_unauthorized_test(Config) ->
                 <<"account not authorized for this action">>}}}}},
     ?assertError(Exp, rebar3_hex_publish:do(State)).
 
+publish_workload_identity_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_publish, args => []},
+          app => #{name => "valid"},
+          mocks => [publish],
+          repo_config => no_credentials_repo_config()
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    with_github_oidc("request_token", fun() ->
+        ?assertMatch({ok, State}, rebar3_hex_publish:do(State))
+    end).
+
+publish_docs_workload_identity_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_publish, args => ["docs"]},
+          app => #{name => "valid"},
+          mocks => [publish],
+          repo_config => no_credentials_repo_config()
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    with_github_oidc("request_token", fun() ->
+        ?assertMatch({ok, State}, rebar3_hex_publish:do(State))
+    end).
+
+publish_workload_identity_error_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_publish, args => []},
+          app => #{name => "valid"},
+          mocks => [publish],
+          repo_config => no_credentials_repo_config()
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    Reason = {workload_identity, <<"package:hexpm/valid">>, {oidc_token_request_failed, 403}},
+    with_github_oidc("bad_request_token", fun() ->
+        ?assertError({error, {rebar3_hex_publish, Reason}}, rebar3_hex_publish:do(State))
+    end),
+    ?assertEqual("Workload Identity authentication failed, "
+                 "GitHub Actions refused to issue an OIDC token (HTTP 403)",
+                 lists:flatten(rebar3_hex_publish:format_error(Reason))).
+
+publish_staged_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_publish, args => []},
+          app => #{name => "valid"},
+          mocks => [publish],
+          repo_config => #{api_key => <<"staged_approved_key">>}
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    meck:expect(rebar3_hex_io, open_url, fun(_Url) -> ok end),
+    ?assertMatch({ok, State}, rebar3_hex_publish:do(State)),
+    ?assertEqual(0, meck:num_calls(rebar3_hex_io, open_url, '_')).
+
+publish_staged_wait_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_publish, args => ["--wait"]},
+          app => #{name => "valid"},
+          mocks => [publish],
+          repo_config => #{api_key => <<"staged_approved_key">>}
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    meck:expect(rebar3_hex_io, open_url, fun(_Url) -> ok end),
+    ?assertMatch({ok, State}, rebar3_hex_publish:do(State)),
+    ?assertEqual(1, meck:num_calls(rebar3_hex_io, open_url,
+                                   [<<"https://127.0.0.1:3000/staged-releases/approved">>])).
+
+publish_staged_wait_rejected_test(Config) ->
+    P = #{
+          command => #{provider => rebar3_hex_publish, args => ["package", "--wait"]},
+          app => #{name => "valid"},
+          mocks => [publish],
+          repo_config => #{api_key => <<"staged_rejected_key">>}
+         },
+    #{rebar_state := State} = Setup = setup_state(P, Config),
+    expects_repo_config(Setup),
+    meck:expect(rebar3_hex_io, open_url, fun(_Url) -> ok end),
+    Exp = {error, {rebar3_hex_publish, {staged_release, <<"rejected">>}}},
+    ?assertError(Exp, rebar3_hex_publish:do(State)),
+    ?assertEqual("Staged release rejected",
+                 lists:flatten(rebar3_hex_publish:format_error({staged_release, <<"rejected">>}))).
+
 publish_docs_dry_run_test(Config) ->
     P = #{
           command => #{provider => rebar3_hex_publish, args => ["docs", "--dry-run"]},
@@ -1806,6 +1897,27 @@ expect_local_password_prompt(#{password := Password, password_confirmation := Pa
             end
     end,
     meck:expect(rebar3_hex_io, get_password, Fun).
+
+no_credentials_repo_config() ->
+    Callbacks = #{
+        get_auth_config => fun(_RepoName) -> undefined end,
+        get_oauth_tokens => fun() -> error end,
+        persist_oauth_tokens => fun(_Scope, _AccessToken, _RefreshToken, _ExpiresAt) -> ok end,
+        prompt_otp => fun(_Message) -> cancelled end,
+        should_authenticate => fun(_Reason) -> false end,
+        get_client_id => fun() -> <<"cli">> end
+    },
+    #{api_key => undefined, cli_auth_callbacks => Callbacks}.
+
+with_github_oidc(RequestToken, Fun) ->
+    os:putenv("ACTIONS_ID_TOKEN_REQUEST_URL", "http://127.0.0.1:3000/github-oidc"),
+    os:putenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", RequestToken),
+    try
+        Fun()
+    after
+        os:unsetenv("ACTIONS_ID_TOKEN_REQUEST_URL"),
+        os:unsetenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+    end.
 
 reset_mocks(Modules) ->
     meck:reset(Modules),
